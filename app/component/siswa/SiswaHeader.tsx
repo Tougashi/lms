@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { MdDone, MdLogout, MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowRight } from 'react-icons/md';
 import { FaBell } from 'react-icons/fa';
 import { RiCustomerService2Line } from 'react-icons/ri';
@@ -12,6 +13,7 @@ export default function SiswaHeader() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const notificationMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
 
   const notifications = [
     {
@@ -57,6 +59,9 @@ export default function SiswaHeader() {
     };
   }, []);
 
+  const isBerandaActive = pathname === '/beranda-siswa';
+  const isEksplorActive = pathname === '/eksplor-modul' || pathname.startsWith('/modul');
+
   return (
     <header className="sticky top-0 z-50 border-b border-[#eceaf4] bg-white shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
@@ -64,16 +69,22 @@ export default function SiswaHeader() {
           NAMA WEB
         </Link>
 
-        <nav className="hidden gap-6 sm:flex">
-          <a href="#" className="text-sm text-[#7054dc] font-medium hover:text-[#5d42b0]">
+        <nav className="hidden gap-10 sm:flex">
+          <Link
+            href="/beranda-siswa"
+            className={`text-sm hover:text-[#7054dc] ${isBerandaActive ? 'font-medium text-[#7054dc]' : 'text-[#21212b]'}`}
+          >
             Beranda
-          </a>
-          <a href="#" className="text-sm text-[#21212b] hover:text-[#7054dc]">
+          </Link>
+          <Link
+            href="/eksplor-modul"
+            className={`text-sm hover:text-[#7054dc] ${isEksplorActive ? 'font-medium text-[#7054dc]' : 'text-[#21212b]'}`}
+          >
             Eksplor Modul
-          </a>
-          <a href="#" className="text-sm text-[#21212b] hover:text-[#7054dc]">
+          </Link>
+          <Link href="/tentang-kami" className="text-sm text-[#21212b] hover:text-[#7054dc]">
             Tentang Kami
-          </a>
+          </Link>
         </nav>
 
         <div className="flex items-center gap-3">
@@ -146,8 +157,9 @@ export default function SiswaHeader() {
                 </div>
 
                 <div className="border-t border-[#d7d9df] bg-white px-2 py-2">
-                  <button
-                    type="button"
+                  <Link
+                    href="/profil"
+                    onClick={() => setIsProfileMenuOpen(false)}
                     className="flex w-full items-center justify-between rounded-lg px-1.5 py-1.5 text-[#7b7f8b] transition-colors hover:bg-[#f7f6ff]"
                   >
                     <div className="flex items-center gap-2">
@@ -166,7 +178,7 @@ export default function SiswaHeader() {
                     <span className="text-[#7b7f8b]">
                       <MdOutlineKeyboardArrowRight size={15} />
                     </span>
-                  </button>
+                  </Link>
 
                   <button
                     type="button"
