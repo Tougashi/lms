@@ -144,6 +144,13 @@ export default function ModulDetailClient({ moduleData }: { moduleData: ModuleDe
                   >
                     {moduleData.primaryActionLabel}
                   </Link>
+                ) : moduleData.primaryActionLabel === 'Lanjutkan Belajar' ? (
+                  <Link
+                    href={`/modul/${moduleData.slug}/materi`}
+                    className="inline-flex w-full items-center justify-center rounded-lg bg-[#7054dc] px-3 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    {moduleData.primaryActionLabel}
+                  </Link>
                 ) : (
                   <button
                     type="button"
