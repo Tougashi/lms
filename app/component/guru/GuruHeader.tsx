@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { FaBell } from 'react-icons/fa';
 import { IoPersonCircle } from 'react-icons/io5';
@@ -10,6 +11,7 @@ import { RiCustomerService2Line } from 'react-icons/ri';
 export default function GuruHeader() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -27,82 +29,93 @@ export default function GuruHeader() {
     };
   }, []);
 
+  const isBerandaActive = pathname === '/beranda-guru';
+  const isModulActive = pathname.startsWith('/modul-guru');
+
   return (
     <header className="sticky top-0 z-50 border-b border-[#eceaf4] bg-white shadow-sm">
-      <div className="mx-auto flex h-[74px] w-full max-w-[1260px] items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="text-xl font-bold tracking-tight text-[#21212b] sm:text-[30px]">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+        <Link href="/" className="text-xl font-bold text-[#21212b]">
           NAMA WEB
         </Link>
 
-        <nav className="hidden items-center gap-12 md:flex">
-          <a href="#" className="text-[14px] text-[#787a85] transition-colors hover:text-[#21212b]">
+        <nav className="hidden gap-10 sm:flex">
+          <Link
+            href="/beranda-guru"
+            className={`text-sm hover:text-[#7054dc] ${isBerandaActive ? 'font-medium text-[#7054dc]' : 'text-[#21212b]'}`}
+          >
             Beranda
-          </a>
-          <a href="#" className="text-[14px] text-[#787a85] transition-colors hover:text-[#21212b]">
+          </Link>
+          <Link
+            href="/modul-guru"
+            className={`text-sm hover:text-[#7054dc] ${isModulActive ? 'font-medium text-[#7054dc]' : 'text-[#21212b]'}`}
+          >
             Modul Saya
-          </a>
-          <a href="#" className="text-[14px] text-[#787a85] transition-colors hover:text-[#21212b]">
+          </Link>
+          <Link href="/tentang-kami" className="text-sm text-[#21212b] hover:text-[#7054dc]">
             Tentang Kami
-          </a>
+          </Link>
         </nav>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[#858891] transition-colors hover:bg-[#f5f4fb]"
-            aria-label="Notifikasi"
-          >
-            <FaBell size={16} />
+        <div className="flex items-center gap-3">
+          <button type="button" className="rounded-full p-2 hover:bg-[#f7f6ff]" aria-label="Notifikasi">
+            <FaBell size={20} className="text-[#21212b]" />
           </button>
 
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[#858891] transition-colors hover:bg-[#f5f4fb]"
-            aria-label="Bantuan"
-          >
-            <RiCustomerService2Line size={18} />
+          <button type="button" className="rounded-full p-2 hover:bg-[#f7f6ff]" aria-label="Bantuan">
+            <RiCustomerService2Line size={22} className="text-[#21212b]" />
           </button>
 
           <div className="relative" ref={profileMenuRef}>
             <button
               type="button"
               onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-              className="flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white p-1 pr-1.5 shadow-sm transition-colors hover:bg-[#f7f6ff]"
+              className="flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white px-1.5 py-1 shadow-sm transition-colors hover:bg-[#f7f6ff]"
               aria-label="Buka menu profil"
             >
-              <IoPersonCircle size={26} className="text-[#7557ea]" />
+              <IoPersonCircle size={28} className="text-[#7054dc]" />
               <MdOutlineKeyboardArrowDown size={18} className="text-[#8a8a96]" />
             </button>
 
             {isProfileMenuOpen && (
-              <div className="absolute right-0 top-full mt-3 w-[280px] overflow-hidden rounded-2xl border border-[#d7d9df] bg-[#fdfdff] shadow-[0_16px_32px_rgba(12,12,14,0.2)]">
-                <div className="bg-[#f3f4f6] px-5 py-4">
-                  <p className="text-[14px] font-semibold leading-tight text-[#5e6572]">
-                    Budi Santoso, S.Pd., M.Si.
-                  </p>
-                  <p className="mt-1.5 text-[13px] font-medium leading-tight text-[#5e6572]">
-                    oliviolivrgio@gmail.com
-                  </p>
+              <div className="absolute right-0 top-full z-50 mt-3 w-[220px] overflow-hidden rounded-[20px] border border-[#d7d9df] bg-white shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+                <div className="bg-[#ffffff] px-3 py-2.5">
+                  <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-[#8a8a96]">Profil</p>
+                  <div className="mt-1.5 space-y-2">
+                    <div>
+                      <p className="text-[1rem] font-bold leading-tight text-[#7b7f8b]">Budi Santoso, S.Pd., M.Si.</p>
+                      <p className="mt-1 text-[0.78rem] font-semibold leading-tight text-[#7b7f8b]">
+                        oliviolivrgio@gmail.com
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-1 px-4 py-3">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-xl px-1.5 py-2 text-[#6f7480] transition-colors hover:bg-[#f1f1fb]"
+                <div className="border-t border-[#d7d9df] bg-white px-2 py-2">
+                  <Link
+                    href="/profil"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="flex w-full items-center justify-between rounded-lg px-1.5 py-1.5 text-[#7b7f8b] transition-colors hover:bg-[#f7f6ff]"
                   >
-                    <span className="flex items-center gap-3">
-                      <MdPerson size={18} />
-                      <span className="text-[14px] font-medium leading-none">Lihat Profil</span>
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-5 w-5 items-center justify-center text-[#7b7f8b]">
+                        <MdPerson size={16} />
+                      </span>
+                      <span className="text-[0.78rem] font-medium leading-none text-[#7b7f8b]">Lihat Profil</span>
+                    </div>
+                    <span className="text-[#7b7f8b]">
+                      <MdOutlineKeyboardArrowRight size={15} />
                     </span>
-                    <MdOutlineKeyboardArrowRight size={18} />
-                  </button>
+                  </Link>
 
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-1.5 py-2 text-[#ff6b5d] transition-colors hover:bg-[#fff4f2]"
+                    className="mt-1 flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[#ff7268] transition-colors hover:bg-[#fff6f5]"
                   >
-                    <MdLogout size={18} />
-                    <span className="text-[14px] font-medium leading-none">Keluar Akun</span>
+                    <span className="flex h-5 w-5 items-center justify-center text-[#ff7268]">
+                      <MdLogout size={15} />
+                    </span>
+                    <span className="text-[0.78rem] font-medium leading-none text-[#ff7268]">Keluar Akun</span>
                   </button>
                 </div>
               </div>
