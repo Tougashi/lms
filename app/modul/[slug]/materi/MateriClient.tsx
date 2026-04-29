@@ -8,6 +8,7 @@ import { PiMedalFill } from "react-icons/pi";
 import SiswaHeader from "../../../component/siswa/SiswaHeader";
 import { ModuleDetail } from "../../dummy";
 import { ContentItem, getMateriConfigBySlug, PRETEST_DURATION_SECONDS } from "./dummy";
+import CertificateView from "./CertificateView";
 
 function formatRemainingTime(totalSeconds: number) {
   const safeValue = Math.max(0, totalSeconds);
@@ -81,7 +82,9 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
   const pretestQuestions = materiConfig.pretestQuestions;
   const [assessmentType, setAssessmentType] = useState<"pretest" | "kuis" | "posttest">("pretest");
   const [activeQuizItemId, setActiveQuizItemId] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<"pretest-intro" | "pretest-quiz" | "pretest-result" | "materi">(
+  const [currentView, setCurrentView] = useState<
+    "pretest-intro" | "pretest-quiz" | "pretest-result" | "materi" | "rating" | "certificate"
+  >(
     materiConfig.pretestCompletedByDefault ? "materi" : "pretest-intro"
   );
   const [isPretestStarted, setIsPretestStarted] = useState(
@@ -95,6 +98,7 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
     materiConfig.pretestCompletedByDefault ? 0 : PRETEST_DURATION_SECONDS
   );
   const [isMaterialMode, setIsMaterialMode] = useState(materiConfig.pretestCompletedByDefault);
+  const [isFinalSummaryView, setIsFinalSummaryView] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(
     Object.fromEntries(materiConfig.contentTree.map((section) => [section.id, false]))
@@ -107,6 +111,10 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
       ? Object.fromEntries(materiConfig.contentTree.flatMap((section) => section.items.map((item) => [item.id, true])))
       : {}
   );
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [reviewText, setReviewText] = useState("");
+  const [isRatingSubmitted, setIsRatingSubmitted] = useState(false);
+  const [isModuleSidebarOpen, setIsModuleSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!isPretestStarted) return;
@@ -119,6 +127,32 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
 
     return () => clearInterval(timer);
   }, [isPretestFinished, isPretestStarted, remainingSeconds]);
+
+  useEffect(() => {
+    const onToggleSidebar = () => {
+      setIsModuleSidebarOpen((prev) => !prev);
+    };
+
+    window.addEventListener("toggle-module-sidebar", onToggleSidebar as EventListener);
+    return () => window.removeEventListener("toggle-module-sidebar", onToggleSidebar as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (!isModuleSidebarOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isModuleSidebarOpen]);
+
+  useEffect(() => {
+    if (!isModuleSidebarOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsModuleSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isModuleSidebarOpen]);
 
   const activeQuestion = pretestQuestions[activeQuestionIndex];
   const isLastQuestion = activeQuestionIndex === pretestQuestions.length - 1;
@@ -145,9 +179,17 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
   const elapsedSeconds = PRETEST_DURATION_SECONDS - remainingSeconds;
   const displayedElapsedSeconds = finishedElapsedSeconds ?? elapsedSeconds;
   const hasUnlockedUntilSummary = isMaterialMode || isPretestFinished || materiConfig.pretestCompletedByDefault;
-  const isPretestView = currentView !== "materi";
+  const isAssessmentView =
+    currentView === "pretest-intro" || currentView === "pretest-quiz" || currentView === "pretest-result";
+  const isPretestView = isAssessmentView;
   const isPretestActive = isPretestView && assessmentType === "pretest";
   const isPosttestActive = isPretestView && assessmentType === "posttest";
+  const showAssessmentTimer = !(slug === "biologi" && assessmentType === "kuis");
+  const showQuizCategory = slug === "biologi" && assessmentType === "kuis";
+  const showAssessmentImage = assessmentType !== "kuis";
+  const isFinalSummaryActive = currentView === "materi" && isFinalSummaryView;
+  const isRatingView = currentView === "rating";
+  const isCertificateView = currentView === "certificate";
   const selectedContentItem: ContentItem | undefined = useMemo(
     () => materiConfig.contentTree.flatMap((section) => section.items).find((item) => item.id === selectedContentItemId),
     [materiConfig.contentTree, selectedContentItemId]
@@ -160,6 +202,15 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
     () => flatContentItems.findIndex((item) => item.id === selectedContentItemId),
     [flatContentItems, selectedContentItemId]
   );
+  const summaryItems = useMemo(() => flatContentItems.filter((item) => item.type === "summary"), [flatContentItems]);
+  const finalSummaryParagraphs = useMemo(
+    () => summaryItems.flatMap((item) => item.readingParagraphs).filter(Boolean),
+    [summaryItems]
+  );
+  const showSummaryHighlight = isFinalSummaryView || selectedContentItem?.type === "summary";
+  const summaryHighlightText = isFinalSummaryView
+    ? "Rangkuman akhir ini merangkum seluruh poin penting dari semua bab yang telah dipelajari."
+    : selectedContentItem?.readingParagraphs?.[0];
   const selectedMaterialProgressPercent = useMemo(() => {
     if (selectedContentItemIndex < 0 || flatContentItems.length === 0) return 0;
     return Math.round(((selectedContentItemIndex + 1) / flatContentItems.length) * 100);
@@ -179,6 +230,18 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
   };
 
   const handleFooterPrevious = () => {
+    if (currentView === "certificate") {
+      setCurrentView("materi");
+      setIsMaterialMode(true);
+      setIsFinalSummaryView(false);
+      return;
+    }
+    if (currentView === "rating") {
+      setCurrentView("materi");
+      setIsMaterialMode(true);
+      return;
+    }
+
     if (currentView === "materi") {
       if (selectedContentItemIndex > 0) {
         const previousItem = flatContentItems[selectedContentItemIndex - 1];
@@ -192,6 +255,20 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
   };
 
   const handleFooterNext = () => {
+    if (currentView === "certificate") {
+      setCurrentView("materi");
+      setIsMaterialMode(true);
+      setIsFinalSummaryView(false);
+      return;
+    }
+    if (currentView === "rating") {
+      if (isRatingSubmitted) {
+        setCurrentView("materi");
+        setIsMaterialMode(true);
+      }
+      return;
+    }
+
     if (currentView === "pretest-result") {
       setCurrentView("materi");
       setIsMaterialMode(true);
@@ -214,17 +291,30 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
     <div className="min-h-screen bg-[#f6f6f8]">
       <SiswaHeader />
 
+      {isModuleSidebarOpen && (
+        <div
+          className="fixed left-0 right-0 top-[76px] bottom-0 z-40 bg-black/20 lg:hidden"
+          onClick={() => setIsModuleSidebarOpen(false)}
+        />
+      )}
+
       <main className="grid h-[calc(100vh-76px)] min-h-[calc(100vh-76px)] grid-cols-1 lg:grid-cols-[320px_1fr]">
-        <aside className="flex h-full flex-col overflow-hidden border-r border-[#e1e0e7] bg-white px-5 py-6">
+        <aside
+          className={`${
+            isModuleSidebarOpen ? "fixed left-0 top-[76px] bottom-0 z-50 flex w-[320px]" : "hidden"
+          } h-full flex-col overflow-hidden border-r border-[#e1e0e7] bg-white px-5 py-6 lg:static lg:flex lg:w-auto`}
+        >
           <h1 className="text-2xl font-bold text-[#202126]">Konten Kelas</h1>
 
           <div className="mt-5 min-h-0 space-y-2 overflow-y-auto pr-1">
             <button
               type="button"
               onClick={() => {
+                setIsModuleSidebarOpen(false);
                 setAssessmentType("pretest");
                 setActiveQuizItemId(null);
                 setIsMaterialMode(false);
+                setIsFinalSummaryView(false);
                 if (isPretestFinished) {
                   setCurrentView("pretest-result");
                 } else if (isPretestStarted) {
@@ -304,11 +394,13 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                           type="button"
                           onClick={() => {
                             if (isItemLocked) return;
+                            setIsModuleSidebarOpen(false);
                             if (item.type === "quiz") {
                               setAssessmentType("kuis");
                               setActiveQuizItemId(item.id);
                               setCurrentView("pretest-intro");
                               setIsMaterialMode(false);
+                              setIsFinalSummaryView(false);
                               setActiveQuestionIndex(0);
                               setSelectedAnswers({});
                               setRemainingSeconds(PRETEST_DURATION_SECONDS);
@@ -319,6 +411,7 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                             markContentItemAsCompleted(item.id);
                             setCurrentView("materi");
                             setIsMaterialMode(true);
+                            setIsFinalSummaryView(false);
                           }}
                           className={`flex w-full items-start border-b border-[#f0eef7] px-3 py-2 text-left text-xs last:border-b-0 ${
                             isItemLocked
@@ -397,12 +490,25 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
             <button
               type="button"
               disabled={!hasUnlockedUntilSummary && !materiConfig.summaryUnlocked}
-              className={`flex w-full items-center gap-2 rounded-lg border border-[#dcdae3] bg-white px-3 py-2 text-sm ${
-                hasUnlockedUntilSummary || materiConfig.summaryUnlocked ? "text-[#313643]" : "cursor-not-allowed text-[#8f95a3]"
+              onClick={() => {
+                if (!hasUnlockedUntilSummary && !materiConfig.summaryUnlocked) return;
+                setIsModuleSidebarOpen(false);
+                setCurrentView("materi");
+                setIsMaterialMode(true);
+                setIsFinalSummaryView(true);
+                setAssessmentType("pretest");
+                setActiveQuizItemId(null);
+              }}
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                !(hasUnlockedUntilSummary || materiConfig.summaryUnlocked)
+                  ? "cursor-not-allowed border border-[#dcdae3] bg-white text-[#8f95a3]"
+                  : isFinalSummaryActive
+                    ? "border border-[#e0d5ff] bg-[#efe9ff] text-[#7054dc]"
+                    : "border border-[#dcdae3] bg-white text-[#313643]"
               }`}
             >
               {hasUnlockedUntilSummary || materiConfig.summaryUnlocked ? (
-                <FaBookOpen size={11} className="text-[#202126]" />
+                <FaBookOpen size={11} className={isFinalSummaryActive ? "text-[#7054dc]" : "text-[#202126]"} />
               ) : (
                 <FaLock size={11} className="text-[#8f95a3]" />
               )}
@@ -411,10 +517,12 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
             <button
               type="button"
               onClick={() => {
+                setIsModuleSidebarOpen(false);
                 setAssessmentType("posttest");
                 setActiveQuizItemId(null);
                 setCurrentView("pretest-intro");
                 setIsMaterialMode(false);
+                setIsFinalSummaryView(false);
                 setActiveQuestionIndex(0);
                 setSelectedAnswers({});
                 setRemainingSeconds(PRETEST_DURATION_SECONDS);
@@ -428,16 +536,43 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
             </button>
             <button
               type="button"
-              className="flex w-full items-center gap-2 rounded-lg border border-[#dcdae3] bg-white px-3 py-2 text-sm text-[#313643]"
+              onClick={() => {
+                setCurrentView("rating");
+                setIsMaterialMode(false);
+                setIsFinalSummaryView(false);
+                setActiveQuizItemId(null);
+                setIsRatingSubmitted(false);
+              }}
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                isRatingView ? "border border-[#e0d5ff] bg-[#efe9ff] text-[#7054dc]" : "border border-[#dcdae3] bg-white text-[#313643]"
+              }`}
             >
-              <FaStar size={11} />
+              <FaStar size={11} className={isRatingView ? "text-[#7054dc]" : "text-[#202126]"} />
               Beri Penilaian
             </button>
             <button
               type="button"
-              className="flex w-full items-center gap-2 rounded-lg border border-[#dcdae3] bg-white px-3 py-2 text-sm text-[#313643]"
+              onClick={() => {
+                if (!hasUnlockedUntilSummary && !materiConfig.summaryUnlocked) return;
+                setCurrentView("certificate");
+                setIsMaterialMode(false);
+                setIsFinalSummaryView(false);
+                setActiveQuizItemId(null);
+              }}
+              disabled={!hasUnlockedUntilSummary && !materiConfig.summaryUnlocked}
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                !hasUnlockedUntilSummary && !materiConfig.summaryUnlocked
+                  ? "cursor-not-allowed border border-[#dcdae3] bg-white text-[#8f95a3]"
+                  : isCertificateView
+                    ? "border border-[#e0d5ff] bg-[#efe9ff] text-[#7054dc]"
+                    : "border border-[#dcdae3] bg-white text-[#313643]"
+              }`}
             >
-              <FaFileAlt size={11} />
+              {hasUnlockedUntilSummary || materiConfig.summaryUnlocked ? (
+                <FaFileAlt size={11} className={isCertificateView ? "text-[#7054dc]" : "text-[#202126]"} />
+              ) : (
+                <FaLock size={11} className="text-[#8f95a3]" />
+              )}
               Lihat Sertifikat
             </button>
           </div>
@@ -447,15 +582,15 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
           <div className={`flex-1 p-5 ${currentView === "materi" ? "overflow-y-auto" : "overflow-hidden"}`}>
             <div className="flex h-full min-h-[520px]">
               {currentView === "pretest-intro" ? (
-                <div className="m-auto flex min-h-[620px] w-full max-w-4xl flex-col justify-center rounded-2xl border border-[#e6e4ed] bg-white px-6 py-10 text-center">
+                <div className="m-auto flex min-h-[580px] w-full max-w-4xl flex-col justify-center rounded-2xl border border-[#e6e4ed] bg-white px-6 py-10 text-center">
                   <Image
-                    src="/assets/images/beranda-siswa/modul.png"
+                    src="/assets/images/materi/selesai.png"
                     alt={`Ilustrasi pre-test ${moduleData.title}`}
                     width={220}
                     height={160}
                     className="mx-auto h-auto w-[220px]"
                   />
-                  <p className="mx-auto mt-4 max-w-[420px] text-base text-[#676c7b]">
+                  <p className="mx-auto mt-4 max-w-[320px] text-base text-[#676c7b]">
                     Kerjakan kuis untuk menguji pemahaman materi yang sudah dipelajari
                   </p>
                   <button
@@ -464,7 +599,7 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                       setIsPretestStarted(true);
                       setCurrentView("pretest-quiz");
                     }}
-                    className="mt-6 inline-flex min-w-[240px] items-center justify-center rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                    className="mx-auto mt-6 inline-flex w-fit min-w-[170px] shrink-0 items-center justify-center rounded-xl bg-[#7054dc] px-5 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                   >
                     {assessmentType === "pretest" ? "Mulai Pre-Test" : assessmentType === "kuis" ? "Mulai Kuis" : "Mulai Post-Test"}
                   </button>
@@ -481,7 +616,7 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                         />
                       </div>
                     </div>
-                    {selectedContentItem?.hasVideo && (
+                    {!isFinalSummaryView && selectedContentItem?.hasVideo && (
                       <div className="overflow-hidden rounded-2xl">
                         <img
                           src={selectedContentItem.videoUrl || materiConfig.videoUrl}
@@ -492,9 +627,9 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                     )}
                     <div className="mt-5 flex items-center justify-between gap-4">
                       <h2 className="text-3xl font-bold text-[#202126]">
-                        {selectedContentItem?.title || materiConfig.lessonTitle}
+                        {isFinalSummaryView ? "Rangkuman Akhir" : selectedContentItem?.title || materiConfig.lessonTitle}
                       </h2>
-                      {selectedContentItem?.hasVideo && (
+                      {!isFinalSummaryView && selectedContentItem?.hasVideo && (
                         <button
                           type="button"
                           onClick={() => setIsDescriptionExpanded((prev) => !prev)}
@@ -525,7 +660,18 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                       </div>
                     </div>
                     <div className="mt-4">
-                      {selectedContentItem?.hasVideo ? (
+                      {showSummaryHighlight && summaryHighlightText && (
+                        <div className="mb-5 rounded-xl bg-[#f3dfc9] px-4 py-4 text-sm font-semibold leading-relaxed text-[#202126]">
+                          {summaryHighlightText}
+                        </div>
+                      )}
+                      {isFinalSummaryView ? (
+                        <div className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]">
+                          {finalSummaryParagraphs.map((paragraph, index) => (
+                            <p key={`final-summary-${index}`}>{paragraph}</p>
+                          ))}
+                        </div>
+                      ) : selectedContentItem?.hasVideo ? (
                         isDescriptionExpanded && (
                           <div className="space-y-4 text-base leading-relaxed text-[#313644]">
                             {renderReadingContent(materiConfig.readingParagraphs, selectedContentItem)}
@@ -539,8 +685,65 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                     </div>
                   </div>
                 </div>
+              ) : currentView === "rating" ? (
+                <div className="m-auto w-full max-w-5xl rounded-2xl border border-[#eceaf3] bg-white px-8 py-12">
+                  <div className="mx-auto max-w-[560px] text-center">
+                    {isRatingSubmitted ? (
+                      <div className="py-10">
+                        <Image
+                          src="/assets/images/penilaian/penilaian.png"
+                          alt="Penilaian berhasil dikirim"
+                          width={260}
+                          height={220}
+                          className="mx-auto h-auto w-[260px]"
+                        />
+                        <p className="mt-4 text-2xl font-semibold text-[#8c92a0]">Penilaian berhasil dikirim!</p>
+                      </div>
+                    ) : (
+                      <>
+                        <h3 className="text-[34px] font-bold text-[#202126]">Gimana Pengalaman Belajarmu?</h3>
+                        <p className="mt-2 text-sm text-[#5f6472]">
+                          Berikan rating untuk modul ini agar kami bisa terus meningkatkan kualitas belajarmu.
+                        </p>
+                        <div className="mt-8 flex items-center justify-center gap-2">
+                          {[1, 2, 3, 4, 5].map((value) => (
+                            <button key={value} type="button" onClick={() => setSelectedRating(value)} className="p-1">
+                              <FaStar size={34} className={value <= selectedRating ? "text-[#7054dc]" : "text-[#d1d4db]"} />
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="mt-8 text-left">
+                          <p className="text-sm font-semibold text-[#202126]">Berikan Ulasan (Opsional)</p>
+                          <textarea
+                            value={reviewText}
+                            onChange={(event) => setReviewText(event.target.value.slice(0, 200))}
+                            placeholder="Bagikan kesanmu tentang materi ini ..."
+                            className="mt-2 h-[150px] w-full resize-none rounded-xl border border-[#d8dbe3] px-4 py-3 text-sm text-[#202126] placeholder:text-[#a2a7b3] focus:border-[#7054dc] focus:outline-none"
+                          />
+                          <p className="mt-2 text-right text-xs text-[#8c92a0]">{reviewText.length}/200</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedRating === 0) return;
+                            setIsRatingSubmitted(true);
+                          }}
+                          className={`mt-7 inline-flex min-w-[180px] items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-white ${
+                            selectedRating > 0 ? "bg-[#7054dc]" : "bg-[#a7acb5]"
+                          }`}
+                        >
+                          Kirim Penilaian
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : currentView === "certificate" ? (
+                <CertificateView moduleData={moduleData} />
               ) : currentView === "pretest-result" ? (
-                <div className="m-auto flex min-h-[620px] w-full max-w-5xl flex-col justify-center rounded-2xl border border-[#e6e4ed] bg-white px-6 py-10 text-center">
+                <div className="m-auto flex min-h-[580px] w-full max-w-5xl flex-col justify-center rounded-2xl border border-[#e6e4ed] bg-white px-6 py-10 text-center">
                   <Image
                     src="/assets/images/materi/selesai.png"
                     alt={`Ringkasan hasil pre-test ${moduleData.title}`}
@@ -548,7 +751,10 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                     height={180}
                     className="mx-auto h-auto w-[180px]"
                   />
-                  <h2 className="mt-4 text-2xl font-bold text-[#202126]">Selamat Kamu Telah Menyelesaikan Pre-Test</h2>
+                  <h2 className="mt-4 text-2xl font-bold text-[#202126]">
+                    Selamat Kamu Telah Menyelesaikan{" "}
+                    {assessmentType === "pretest" ? "Pre-Test" : assessmentType === "kuis" ? "Kuis" : "Post-Test"}
+                  </h2>
 
                   <div className="mx-auto mt-8 grid max-w-[540px] grid-cols-4 gap-4">
                     <div>
@@ -589,14 +795,14 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                     </div>
                   </div>
 
-                  <p className="mx-auto mt-8 max-w-[730px] text-base leading-relaxed text-[#676c7b]">
+                  <p className="mx-auto mt-8 max-w-[500px] text-base leading-relaxed text-[#676c7b]">
                     {finalScore >= 75
                       ? "Nilai kamu sudah memenuhi batas minimal. Pertahankan dan lanjutkan ke materi berikutnya untuk memperkuat pemahamanmu!"
                       : "Nilai awal kamu di bawah batas nilai minimal. Pelajari dan pahami materi dengan baik untuk tingkatkan pemahaman kamu!"}
                   </p>
                 </div>
               ) : (
-                <div className="flex min-h-[620px] w-full flex-col rounded-2xl border border-[#e6e4ed] bg-white p-5 sm:p-7">
+                <div className="flex min-h-[580px] w-full flex-col rounded-2xl border border-[#e6e4ed] bg-white p-5 sm:p-7">
                   <div className="flex flex-wrap items-start justify-between gap-8">
                     <h2 className="text-2xl font-bold text-[#202126]">
                       {assessmentType === "pretest" ? "Pre-Test" : assessmentType === "kuis" ? "Kuis" : "Post-Test"}
@@ -643,10 +849,12 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                         >
                           <MdArrowBackIosNew size={16} className="rotate-180" />
                         </button>
-                        <p className="ml-4 inline-flex items-center gap-1 text-base font-bold text-[#7054dc]">
-                          <FaRegClock size={16} />
-                          00:{formatRemainingTime(remainingSeconds)}
-                        </p>
+                        {showAssessmentTimer && (
+                          <p className="ml-4 inline-flex items-center gap-1 text-base font-bold text-[#7054dc]">
+                            <FaRegClock size={16} />
+                            00:{formatRemainingTime(remainingSeconds)}
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 md:hidden">
@@ -718,24 +926,41 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                           );
                         })}
                       </div>
-                      <p className="inline-flex items-center gap-1 pt-1 text-sm font-semibold text-[#7054dc] md:hidden">
-                        <FaRegClock size={14} />
-                        00:{formatRemainingTime(remainingSeconds)}
-                      </p>
+                      {showAssessmentTimer && (
+                        <p className="inline-flex items-center gap-1 pt-1 text-sm font-semibold text-[#7054dc] md:hidden">
+                          <FaRegClock size={14} />
+                          00:{formatRemainingTime(remainingSeconds)}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <div className="mx-auto mt-6 grid max-w-4xl gap-6 border-t border-[#e6e4ed] border-b border-[#e6e4ed] pb-6 pt-6 lg:grid-cols-[220px_1fr]">
-                    <img
-                      src={activeQuestion.imageUrl}
-                      alt={`Ilustrasi soal ${activeQuestion.id}`}
-                      width={220}
-                      height={150}
-                      className="rounded-md object-cover"
-                    />
+                  <div
+                    className={`mx-auto mt-6 grid max-w-4xl gap-6 border-t border-[#e6e4ed] border-b border-[#e6e4ed] pb-6 pt-6 ${
+                      showAssessmentImage ? "lg:grid-cols-[220px_1fr]" : "lg:grid-cols-1"
+                    }`}
+                  >
+                    {showAssessmentImage && (
+                      <img
+                        src={activeQuestion.imageUrl}
+                        alt={`Ilustrasi soal ${activeQuestion.id}`}
+                        width={220}
+                        height={150}
+                        className="rounded-md object-cover"
+                      />
+                    )}
 
                     <div>
                       <p className="text-base leading-relaxed text-[#202126]">{activeQuestion.prompt}</p>
+                      {showQuizCategory && (
+                        <div className="mt-5 border-t border-[#e6e4ed] pt-4">
+                          <p className="text-sm font-semibold text-[#f39b39]">Soal Pemecahan Masalah</p>
+                          <p className="mt-1 text-sm text-[#202126]">
+                            Untuk memahami penyebab keruhnya air sungai secara menyeluruh, bagian manakah yang perlu kita
+                            teliti secara terpisah?
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -790,13 +1015,16 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                 <button
                   type="button"
                   onClick={handleFooterNext}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#7054dc] px-4 py-2 text-sm font-semibold text-white"
+                  disabled={isRatingView && !isRatingSubmitted}
+                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white ${
+                    isRatingView && !isRatingSubmitted ? "cursor-not-allowed bg-[#a7acb5]" : "bg-[#7054dc]"
+                  }`}
                 >
                   Selanjutnya
                   <MdArrowForward size={16} />
                 </button>
               </div>
-              {currentView !== "materi" ? (
+              {currentView === "pretest-quiz" ? (
                 <button
                   type="button"
                   onClick={handleFinishPretest}

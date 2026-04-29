@@ -365,11 +365,11 @@ const defaultContentTree: ContentSection[] = [
   },
 ];
 
-function buildPretestQuestionsForSubject(subject: string): PretestQuestion[] {
+function buildPretestQuestionsForSubject(): PretestQuestion[] {
   return basePretestQuestionTemplates.map((template, index) => ({
     id: index + 1,
     ...template,
-    prompt: `[${subject}] ${template.prompt}`,
+    prompt: template.prompt,
   }));
 }
 
@@ -407,6 +407,6 @@ export function getMateriConfigBySlug(slug: string): MateriConfig {
     })),
     summaryUnlocked: unlockedByDefault,
     contentTree: defaultContentTree,
-    pretestQuestions: buildPretestQuestionsForSubject(slug),
+    pretestQuestions: buildPretestQuestionsForSubject(),
   };
 }

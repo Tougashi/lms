@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MdDone, MdLogout, MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowRight } from 'react-icons/md';
+import { MdDone, MdLogout, MdMenu, MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowRight } from 'react-icons/md';
 import { FaBell } from 'react-icons/fa';
 import { RiCustomerService2Line } from 'react-icons/ri';
 import { IoPersonCircle } from 'react-icons/io5';
@@ -61,15 +61,16 @@ export default function SiswaHeader() {
 
   const isBerandaActive = pathname === '/beranda-siswa';
   const isEksplorActive = pathname === '/eksplor-modul' || pathname.startsWith('/modul');
+  const isModuleMateri = pathname.startsWith('/modul/') && pathname.endsWith('/materi');
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#eceaf4] bg-white shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="text-xl font-bold text-[#21212b]">
+        <Link href="/" className="text-xl font-bold text-[#21212b] ml-0 sm:-ml-2">
           NAMA WEB
         </Link>
 
-        <nav className="hidden gap-10 sm:flex">
+        <nav className="hidden flex-1 justify-center gap-16 sm:flex">
           <Link
             href="/beranda-siswa"
             className={`text-sm hover:text-[#7054dc] ${isBerandaActive ? 'font-medium text-[#7054dc]' : 'text-[#21212b]'}`}
@@ -88,6 +89,16 @@ export default function SiswaHeader() {
         </nav>
 
         <div className="flex items-center gap-3">
+          {isModuleMateri && (
+            <button
+              type="button"
+              aria-label="Buka sidebar Konten Kelas"
+              onClick={() => window.dispatchEvent(new Event('toggle-module-sidebar'))}
+              className="inline-flex rounded-full p-2 hover:bg-[#f7f6ff] lg:hidden"
+            >
+              <MdMenu size={22} className="text-[#21212b]" />
+            </button>
+          )}
           <div className="relative" ref={notificationMenuRef}>
             <button
               type="button"
@@ -129,9 +140,6 @@ export default function SiswaHeader() {
             )}
           </div>
 
-          <button className="rounded-full p-2 hover:bg-[#f7f6ff]">
-            <RiCustomerService2Line size={22} className="text-[#21212b]" />
-          </button>
           <div className="relative" ref={profileMenuRef}>
             <button
               type="button"
@@ -157,6 +165,14 @@ export default function SiswaHeader() {
                 </div>
 
                 <div className="border-t border-[#d7d9df] bg-white px-2 py-2">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[#7b7f8b] transition-colors hover:bg-[#f7f6ff]"
+                  >
+                    <RiCustomerService2Line size={16} />
+                    <span className="text-[0.78rem] font-medium leading-none">Customer Service</span>
+                  </button>
+
                   <Link
                     href="/profil"
                     onClick={() => setIsProfileMenuOpen(false)}
