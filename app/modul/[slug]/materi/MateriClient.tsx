@@ -618,11 +618,17 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                     </div>
                     {!isFinalSummaryView && selectedContentItem?.hasVideo && (
                       <div className="overflow-hidden rounded-2xl">
-                        <img
-                          src={selectedContentItem.videoUrl || materiConfig.videoUrl}
-                          alt={`Video materi ${selectedContentItem.title}`}
-                          className="aspect-video w-full object-cover"
-                        />
+                        <video
+                          src="/assets/video/materi.mp4"
+                          controls
+                          playsInline
+                          preload="metadata"
+                          controlsList="nodownload noremoteplayback"
+                          disablePictureInPicture
+                          className="aspect-video w-full bg-black object-cover"
+                        >
+                          Browser kamu tidak mendukung video.
+                        </video>
                       </div>
                     )}
                     <div className="mt-5 flex items-center justify-between gap-4">
