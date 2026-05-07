@@ -91,7 +91,7 @@ export default function ModulGuruPage() {
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
       <GuruHeader />
 
-      <main className="mx-auto w-full max-w-[1260px] px-6 pb-10 pt-8">
+      <main className="mx-auto w-full max-w-[1260px] px-4 pb-10 pt-6 sm:px-6 sm:pt-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-[20px] font-semibold text-[#232530]">Modul Saya</h1>
@@ -112,13 +112,13 @@ export default function ModulGuruPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 md:justify-end">
-            <div className="flex h-[44px] items-center gap-3 rounded-full border border-[#e3e1ea] bg-white px-4 text-[#8a8d98] shadow-sm">
+            <div className="flex h-[44px] w-full items-center gap-3 rounded-full border border-[#e3e1ea] bg-white px-4 text-[#8a8d98] shadow-sm md:w-auto">
               <input
                 type="text"
                 placeholder="Cari modul belajarmu di sini"
-                className="w-[220px] bg-transparent text-[13px] text-[#2d2d3a] outline-none placeholder:text-[#9ca0ad]"
+                className="min-w-0 flex-1 bg-transparent text-[13px] text-[#2d2d3a] outline-none placeholder:text-[#9ca0ad] md:w-[220px] md:flex-none"
               />
-              <FaSearch size={14} className="text-[#8a8d98]" />
+              <FaSearch size={14} className="shrink-0 text-[#8a8d98]" />
             </div>
 
             <Link
@@ -147,14 +147,14 @@ export default function ModulGuruPage() {
             </p>
           </div>
         ) : (
-          <div className="mt-8 grid gap-5 lg:grid-cols-2">
+          <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-5 lg:grid-cols-2">
             {currentModules.map((module) => (
               <div
                 key={module.id}
-                className="relative flex items-center justify-between gap-4 rounded-2xl border border-[#eceaf4] bg-white p-5 shadow-[0_10px_22px_rgba(12,12,18,0.06)]"
+                className="relative flex items-center justify-between gap-3 rounded-2xl border border-[#eceaf4] bg-white p-4 shadow-[0_10px_22px_rgba(12,12,18,0.06)] sm:gap-4 sm:p-5"
               >
                 <div className="flex items-center gap-4">
-                  <div className="h-[72px] w-[92px] overflow-hidden rounded-2xl bg-[#f3f4f8]">
+                  <div className="hidden h-[72px] w-[72px] overflow-hidden rounded-2xl bg-[#f3f4f8] sm:block sm:w-[92px]">
                     <Image
                       src={module.image}
                       alt={module.title}
@@ -174,12 +174,12 @@ export default function ModulGuruPage() {
                         Lihat Kelas
                       </button>
                       {!isDraftTab && (
-                        <button
-                          type="button"
+                        <Link
+                          href="/modul-guru/manajemen"
                           className="rounded-full border border-[#f4b46f] px-4 py-1.5 text-[12px] font-semibold text-[#f39b39] transition-colors hover:bg-[#fff3e6]"
                         >
                           Manajemen Modul
-                        </button>
+                        </Link>
                       )}
                     </div>
                   </div>

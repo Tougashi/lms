@@ -19,7 +19,7 @@ export default function TambahModulHargaPage() {
 
       <main className="w-full px-0 py-0">
         <div className="grid w-full gap-8 lg:grid-cols-[260px_1fr]">
-          <aside className="border border-[#e5e3ee] bg-white px-5 py-6 lg:min-h-[calc(100vh-74px)]">
+          <aside className="hidden border border-[#e5e3ee] bg-white px-5 py-6 lg:block lg:min-h-[calc(100vh-74px)]">
             <div className="flex h-full flex-col">
               <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
               <nav className="mt-4 space-y-3 text-[13px]">
@@ -58,7 +58,7 @@ export default function TambahModulHargaPage() {
             </div>
           </aside>
 
-          <section className="pb-8 pr-2 pt-6 lg:pr-6">
+          <section className="px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
             <h1 className="text-[18px] font-semibold text-[#232530]">Tentukan Harga Modul anda</h1>
             <p className="mt-2 max-w-[560px] text-[12px] leading-[1.6] text-[#7e8290]">
               Pilih mata uang dan tingkat harga untuk kursus Anda. Jika ingin menawarkan kursus gratis,

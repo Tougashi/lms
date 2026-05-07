@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { FaBell } from 'react-icons/fa';
+import { FiMenu, FiX } from 'react-icons/fi';
 import { IoPersonCircle } from 'react-icons/io5';
 import { MdLogout, MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowRight, MdPerson } from 'react-icons/md';
 import { RiCustomerService2Line } from 'react-icons/ri';
 
 export default function GuruHeader() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
@@ -28,6 +30,8 @@ export default function GuruHeader() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  useEffect(() => { setIsMobileNavOpen(false); }, [pathname]);
 
   const isBerandaActive = pathname === '/beranda-guru';
   const isModulActive = pathname.startsWith('/modul-guru');
@@ -57,12 +61,12 @@ export default function GuruHeader() {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button type="button" className="rounded-full p-2 hover:bg-[#f7f6ff]" aria-label="Notifikasi">
             <FaBell size={20} className="text-[#21212b]" />
           </button>
 
-          <button type="button" className="rounded-full p-2 hover:bg-[#f7f6ff]" aria-label="Bantuan">
+          <button type="button" className="hidden rounded-full p-2 hover:bg-[#f7f6ff] sm:inline-flex" aria-label="Bantuan">
             <RiCustomerService2Line size={22} className="text-[#21212b]" />
           </button>
 
@@ -121,8 +125,22 @@ export default function GuruHeader() {
               </div>
             )}
           </div>
+
+          <button type="button" onClick={() => setIsMobileNavOpen((p) => !p)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#232530] hover:bg-[#f5f4fb] sm:hidden" aria-label="Menu">
+            {isMobileNavOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+          </button>
         </div>
       </div>
+
+      {isMobileNavOpen && (
+        <div className="border-t border-[#eceaf4] bg-white px-4 py-3 sm:hidden">
+          <nav className="flex flex-col gap-2 text-[14px]">
+            <Link href="/beranda-guru" className={`rounded-lg px-3 py-2 ${isBerandaActive ? 'bg-[#f0ecff] font-medium text-[#7054dc]' : 'text-[#21212b]'}`}>Beranda</Link>
+            <Link href="/modul-guru" className={`rounded-lg px-3 py-2 ${isModulActive ? 'bg-[#f0ecff] font-medium text-[#7054dc]' : 'text-[#21212b]'}`}>Modul Saya</Link>
+            <Link href="/tentang-kami" className="rounded-lg px-3 py-2 text-[#21212b]">Tentang Kami</Link>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

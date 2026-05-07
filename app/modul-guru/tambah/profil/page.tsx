@@ -36,7 +36,7 @@ export default function TambahModulProfilPage() {
 
       <main className="w-full px-0 py-0">
         <div className="grid w-full gap-8 lg:grid-cols-[260px_1fr]">
-          <aside className="border border-[#e5e3ee] bg-white px-5 py-6 lg:min-h-[calc(100vh-74px)]">
+          <aside className="hidden border border-[#e5e3ee] bg-white px-5 py-6 lg:block lg:min-h-[calc(100vh-74px)]">
             <div className="flex h-full flex-col">
               <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
               <nav className="mt-4 space-y-3 text-[13px]">
@@ -75,7 +75,7 @@ export default function TambahModulProfilPage() {
             </div>
           </aside>
 
-          <section className="pb-8 pr-2 pt-6 lg:pr-6">
+          <section className="px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
             <div className="flex flex-col items-center">
               <div className="rounded-[26px] border border-[#f0eff6] bg-white p-3 shadow-[0_10px_24px_rgba(20,20,30,0.06)]">
                 <div className="relative h-[180px] w-[300px] overflow-hidden rounded-[20px] border border-[#e5e3ee] bg-[#f4f3ff]">
