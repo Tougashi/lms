@@ -346,19 +346,15 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                   return (
                 <button
                   type="button"
-                  disabled={!sectionUnlocked}
                   onClick={() =>
                     setExpandedSections((prev) => ({
                       ...prev,
                       [section.id]: !prev[section.id],
                     }))
                   }
-                  className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${
-                    sectionUnlocked ? "text-[#202126]" : "cursor-not-allowed text-[#8f95a3]"
-                  }`}
+                  className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-[#202126]"
                 >
                   <span className="inline-flex items-center gap-2">
-                    {!sectionUnlocked && <FaLock size={10} className="text-[#8f95a3]" />}
                     {sectionUnlocked && isSectionCompleted && (
                       <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#7054dc]">
                         <FaCheck size={9} className="text-white" />
@@ -366,14 +362,10 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                     )}
                     {section.title}
                   </span>
-                  {sectionUnlocked ? (
-                    <FaChevronDown
-                      size={11}
-                      className={`text-[#8f95a3] transition-transform ${expandedSections[section.id] ? "rotate-180" : ""}`}
-                    />
-                  ) : (
-                    <FaLock size={11} className="text-[#8f95a3]" />
-                  )}
+                  <FaChevronDown
+                    size={11}
+                    className={`text-[#8f95a3] transition-transform ${expandedSections[section.id] ? "rotate-180" : ""}`}
+                  />
                 </button>
                   );
                 })()}
@@ -431,7 +423,7 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                                 <FaCheck size={8} className="text-white" />
                               </span>
                             ) : isItemLocked ? (
-                              <FaLock size={10} className="text-[#8f95a3]" />
+                              <FaLock size={10} className="mt-2 text-[#8f95a3]" />
                             ) : (
                               <span className="inline-flex h-4 w-4" />
                             )}
@@ -516,7 +508,9 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
             </button>
             <button
               type="button"
+              disabled={!hasUnlockedUntilSummary}
               onClick={() => {
+                if (!hasUnlockedUntilSummary) return;
                 setIsModuleSidebarOpen(false);
                 setAssessmentType("posttest");
                 setActiveQuizItemId(null);
@@ -528,10 +522,18 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                 setRemainingSeconds(PRETEST_DURATION_SECONDS);
               }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                isPosttestActive ? "bg-[#efe9ff] text-[#7054dc]" : "border border-[#dcdae3] bg-white text-[#313643]"
+                !hasUnlockedUntilSummary
+                  ? "cursor-not-allowed border border-[#dcdae3] bg-white text-[#8f95a3]"
+                  : isPosttestActive
+                    ? "border border-[#e0d5ff] bg-[#efe9ff] text-[#7054dc]"
+                    : "border border-[#dcdae3] bg-white text-[#313643]"
               }`}
             >
-              <FaFileAlt size={11} className={isPosttestActive ? "text-[#7054dc]" : "text-[#202126]"} />
+              {hasUnlockedUntilSummary ? (
+                <FaFileAlt size={11} className={isPosttestActive ? "text-[#7054dc]" : "text-[#202126]"} />
+              ) : (
+                <FaLock size={11} className="text-[#8f95a3]" />
+              )}
               Post-Test
             </button>
             <button
@@ -579,8 +581,10 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
         </aside>
 
         <section className="flex h-[calc(100vh-76px)] min-h-[calc(100vh-76px)] flex-col overflow-hidden">
-          <div className={`flex-1 p-5 ${currentView === "materi" ? "overflow-y-auto" : "overflow-hidden"}`}>
-            <div className="flex h-full min-h-[520px]">
+          <div
+            className={`flex-1 p-5 ${currentView === "materi" ? "overflow-y-auto" : "overflow-y-auto"}`}
+          >
+            <div className="flex min-h-[520px] w-full">
               {currentView === "pretest-intro" ? (
                 <div className="m-auto flex min-h-[580px] w-full max-w-4xl flex-col justify-center rounded-2xl border border-[#e6e4ed] bg-white px-6 py-10 text-center">
                   <Image
@@ -863,74 +867,78 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 md:hidden">
+                      <div className="flex items-start gap-2 md:hidden">
                         <button
                           type="button"
                           onClick={() => setActiveQuestionIndex((prev) => Math.max(0, prev - 1))}
-                          className={`text-lg font-semibold ${
+                          className={`pt-1 text-lg font-semibold ${
                             canGoPrev ? "text-[#7054dc]" : "text-[#b8bcc9]"
                           }`}
                         >
                           <MdArrowBackIosNew size={16} />
                         </button>
-                        <div className="grid grid-cols-5 gap-2">
-                          {pretestQuestions.slice(0, 5).map((question, localIndex) => {
-                            const index = localIndex;
-                            const isActive = index === activeQuestionIndex;
-                            const isAnswered = selectedAnswers[question.id] !== undefined;
-                            return (
-                              <button
-                                key={question.id}
-                                type="button"
-                                onClick={() => setActiveQuestionIndex(index)}
-                                className={`inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-medium ${
-                                  isActive
-                                    ? "border-[#7054dc] bg-[#7054dc] text-white"
-                                    : isAnswered
-                                      ? "border-[#7054dc] bg-[#f0eaff] text-[#7054dc]"
-                                      : "border-[#d6d4df] bg-white text-[#747988]"
-                                }`}
-                              >
-                                {index + 1}
-                              </button>
-                            );
-                          })}
+
+                        <div className="flex flex-col gap-2">
+                          <div className="grid grid-cols-5 gap-2">
+                            {pretestQuestions.slice(0, 5).map((question, localIndex) => {
+                              const index = localIndex;
+                              const isActive = index === activeQuestionIndex;
+                              const isAnswered = selectedAnswers[question.id] !== undefined;
+                              return (
+                                <button
+                                  key={question.id}
+                                  type="button"
+                                  onClick={() => setActiveQuestionIndex(index)}
+                                  className={`inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-medium ${
+                                    isActive
+                                      ? "border-[#7054dc] bg-[#7054dc] text-white"
+                                      : isAnswered
+                                        ? "border-[#7054dc] bg-[#f0eaff] text-[#7054dc]"
+                                        : "border-[#d6d4df] bg-white text-[#747988]"
+                                  }`}
+                                >
+                                  {index + 1}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <div className="grid grid-cols-5 gap-2">
+                            {pretestQuestions.slice(5, 10).map((question, localIndex) => {
+                              const index = localIndex + 5;
+                              const isActive = index === activeQuestionIndex;
+                              const isAnswered = selectedAnswers[question.id] !== undefined;
+                              return (
+                                <button
+                                  key={question.id}
+                                  type="button"
+                                  onClick={() => setActiveQuestionIndex(index)}
+                                  className={`inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-medium ${
+                                    isActive
+                                      ? "border-[#7054dc] bg-[#7054dc] text-white"
+                                      : isAnswered
+                                        ? "border-[#7054dc] bg-[#f0eaff] text-[#7054dc]"
+                                        : "border-[#d6d4df] bg-white text-[#747988]"
+                                  }`}
+                                >
+                                  {index + 1}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
+
                         <button
                           type="button"
                           onClick={() =>
                             setActiveQuestionIndex((prev) => Math.min(pretestQuestions.length - 1, prev + 1))
                           }
-                          className={`text-lg font-semibold ${
+                          className={`pt-[46px] text-lg font-semibold ${
                             canGoNext ? "text-[#7054dc]" : "text-[#b8bcc9]"
                           }`}
                         >
                           <MdArrowBackIosNew size={16} className="rotate-180" />
                         </button>
-                      </div>
-
-                      <div className="grid grid-cols-5 gap-2 md:hidden">
-                        {pretestQuestions.slice(5, 10).map((question, localIndex) => {
-                          const index = localIndex + 5;
-                          const isActive = index === activeQuestionIndex;
-                          const isAnswered = selectedAnswers[question.id] !== undefined;
-                          return (
-                            <button
-                              key={question.id}
-                              type="button"
-                              onClick={() => setActiveQuestionIndex(index)}
-                              className={`inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-medium ${
-                                isActive
-                                  ? "border-[#7054dc] bg-[#7054dc] text-white"
-                                  : isAnswered
-                                    ? "border-[#7054dc] bg-[#f0eaff] text-[#7054dc]"
-                                    : "border-[#d6d4df] bg-white text-[#747988]"
-                              }`}
-                            >
-                              {index + 1}
-                            </button>
-                          );
-                        })}
                       </div>
                       {showAssessmentTimer && (
                         <p className="inline-flex items-center gap-1 pt-1 text-sm font-semibold text-[#7054dc] md:hidden">
@@ -944,7 +952,7 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                   <div
                     className={`mx-auto mt-6 grid max-w-4xl gap-6 border-t border-[#e6e4ed] border-b border-[#e6e4ed] pb-6 pt-6 ${
                       showAssessmentImage ? "lg:grid-cols-[220px_1fr]" : "lg:grid-cols-1"
-                    }`}
+                    } justify-items-center lg:justify-items-stretch`}
                   >
                     {showAssessmentImage && (
                       <img
@@ -952,12 +960,14 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                         alt={`Ilustrasi soal ${activeQuestion.id}`}
                         width={220}
                         height={150}
-                        className="rounded-md object-cover"
+                        className="mx-auto rounded-md object-cover"
                       />
                     )}
 
-                    <div>
-                      <p className="text-base leading-relaxed text-[#202126]">{activeQuestion.prompt}</p>
+                    <div className="w-full">
+                      <p className="text-base leading-relaxed text-[#202126] text-center lg:text-left">
+                        {activeQuestion.prompt}
+                      </p>
                       {showQuizCategory && (
                         <div className="mt-5 border-t border-[#e6e4ed] pt-4">
                           <p className="text-sm font-semibold text-[#f39b39]">Soal Pemecahan Masalah</p>
@@ -990,11 +1000,13 @@ export default function MateriClient({ moduleData, slug }: { moduleData: ModuleD
                           }`}
                         >
                           <span
-                            className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border ${
+                            className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border aspect-square leading-none ${
                               isSelected ? "border-white" : "border-[#989dac]"
                             }`}
                           >
-                            {isSelected && <span className="h-2.5 w-2.5 rounded-full bg-white" />}
+                            {isSelected && (
+                              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-white aspect-square" />
+                            )}
                           </span>
                           <span>{String.fromCharCode(65 + optionIndex)}. {option}</span>
                         </button>
