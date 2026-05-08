@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FiBookOpen, FiCheckSquare, FiDollarSign, FiEdit2, FiFileText, FiLayers } from 'react-icons/fi';
 
@@ -14,7 +14,7 @@ const inputClassName =
 const textareaClassName =
   'mt-2 w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2 text-[13px] text-[#232530] outline-none focus:border-[#7054dc]';
 
-export default function TambahModulProfilPage() {
+function TambahModulProfilPageContent() {
   const searchParams = useSearchParams();
   const stateParam = searchParams.get('state');
   const isFilled = useMemo(() => stateParam === 'filled', [stateParam]);
@@ -344,5 +344,13 @@ export default function TambahModulProfilPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function TambahModulProfilPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f6fb]" />}>
+      <TambahModulProfilPageContent />
+    </Suspense>
   );
 }

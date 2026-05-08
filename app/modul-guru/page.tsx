@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FaSearch } from 'react-icons/fa';
 import { FiEdit2, FiMoreVertical, FiPlus, FiTrash2 } from 'react-icons/fi';
@@ -58,7 +58,7 @@ const draftModules: ModuleCard[] = [
   },
 ];
 
-export default function ModulGuruPage() {
+function ModulGuruPageContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   const stateParam = searchParams.get('state');
@@ -220,5 +220,13 @@ export default function ModulGuruPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function ModulGuruPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f4f4f7]" />}>
+      <ModulGuruPageContent />
+    </Suspense>
   );
 }

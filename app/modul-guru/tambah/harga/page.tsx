@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FiBookOpen, FiCheckSquare, FiDollarSign, FiFileText, FiLayers } from 'react-icons/fi';
 
 import GuruHeader from '../../../component/guru/GuruHeader';
 
-export default function TambahModulHargaPage() {
+function TambahModulHargaPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const priceParam = searchParams.get('price');
@@ -115,5 +115,13 @@ export default function TambahModulHargaPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function TambahModulHargaPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f6fb]" />}>
+      <TambahModulHargaPageContent />
+    </Suspense>
   );
 }
