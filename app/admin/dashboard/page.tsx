@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useState } from "react";
 import {
   FaBell,
@@ -17,7 +16,6 @@ import {
   FaPaperPlane,
   FaSearch,
   FaTrash,
-  FaChartBar,
 } from "react-icons/fa";
 import { RiCustomerService2Line } from "react-icons/ri";
 import { IoPersonCircle } from "react-icons/io5";
@@ -283,13 +281,7 @@ export default function BerandaAdminPage() {
                           >
                             <FaCheck size={11} />
                           </button>
-                          {activeTab === "siswa" ? (
-                            <Link href="/admin/nilai-siswa" className="truncate hover:text-[#7054dc] hover:underline transition-colors">
-                              {row.name}
-                            </Link>
-                          ) : (
-                            <p className="truncate">{row.name}</p>
-                          )}
+                          <p className="truncate">{row.name}</p>
                           <p className="text-[#6d7280]">{row.phone}</p>
                           <p className="truncate text-[#6d7280]">{row.email}</p>
                           <div className="relative justify-self-end">
@@ -302,15 +294,6 @@ export default function BerandaAdminPage() {
                                   <FaRegEdit size={12} />
                                   Edit
                                 </button>
-                                {activeTab === "siswa" && (
-                                  <Link
-                                    href="/admin/nilai-siswa"
-                                    className="mt-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
-                                  >
-                                    <FaChartBar size={12} />
-                                    Lihat Nilai
-                                  </Link>
-                                )}
                                 <button className="mt-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#5f6472] hover:bg-[#f5f5f8]">
                                   <FaDatabase size={12} />
                                   Nonaktifkan

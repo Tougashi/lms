@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
   FaBell,
@@ -12,7 +11,6 @@ import {
   FaTrash,
   FaEdit,
   FaUsers,
-  FaChartBar,
 } from 'react-icons/fa';
 import { FaHeadset } from 'react-icons/fa6';
 import { IoPersonCircle } from 'react-icons/io5';
@@ -105,22 +103,13 @@ function StatCard({
   );
 }
 
-function ActionMenu({ isSiswa }: { isSiswa?: boolean }) {
+function ActionMenu() {
   return (
     <div className="absolute right-0 top-9 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
       <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]">
         <FaEdit size={13} />
         Edit
       </button>
-      {isSiswa && (
-        <Link
-          href="/admin/nilai-siswa"
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
-        >
-          <FaChartBar size={13} />
-          Lihat Nilai
-        </Link>
-      )}
       <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#60636d] hover:bg-[#f7f6ff]">
         <FaUsers size={13} />
         Nonaktifkan
@@ -346,15 +335,7 @@ export default function ManajemenPenggunaPage() {
                             <FaCheckSquare size={12} />
                           </button>
                         </td>
-                        <td className="px-4 py-4 align-middle font-medium text-[#5a5f6a]">
-                          {activeTab === 'siswa' ? (
-                            <Link href="/admin/nilai-siswa" className="hover:text-[#7054dc] hover:underline transition-colors">
-                              {row.name}
-                            </Link>
-                          ) : (
-                            row.name
-                          )}
-                        </td>
+                        <td className="px-4 py-4 align-middle font-medium text-[#5a5f6a]">{row.name}</td>
                         <td className="px-4 py-4 align-middle">{row.level}</td>
                         <td className="px-4 py-4 align-middle">{row.field}</td>
                         <td className="px-4 py-4 align-middle">{row.whatsapp}</td>
@@ -368,7 +349,7 @@ export default function ManajemenPenggunaPage() {
                             >
                               <MdMoreVert size={18} />
                             </button>
-                            {openActionMenuId === row.id && <ActionMenu isSiswa={activeTab === 'siswa'} />}
+                            {openActionMenuId === row.id && <ActionMenu />}
                           </div>
                         </td>
                       </tr>
