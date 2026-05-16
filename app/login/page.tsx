@@ -1,10 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MdOutlineVisibility, MdOutlineVisibilityOff } from 'react-icons/md';
 
+const API_BASE = 'https://lms-express-api-o5uk.vercel.app';
+
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -14,18 +18,45 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+
+    if (!email || !password) {
+      setError('Email dan password harus diisi');
+      return;
+    }
+
     setIsLoading(true);
 
-    // Simulate login request
-    setTimeout(() => {
-      if (!email || !password) {
-        setError('Email dan password harus diisi');
-      } else {
-        // Here you would typically send credentials to your backend
-        console.log('Login attempt:', { email, password });
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || 'Email atau password salah');
+        setIsLoading(false);
+        return;
       }
+
+      // Store user data in localStorage
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('role', data.role);
+
+      // Redirect based on role
+      if (data.role === 'tutor') {
+        router.push('/beranda-guru');
+      } else {
+        router.push('/beranda-siswa');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Terjadi kesalahan jaringan. Silakan coba lagi.');
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
