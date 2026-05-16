@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FaRegStar, FaStar } from 'react-icons/fa';
 import { FiExternalLink, FiPlus } from 'react-icons/fi';
@@ -146,7 +146,7 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-export default function BerandaGuruPage() {
+function BerandaGuruPageContent() {
   const searchParams = useSearchParams();
   const mode = searchParams.get('state');
 
@@ -366,5 +366,13 @@ export default function BerandaGuruPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function BerandaGuruPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f4f4f7]" />}>
+      <BerandaGuruPageContent />
+    </Suspense>
   );
 }
