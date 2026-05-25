@@ -12,7 +12,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), "Segoe UI", sans-serif;
+  font-family: var(--font-inter), "Segoe UI", sans-serif;
 }
 
 @keyframes marquee-left {
