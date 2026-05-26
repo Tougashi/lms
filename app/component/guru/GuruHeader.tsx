@@ -8,8 +8,10 @@ import { FiMenu, FiX } from 'react-icons/fi';
 import { IoPersonCircle } from 'react-icons/io5';
 import { MdLogout, MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowRight, MdPerson } from 'react-icons/md';
 import { RiCustomerService2Line } from 'react-icons/ri';
+import { useAuth } from '../../context/AuthContext';
 
 export default function GuruHeader() {
+  const { user, logout } = useAuth();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -87,9 +89,9 @@ export default function GuruHeader() {
                   <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-[#8a8a96]">Profil</p>
                   <div className="mt-1.5 space-y-2">
                     <div>
-                      <p className="text-[1rem] font-bold leading-tight text-[#7b7f8b]">Budi Santoso, S.Pd., M.Si.</p>
+                      <p className="text-[1rem] font-bold leading-tight text-[#7b7f8b]">{user?.fullName || user?.nama_lengkap || 'Tutor'}</p>
                       <p className="mt-1 text-[0.78rem] font-semibold leading-tight text-[#7b7f8b]">
-                        oliviolivrgio@gmail.com
+                        {user?.email || ''}
                       </p>
                     </div>
                   </div>
@@ -114,6 +116,7 @@ export default function GuruHeader() {
 
                   <button
                     type="button"
+                    onClick={() => { setIsProfileMenuOpen(false); logout(); }}
                     className="mt-1 flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[#ff7268] transition-colors hover:bg-[#fff6f5]"
                   >
                     <span className="flex h-5 w-5 items-center justify-center text-[#ff7268]">

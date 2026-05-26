@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   MdOutlineKeyboardArrowRight,
   MdHistory,
@@ -10,53 +10,82 @@ import {
 import { FaBookOpen } from 'react-icons/fa';
 import { RiFileList3Fill } from 'react-icons/ri';
 import SiswaHeader from '../component/siswa/SiswaHeader';
+import { useAuth } from '../context/AuthContext';
+import { dashboardApi, type SiswaDashboard, type ProgressItem } from '../lib/api';
 
 export default function BerandaSiswaPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [showProgress, setShowProgress] = useState(true);
+  const [dashboard, setDashboard] = useState<SiswaDashboard | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [error, setError] = useState('');
 
-  const progressData = [
-    {
-      id: 1,
-      name: 'Biologi',
-      topik: 4,
-      materi: 15,
-      progress: 30,
-      status: 'Sedang Berjalan',
-      statusColor: 'bg-[#e5d3ff] text-[#7054dc]',
-      image: '/assets/images/beranda-siswa/sosiologi.png',
-    },
-    {
-      id: 2,
-      name: 'Kimia',
-      topik: 4,
-      materi: 15,
-      progress: 100,
-      status: 'Sudah Selesai',
-      statusColor: 'bg-[#fce5cc] text-[#f39b39]',
-      image: '/assets/images/beranda-siswa/kimia.png',
-    },
-    {
-      id: 3,
-      name: 'Bahasa Inggris',
-      topik: 4,
-      materi: 15,
-      progress: 80,
-      status: 'Sedang Berjalan',
-      statusColor: 'bg-[#e5d3ff] text-[#7054dc]',
-      image: '/assets/images/beranda-siswa/informatika.png',
-    },
-    {
-      id: 4,
-      name: 'Matematika',
-      topik: 4,
-      materi: 15,
-      progress: 10,
-      status: 'Sedang Berjalan',
-      statusColor: 'bg-[#e5d3ff] text-[#7054dc]',
-      image: '/assets/images/beranda-siswa/matematika.png',
-    },
-  ];
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    const fetchDashboard = async () => {
+      try {
+        const data = await dashboardApi.siswa();
+        setDashboard(data);
+      } catch (err: unknown) {
+        console.error('Dashboard fetch error:', err);
+        setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchDashboard();
+  }, [authLoading, user]);
+
+  // Derive data from dashboard response
+  const progressData: ProgressItem[] = dashboard?.latestProgress ?? [];
+  const modulCount = dashboard?.accessibleModules?.length ?? 0;
+  const certCount = dashboard?.certificateData?.length ?? 0;
+  const lastActivity = dashboard?.lastActivity ?? null;
+
+  // Calculate overall stats
+  const totalProgress = progressData.length;
+  const completedCount = progressData.filter((p) => p.isGraduated || p.status === 'COMPLETED').length;
+  const inProgressCount = totalProgress - completedCount;
+  const completedPercent = totalProgress > 0 ? Math.round((completedCount / totalProgress) * 100) : 0;
+  const inProgressPercent = totalProgress > 0 ? 100 - completedPercent : 0;
+
+  // SVG donut calculations
+  const circumference = 2 * Math.PI * 82; // ~515.22
+  const completedArc = (completedPercent / 100) * circumference;
+  const inProgressArc = (inProgressPercent / 100) * circumference;
+
+  const getStatusLabel = (item: ProgressItem) => {
+    if (item.isGraduated || item.status === 'COMPLETED') return 'Sudah Selesai';
+    return 'Sedang Berjalan';
+  };
+
+  const getStatusColor = (item: ProgressItem) => {
+    if (item.isGraduated || item.status === 'COMPLETED') return 'bg-[#fce5cc] text-[#f39b39]';
+    return 'bg-[#e5d3ff] text-[#7054dc]';
+  };
+
+  const getModuleName = (item: ProgressItem) => {
+    return item.modul?.moduleName || item.modul?.nama_modul || `Modul ${item.modulId?.slice(0, 8) || ''}`;
+  };
+
+  if (authLoading || isLoadingData) {
+    return (
+      <div className="min-h-screen bg-[#ffffff]">
+        <SiswaHeader />
+        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
+              <p className="text-sm text-[#8a8a96]">Memuat dashboard...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#ffffff]">
@@ -64,6 +93,13 @@ export default function BerandaSiswaPage() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+        {/* Error */}
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
         {/* Top Row */}
         <div className="mb-6 flex items-start justify-between gap-4">
           <h2 className="text-2xl font-bold text-[#21212b]">Beranda</h2>
@@ -87,7 +123,7 @@ export default function BerandaSiswaPage() {
           {/* Hero Banner */}
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#26262A] to-[#2f3138] p-6 text-white lg:col-span-2">
             <div className="relative z-10">
-              <p className="mb-3 text-sm">Halo, Olivia! 👋</p>
+              <p className="mb-3 text-sm">Halo, {user?.nama_lengkap || user?.fullName || 'Siswa'}! 👋</p>
               <h3 className="mb-6 text-xl font-bold">Siap lanjut belajar hari ini? <br /> Cek modul kelas kamu hari ini</h3>
               <button className="inline-flex items-center gap-2 rounded-lg bg-[#7054dc] px-4 py-2 text-sm font-semibold hover:bg-[#5d42b0] transition-colors">
                 Lanjutkan Belajar
@@ -115,7 +151,7 @@ export default function BerandaSiswaPage() {
                   <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#7054dc] bg-white">
                     <FaBookOpen size={16} className="text-[#7054dc]" />
                   </div>
-                  <p className="text-3xl font-semibold leading-none text-[#7054dc]">4</p>
+                  <p className="text-3xl font-semibold leading-none text-[#7054dc]">{modulCount}</p>
                 </div>
                 <div className="mt-auto max-w-[160px] pb-3 pt-6">
                   <p className="mb-2 text-[1.05rem] font-semibold text-[#202126]">Modul Terdaftar</p>
@@ -139,7 +175,7 @@ export default function BerandaSiswaPage() {
                   <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#f39b39] bg-white">
                     <RiFileList3Fill size={16} className="text-[#f39b39]" />
                   </div>
-                  <p className="text-3xl font-semibold leading-none text-[#f39b39]">2</p>
+                  <p className="text-3xl font-semibold leading-none text-[#f39b39]">{certCount}</p>
                 </div>
                 <div className="mt-auto max-w-[165px] pb-3 pt-6">
                   <p className="mb-2 text-[1.05rem] font-semibold text-[#202126]">Sertifikat</p>
@@ -181,22 +217,18 @@ export default function BerandaSiswaPage() {
               </div>
 
               {/* Body */}
-              {showProgress ? (
+              {showProgress && progressData.length > 0 ? (
                 progressData.map((item) => (
                   <div key={item.id} className="flex border-b border-[#f0f0f0] last:border-b-0 hover:bg-[#fafafa] transition-colors py-4 px-6">
                     <div className="flex-1 flex items-center gap-3">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-white">
-                        <Image
-                          src={item.image}
-                          alt={item.name}
-                          width={56}
-                          height={56}
-                          className="rounded-md"
-                        />
+                      <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#f1ecff]">
+                        <FaBookOpen size={24} className="text-[#7054dc]" />
                       </div>
                       <div>
-                        <span className="font-medium text-[#21212b]">{item.name}</span>
-                        <p className="text-sm text-[#8a8a96]">{item.topik} Topik | {item.materi} Materi</p>
+                        <span className="font-medium text-[#21212b]">{getModuleName(item)}</span>
+                        <p className="text-sm text-[#8a8a96]">
+                          {item.status === 'COMPLETED' ? 'Selesai' : `${Math.round(item.progressPercentage || 0)}% selesai`}
+                        </p>
                       </div>
                     </div>
 
@@ -204,19 +236,31 @@ export default function BerandaSiswaPage() {
                       <div className="flex-1 max-w-[220px] h-2 bg-[#e7e7e7] rounded-full overflow-hidden">
                         <div
                           className="h-full bg-[#7054dc] transition-all"
-                          style={{ width: `${item.progress}%` }}
+                          style={{ width: `${item.progressPercentage || 0}%` }}
                         />
                       </div>
-                      <span className="text-sm font-medium text-[#8a8a96] min-w-[40px]">{item.progress}%</span>
+                      <span className="text-sm font-medium text-[#8a8a96] min-w-[40px]">{Math.round(item.progressPercentage || 0)}%</span>
                     </div>
 
                     <div className="w-32 flex items-center">
-                      <span className={`inline-flex items-center rounded-lg px-3 py-1 text-xs font-semibold ${item.statusColor}`}>
-                        {item.status}
+                      <span className={`inline-flex items-center rounded-lg px-3 py-1 text-xs font-semibold ${getStatusColor(item)}`}>
+                        {getStatusLabel(item)}
                       </span>
                     </div>
                   </div>
                 ))
+              ) : showProgress && progressData.length === 0 ? (
+                <div className="flex justify-center px-4 py-8">
+                  <div className="flex flex-col items-center justify-center gap-3 mt-10">
+                    <Image
+                      src="/assets/images/beranda-siswa/belum-ada.png"
+                      alt="No progress"
+                      width={150}
+                      height={150}
+                    />
+                    <p className="text-sm text-[#8a8a96]">Belum ada progres belajar</p>
+                  </div>
+                </div>
               ) : (
                 <div className="flex justify-center px-4 py-8">
                   <div className="flex flex-col items-center justify-center gap-3 mt-20">
@@ -244,28 +288,37 @@ export default function BerandaSiswaPage() {
                   </div>
                   <h4 className="text-sm font-semibold text-[#21212b]">Aktivitas Belajar Terakhir</h4>
                 </div>
-                <span className="text-xs text-[#8a8a96]">4 jam lalu</span>
               </div>
               
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/10 text-black">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
+              {lastActivity ? (
+                <>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/10 text-black">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+                      <span className="text-sm font-medium text-[#21212b]">
+                        {lastActivity.modul?.moduleName || lastActivity.modul?.nama_modul || 'Modul Terbaru'}
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm text-[#8a8a96]">
+                      Progres: {Math.round(lastActivity.progressPercentage || 0)}%
+                    </p>
                   </div>
-                  <span className="text-sm font-medium text-[#21212b]">Jaringan pada Tumbuhan</span>
-                </div>
-                
-                <p className="text-sm text-[#8a8a96]">Modul : Biologi</p>
-              </div>
-              
-              <div className="mt-4 flex justify-end">
-                <a href="#" className="inline-flex items-center gap-1 text-sm font-semibold text-[#f39b39] hover:text-[#e68a2a] transition-colors">
-                  Lanjutkan
-                  <MdOutlineKeyboardArrowRight size={16} />
-                </a>
-              </div>
+                  
+                  <div className="mt-4 flex justify-end">
+                    <a href="#" className="inline-flex items-center gap-1 text-sm font-semibold text-[#f39b39] hover:text-[#e68a2a] transition-colors">
+                      Lanjutkan
+                      <MdOutlineKeyboardArrowRight size={16} />
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-[#8a8a96]">Belum ada aktivitas belajar</p>
+              )}
             </div>
 
             {/* Statistics */}
@@ -282,7 +335,7 @@ export default function BerandaSiswaPage() {
                       fill="none"
                       stroke="#f39b39"
                       strokeWidth="42"
-                      strokeDasharray="128.8 515.2"
+                      strokeDasharray={`${completedArc} ${circumference - completedArc}`}
                       strokeDashoffset="0"
                       strokeLinecap="butt"
                       transform="rotate(-90 110 110)"
@@ -294,8 +347,8 @@ export default function BerandaSiswaPage() {
                       fill="none"
                       stroke="#7054dc"
                       strokeWidth="42"
-                      strokeDasharray="386.4 515.2"
-                      strokeDashoffset="-128.8"
+                      strokeDasharray={`${inProgressArc} ${circumference - inProgressArc}`}
+                      strokeDashoffset={`${-completedArc}`}
                       strokeLinecap="butt"
                       transform="rotate(-90 110 110)"
                     />
@@ -306,7 +359,7 @@ export default function BerandaSiswaPage() {
                     <div className="absolute inset-0 rounded-full bg-white/20" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#f39b39] shadow-[0_8px_18px_rgba(243,155,57,0.12)]">
-                        25%
+                        {completedPercent}%
                       </div>
                     </div>
                   </div>
@@ -315,7 +368,7 @@ export default function BerandaSiswaPage() {
                     <div className="absolute inset-0 rounded-full bg-white/20" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#7054dc] shadow-[0_8px_18px_rgba(112,84,220,0.12)]">
-                        75%
+                        {inProgressPercent}%
                       </div>
                     </div>
                   </div>
@@ -324,11 +377,11 @@ export default function BerandaSiswaPage() {
                 <div className="flex gap-4 text-xs font-medium">
                   <div className="flex items-center gap-2">
                     <div className="h-2.5 w-2.5 rounded-full bg-[#7054dc]"></div>
-                    <span className="text-[#21212b]">Sedang Berjalan</span>
+                    <span className="text-[#21212b]">Sedang Berjalan ({inProgressCount})</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="h-2.5 w-2.5 rounded-full bg-[#f39b39]"></div>
-                    <span className="text-[#21212b]">Selesai</span>
+                    <span className="text-[#21212b]">Selesai ({completedCount})</span>
                   </div>
                 </div>
               </div>

@@ -7,8 +7,10 @@ import { MdDone, MdLogout, MdMenu, MdOutlineKeyboardArrowDown, MdOutlineKeyboard
 import { FaBell } from 'react-icons/fa';
 import { RiCustomerService2Line } from 'react-icons/ri';
 import { IoPersonCircle } from 'react-icons/io5';
+import { useAuth } from '../../context/AuthContext';
 
 export default function SiswaHeader() {
+  const { user, logout } = useAuth();
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const notificationMenuRef = useRef<HTMLDivElement>(null);
@@ -156,9 +158,9 @@ export default function SiswaHeader() {
                   <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-[#8a8a96]">Profil</p>
                   <div className="mt-1.5 space-y-2">
                     <div>
-                      <p className="text-[1rem] font-bold leading-tight text-[#7b7f8b]">Olivia Rodrigo</p>
+                      <p className="text-[1rem] font-bold leading-tight text-[#7b7f8b]">{user?.nama_lengkap || user?.fullName || 'User'}</p>
                       <p className="mt-1 text-[0.78rem] font-semibold leading-tight text-[#7b7f8b]">
-                        oliviolivrgio@gmail.com
+                        {user?.email || ''}
                       </p>
                     </div>
                   </div>
@@ -198,6 +200,7 @@ export default function SiswaHeader() {
 
                   <button
                     type="button"
+                    onClick={() => { setIsProfileMenuOpen(false); logout(); }}
                     className="mt-1 flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[#ff7268] transition-colors hover:bg-[#fff6f5]"
                   >
                     <span className="flex h-5 w-5 items-center justify-center text-[#ff7268]">

@@ -3,8 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { MdKeyboardArrowDown, MdOutlineVisibility, MdOutlineVisibilityOff } from 'react-icons/md';
+import { useAuth } from '../context/AuthContext';
+import type { SiswaRegisterPayload } from '../lib/api';
 
 export default function DaftarPage() {
+  const { register } = useAuth();
   const [namaLengkap, setNamaLengkap] = useState('');
   const [email, setEmail] = useState('');
   const [akses, setAkses] = useState('');
@@ -56,30 +59,48 @@ export default function DaftarPage() {
     setError('');
     setIsLoading(true);
 
-    // Simulate signup request
-    setTimeout(() => {
-      if (!namaLengkap || !email || !akses) {
-        setError('Semua field harus diisi');
-      } else if (akses === 'siswa' && (!jenjang || !tingkatKelas)) {
-        setError('Jenjang dan tingkat kelas harus diisi');
-      } else if ((akses === 'siswa' || akses === 'umum') && (!password || !confirmPassword)) {
-        setError('Password dan konfirmasi password harus diisi');
-      } else if ((akses === 'siswa' || akses === 'umum') && password !== confirmPassword) {
-        setError('Konfirmasi password tidak sama');
-      } else {
-        // Here you would typically send data to your backend
-        console.log('Signup attempt:', {
-          namaLengkap,
-          email,
-          akses,
-          jenjang,
-          tingkatKelas,
-          password,
-          confirmPassword,
-        });
-      }
+    if (!namaLengkap || !email || !akses) {
+      setError('Semua field harus diisi');
       setIsLoading(false);
-    }, 1000);
+      return;
+    }
+    
+    if (akses === 'siswa' && (!jenjang || !tingkatKelas)) {
+      setError('Jenjang dan tingkat kelas harus diisi');
+      setIsLoading(false);
+      return;
+    }
+    
+    if (!password || !confirmPassword) {
+      setError('Password dan konfirmasi password harus diisi');
+      setIsLoading(false);
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      setError('Konfirmasi password tidak sama');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const payload: SiswaRegisterPayload = {
+        role: "siswa",
+        email,
+        password,
+        nama_lengkap: namaLengkap,
+        jenjang: jenjang.toUpperCase(),
+        kelas_sekolah: tingkatKelas || "1"
+      };
+
+      await register(payload);
+      // Redirect to /login is handled by AuthContext
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Gagal mendaftar. Silakan coba lagi.';
+      setError(message);
+      setIsLoading(false);
+    }
   };
 
   return (

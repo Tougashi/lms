@@ -1,14 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MdOutlineVisibility, MdOutlineVisibilityOff } from 'react-icons/md';
-
-const API_BASE = 'https://lms-express-api-o5uk.vercel.app';
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
-  const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,34 +25,12 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || 'Email atau password salah');
-        setIsLoading(false);
-        return;
-      }
-
-      // Store user data in localStorage
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('role', data.role);
-
-      // Redirect based on role
-      if (data.role === 'tutor') {
-        router.push('/beranda-guru');
-      } else {
-        router.push('/beranda-siswa');
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError('Terjadi kesalahan jaringan. Silakan coba lagi.');
+      await login(email, password);
+      // Redirect is handled by AuthContext based on role
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Email atau password salah';
+      setError(message);
       setIsLoading(false);
     }
   };

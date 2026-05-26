@@ -1,123 +1,13 @@
 'use client';
 
 import Image from 'next/image';
-import { Suspense, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { FaRegStar, FaStar } from 'react-icons/fa';
 import { FiExternalLink, FiPlus } from 'react-icons/fi';
 import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
 import GuruHeader from '../component/guru/GuruHeader';
-
-type ModuleItem = {
-  id: number;
-  title: string;
-  topicInfo: string;
-  durationInfo: string;
-  students: string;
-  rating: number;
-  image: string;
-};
-
-type DraftItem = {
-  id: number;
-  title: string;
-  updatedAt: string;
-  image: string;
-};
-
-type ReviewItem = {
-  id: number;
-  name: string;
-  module: string;
-  comment: string;
-  date: string;
-  avatar: string;
-  rating: number;
-};
-
-const topModulesData: ModuleItem[] = [
-  {
-    id: 1,
-    title: 'Biologi',
-    topicInfo: '4 Topik',
-    durationInfo: '15 Materi | 6 Bulan',
-    students: '35 Siswa',
-    rating: 4.9,
-    image: '/assets/images/beranda-siswa/sosiologi.png',
-  },
-  {
-    id: 2,
-    title: 'Kimia',
-    topicInfo: '4 Topik',
-    durationInfo: '15 Materi | 6 Bulan',
-    students: '50 Siswa',
-    rating: 4.9,
-    image: '/assets/images/beranda-siswa/kimia.png',
-  },
-  {
-    id: 3,
-    title: 'Biologi Terapan',
-    topicInfo: '4 Topik',
-    durationInfo: '15 Materi | 6 Bulan',
-    students: '35 Siswa',
-    rating: 4.9,
-    image: '/assets/images/beranda-siswa/informatika.png',
-  },
-];
-
-const draftData: DraftItem[] = [
-  {
-    id: 1,
-    title: 'Kalkulus Lanjut',
-    updatedAt: '15 Mar 2026',
-    image: '/assets/images/beranda-siswa/matematika.png',
-  },
-  {
-    id: 2,
-    title: 'Nama Modul',
-    updatedAt: '6 Mar 2026',
-    image: '/assets/images/landing/Microscope.png',
-  },
-  {
-    id: 3,
-    title: 'Nama Modul',
-    updatedAt: '2 Mar 2026',
-    image: '/assets/images/landing/certification.png',
-  },
-];
-
-const reviewData: ReviewItem[] = [
-  {
-    id: 1,
-    name: 'Olivia Rodrigo',
-    module: 'Modul: Biologi',
-    comment:
-      'Suka banget sama alur modul ini! Materi yang tadinya aku pikir bakal susah, ternyata pas dipelajari di sini jadi kerasa lebih simpel dan jelasinya enak didengar',
-    date: '15 Feb 2026',
-    avatar: '/assets/images/beranda-siswa/modul.png',
-    rating: 5,
-  },
-  {
-    id: 2,
-    name: 'Jonathan Putra',
-    module: 'Modul: Biologi',
-    comment:
-      'Jujur, aku betah banget belajar di modul ini. Aku paling suka bagian kuisnya sih, seru banget dan bikin aku jadi tertantang buat dapat skor sempurna!',
-    date: '15 Feb 2026',
-    avatar: '/assets/images/beranda-siswa/kimia.png',
-    rating: 5,
-  },
-  {
-    id: 3,
-    name: 'Erica Cantika',
-    module: 'Modul: Biologi Terapan',
-    comment:
-      'Aku ngerasa progres belajarku jadi lebih teratur semenjak pakai modul ini. Dari yang awalnya aku bingung mau mulai dari mana, sekarang jadi paham urutannya',
-    date: '15 Feb 2026',
-    avatar: '/assets/images/beranda-siswa/informatika.png',
-    rating: 5,
-  },
-];
+import { useAuth } from '../context/AuthContext';
+import { dashboardApi, type TutorDashboard, type ModuleItem, type RatingItem } from '../lib/api';
 
 function StatCard({ value, label }: { value: number; label: string }) {
   return (
@@ -146,28 +36,73 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+function getModuleName(item: ModuleItem): string {
+  return item.moduleName || item.nama_modul || 'Modul';
+}
+
 function BerandaGuruPageContent() {
-  const searchParams = useSearchParams();
-  const mode = searchParams.get('state');
+  const { user, isLoading: authLoading } = useAuth();
+  const [dashboard, setDashboard] = useState<TutorDashboard | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [error, setError] = useState('');
 
-  const hasData = useMemo(() => mode !== 'empty', [mode]);
+  useEffect(() => {
+    if (authLoading || !user) return;
 
-  const topModules = hasData ? topModulesData : [];
-  const draftModules = hasData ? draftData : [];
-  const reviews = hasData ? reviewData : [];
+    const fetchDashboard = async () => {
+      try {
+        const data = await dashboardApi.tutor();
+        setDashboard(data);
+      } catch (err: unknown) {
+        console.error('Tutor dashboard fetch error:', err);
+        setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchDashboard();
+  }, [authLoading, user]);
 
   const stats = {
-    published: hasData ? 4 : 0,
-    drafts: hasData ? 3 : 0,
-    totalStudents: hasData ? 50 : 0,
-    totalCompleted: hasData ? 35 : 0,
+    published: dashboard?.countPublishedModules ?? 0,
+    drafts: dashboard?.countDraftModules ?? 0,
+    totalStudents: dashboard?.countRegisteredSiswa ?? 0,
+    totalCompleted: dashboard?.countSiswaLulus ?? 0,
   };
+
+  const topModules: ModuleItem[] = dashboard?.nominatedModules ?? [];
+  const draftModules: ModuleItem[] = dashboard?.getDraftModules ?? [];
+  const reviews: RatingItem[] = dashboard?.getRatingsFromSiswa ?? [];
+
+  if (authLoading || isLoadingData) {
+    return (
+      <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
+        <GuruHeader />
+        <main className="mx-auto w-full max-w-[1260px] px-6 pb-8 pt-8">
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7557ea] border-t-transparent"></div>
+              <p className="text-sm text-[#8a8d98]">Memuat dashboard...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
       <GuruHeader />
 
       <main className="mx-auto w-full max-w-[1260px] px-6 pb-8 pt-8">
+        {/* Error */}
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-[14px] text-[#676b79]">Beranda</p>
@@ -210,8 +145,8 @@ function BerandaGuruPageContent() {
               <div className="overflow-x-auto">
                 <div className="grid grid-cols-[minmax(0,1.8fr)_0.6fr_0.9fr] px-5 py-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-[#8c8f9b]">
                   <p>Modul</p>
-                  <p>Rating</p>
-                  <p>Total Enroll</p>
+                  <p>Jenjang</p>
+                  <p>Kesulitan</p>
                 </div>
 
                 {topModules.map((item, index) => (
@@ -222,23 +157,24 @@ function BerandaGuruPageContent() {
                     }`}
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="h-12 w-12 overflow-hidden rounded-xl bg-[#f2f4fb]">
-                        <Image src={item.image} alt={item.title} width={48} height={48} className="h-full w-full object-cover" />
+                      <div className="h-12 w-12 overflow-hidden rounded-xl bg-[#f2f4fb] flex items-center justify-center">
+                        <FiExternalLink size={20} className="text-[#7557ea]" />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-[16px] font-semibold text-[#232530]">{item.title}</p>
+                        <p className="truncate text-[16px] font-semibold text-[#232530]">{getModuleName(item)}</p>
                         <p className="mt-0.5 truncate text-[13px] text-[#7e8290]">
-                          {item.topicInfo} | {item.durationInfo}
+                          {item.subtitle || item.deskripsi || ''}
                         </p>
                       </div>
                     </div>
 
-                    <p className="flex items-center gap-1 text-[14px] font-medium text-[#555968]">
-                      <FaStar size={12} className="text-[#f9b837]" />
-                      {item.rating}
+                    <p className="text-[14px] text-[#555968]">
+                      {item.level || item.jenjang || '-'}
                     </p>
 
-                    <p className="text-[14px] text-[#555968]">{item.students}</p>
+                    <p className="text-[14px] text-[#555968]">
+                      {item.difficulty || item.tingkat_kesulitan || '-'}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -274,16 +210,18 @@ function BerandaGuruPageContent() {
                     }`}
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="h-12 w-12 overflow-hidden rounded-xl bg-[#f1f0fd]">
-                        <Image src={item.image} alt={item.title} width={48} height={48} className="h-full w-full object-cover" />
+                      <div className="h-12 w-12 overflow-hidden rounded-xl bg-[#f1f0fd] flex items-center justify-center">
+                        <FiExternalLink size={20} className="text-[#7557ea]" />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-[16px] font-semibold text-[#232530]">{item.title}</p>
+                        <p className="truncate text-[16px] font-semibold text-[#232530]">{getModuleName(item)}</p>
                         <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-[#8d90a0]">DRAF</p>
                       </div>
                     </div>
 
-                    <p className="text-[14px] text-[#555968]">{item.updatedAt}</p>
+                    <p className="text-[14px] text-[#555968]">
+                      {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+                    </p>
 
                     <button
                       type="button"
@@ -330,12 +268,16 @@ function BerandaGuruPageContent() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 overflow-hidden rounded-full bg-[#f3f4f8]">
-                      <Image src={review.avatar} alt={review.name} width={44} height={44} className="h-full w-full object-cover" />
+                    <div className="h-11 w-11 overflow-hidden rounded-full bg-[#f3f4f8] flex items-center justify-center">
+                      <span className="text-lg font-bold text-[#7557ea]">
+                        {(review.siswa?.nama_lengkap || 'S').charAt(0).toUpperCase()}
+                      </span>
                     </div>
                     <div>
-                      <p className="text-[16px] font-semibold text-[#252834]">{review.name}</p>
-                      <p className="text-[13px] text-[#767a89]">{review.module}</p>
+                      <p className="text-[16px] font-semibold text-[#252834]">{review.siswa?.nama_lengkap || 'Siswa'}</p>
+                      <p className="text-[13px] text-[#767a89]">
+                        {review.modul?.nama_modul ? `Modul: ${review.modul.nama_modul}` : ''}
+                      </p>
                     </div>
                   </div>
 
@@ -350,11 +292,13 @@ function BerandaGuruPageContent() {
                       ))}
                       <span className="ml-1 text-[14px] font-semibold text-[#555968]">{review.rating}</span>
                     </div>
-                    <p className="text-[14px] leading-[1.45] text-[#444856]">{review.comment}</p>
+                    <p className="text-[14px] leading-[1.45] text-[#444856]">{review.komentar || ''}</p>
                   </div>
 
                   <div className="text-left lg:justify-self-end lg:text-right">
-                    <p className="mb-1 text-[13px] text-[#7e8290]">{review.date}</p>
+                    <p className="mb-1 text-[13px] text-[#7e8290]">
+                      {review.createdAt ? new Date(review.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                    </p>
                     <button type="button" className="text-[#505461] transition-colors hover:text-[#252834]">
                       <FiExternalLink size={18} />
                     </button>

@@ -7,8 +7,11 @@ import {
   MdOutlineVisibility,
   MdOutlineVisibilityOff,
 } from 'react-icons/md';
+import { useAuth } from '../context/AuthContext';
+import type { TutorRegisterPayload } from '../lib/api';
 
 export default function DaftarTutorPage() {
+  const { register } = useAuth();
   const [namaLengkap, setNamaLengkap] = useState('');
   const [jenisKelamin, setJenisKelamin] = useState('');
   const [tanggalLahir, setTanggalLahir] = useState('');
@@ -68,45 +71,58 @@ export default function DaftarTutorPage() {
     setCvFileName(file.name);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      if (
-        !namaLengkap ||
-        !jenisKelamin ||
-        !tanggalLahir ||
-        !pekerjaan ||
-        !email ||
-        !whatsapp ||
-        !tingkatPendidikan ||
-        !namaUniversitas ||
-        !programStudi ||
-        !password ||
-        !konfirmasiPassword
-      ) {
-        setError('Semua field wajib diisi kecuali CV');
-      } else if (password !== konfirmasiPassword) {
-        setError('Konfirmasi password tidak sama');
-      } else {
-        console.log('Daftar tutor:', {
-          namaLengkap,
-          jenisKelamin,
-          tanggalLahir,
-          pekerjaan,
-          email,
-          whatsapp,
-          tingkatPendidikan,
-          namaUniversitas,
-          programStudi,
-          cvFileName,
-        });
-      }
-
+    if (
+      !namaLengkap ||
+      !jenisKelamin ||
+      !tanggalLahir ||
+      !pekerjaan ||
+      !email ||
+      !whatsapp ||
+      !tingkatPendidikan ||
+      !namaUniversitas ||
+      !programStudi ||
+      !password ||
+      !konfirmasiPassword
+    ) {
+      setError('Semua field wajib diisi');
       setIsLoading(false);
-    }, 900);
+      return;
+    } 
+    
+    if (password !== konfirmasiPassword) {
+      setError('Konfirmasi password tidak sama');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const payload: TutorRegisterPayload = {
+        role: "tutor",
+        fullName: namaLengkap,
+        email,
+        password,
+        gender: jenisKelamin === "laki-laki" ? "L" : "P",
+        pekerjaan,
+        whatsappNumber: whatsapp,
+        lastEducation: tingkatPendidikan.toUpperCase(),
+        institution: namaUniversitas,
+        prodi: programStudi,
+        cvPathUrl: cvFileName ? `https://example.com/${cvFileName}` : "https://example.com/cv.pdf"
+      };
+
+      await register(payload);
+      // Redirect to /login is handled by AuthContext
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Gagal mendaftar. Silakan coba lagi.';
+      setError(message);
+      setIsLoading(false);
+    }
   };
 
   return (
