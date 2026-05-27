@@ -2,9 +2,11 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FaLock, FaSearch } from 'react-icons/fa';
-import SiswaHeader from '../component/siswa/SiswaHeader';
+import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
+import Header from '../component/Header';
+import { useAuth } from '../context/AuthContext';
 import { moduleDetails } from '../modul/dummy';
 
 type RegisteredModule = (typeof moduleDetails)[number] & {
@@ -30,7 +32,10 @@ const statusFilters = [
 ] as const;
 
 export default function EksplorModulPage() {
-  const [activeTab, setActiveTab] = useState<'relevan' | 'terdaftar'>('terdaftar');
+  const { user } = useAuth();
+  const isLoggedIn = Boolean(user);
+
+  const [activeTab, setActiveTab] = useState<'relevan' | 'terbaru' | 'terdaftar'>('relevan');
   const [activeStatus, setActiveStatus] = useState<(typeof statusFilters)[number]['id']>('semua');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -76,8 +81,31 @@ export default function EksplorModulPage() {
     [registeredModules]
   );
 
+  const latestModules = useMemo(
+    () =>
+      moduleDetails
+        .filter((item) => !registeredModules.some((registeredItem) => registeredItem.slug === item.slug))
+        .slice(0, 8),
+    [registeredModules]
+  );
+
+  useEffect(() => {
+    if (isLoggedIn && activeTab === 'terbaru') {
+      setActiveTab('relevan');
+    }
+
+    if (!isLoggedIn && activeTab === 'terdaftar') {
+      setActiveTab('relevan');
+    }
+  }, [activeTab, isLoggedIn]);
+
   const filteredModules = useMemo(() => {
-    const source = activeTab === 'terdaftar' ? registeredModules : relevantModules;
+    const source =
+      activeTab === 'terdaftar' && isLoggedIn
+        ? registeredModules
+        : activeTab === 'terbaru' && !isLoggedIn
+          ? latestModules
+          : relevantModules;
 
     return source.filter((item) => {
       const matchesSearch =
@@ -88,19 +116,19 @@ export default function EksplorModulPage() {
         return false;
       }
 
-      if (activeTab !== 'terdaftar' || activeStatus === 'semua' || !('status' in item)) {
+      if (activeTab !== 'terdaftar' || !isLoggedIn || activeStatus === 'semua' || !('status' in item)) {
         return true;
       }
 
       return item.status === activeStatus;
     });
-  }, [activeStatus, activeTab, registeredModules, relevantModules, searchQuery]);
+  }, [activeStatus, activeTab, isLoggedIn, latestModules, registeredModules, relevantModules, searchQuery]);
 
   return (
     <div className="min-h-screen bg-[#ffffff]">
-      <SiswaHeader />
+      <Header />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-7xl px-4 pt-24 pb-8 sm:px-6 sm:pt-28 sm:pb-10">
         <div className="mb-6 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
             <h1 className="text-xl font-bold text-[#202126]">Eksplor Modul</h1>
@@ -116,20 +144,34 @@ export default function EksplorModulPage() {
               >
                 Modul yang Relevan
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('terdaftar')}
-                className={`border-b-2 pb-1 transition-colors ${
-                  activeTab === 'terdaftar'
-                    ? 'border-[#7054dc] text-[#202126]'
-                    : 'border-transparent text-[#60636d] hover:text-[#202126]'
-                }`}
-              >
-                Terdaftar
-              </button>
+              {isLoggedIn ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('terdaftar')}
+                  className={`border-b-2 pb-1 transition-colors ${
+                    activeTab === 'terdaftar'
+                      ? 'border-[#7054dc] text-[#202126]'
+                      : 'border-transparent text-[#60636d] hover:text-[#202126]'
+                  }`}
+                >
+                  Terdaftar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('terbaru')}
+                  className={`border-b-2 pb-1 transition-colors ${
+                    activeTab === 'terbaru'
+                      ? 'border-[#7054dc] text-[#202126]'
+                      : 'border-transparent text-[#60636d] hover:text-[#202126]'
+                  }`}
+                >
+                    Modul Terbaru
+                </button>
+              )}
             </div>
 
-            {activeTab === 'terdaftar' && (
+            {isLoggedIn && activeTab === 'terdaftar' && (
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 {statusFilters.map((filter) => (
                   <button
@@ -155,7 +197,7 @@ export default function EksplorModulPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari modul belajarmu di sini"
-              className="w-full rounded-lg border border-[#d8d9e0] bg-white px-4 py-2.5 pr-10 text-sm text-[#202126] placeholder:text-[#8d909c] focus:border-[#7054dc] focus:outline-none"
+              className="w-full rounded-full border border-[#d8d9e0] bg-white px-4 py-2.5 pr-10 text-sm text-[#202126] placeholder:text-[#8d909c] focus:border-[#7054dc] focus:outline-none"
             />
             <FaSearch className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8d909c]" size={14} />
           </div>
@@ -164,17 +206,18 @@ export default function EksplorModulPage() {
         {filteredModules.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2">
             {filteredModules.map((item) => {
-              const registeredItem = activeTab === 'terdaftar' && isRegisteredModule(item) ? item : null;
+              const registeredItem =
+                isLoggedIn && activeTab === 'terdaftar' && isRegisteredModule(item) ? item : null;
 
               return (
                 <article key={item.id} className="relative rounded-2xl border border-[#d8d9e0] bg-white p-4 sm:p-5">
-                  {activeTab === 'relevan' && item.isLocked && (
+                  {activeTab !== 'terdaftar' && (
                     <div className="absolute right-4 top-4 text-[#a4a8b2]">
-                      <FaLock size={14} />
+                      <FaLock size={14} className={item.isLocked ? '' : 'invisible'} />
                     </div>
                   )}
 
-                  <div className={`flex items-center gap-3 ${activeTab === 'relevan' ? 'pr-7 sm:gap-4' : ''}`}>
+                  <div className={`flex items-center gap-3 ${activeTab !== 'terdaftar' ? 'pr-7 sm:gap-4' : ''}`}>
                     <Image
                       src={item.image}
                       alt={item.title}
@@ -204,23 +247,21 @@ export default function EksplorModulPage() {
 
                           <Link
                             href={`/modul/${registeredItem.slug}/materi`}
-                            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#f39b39] px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                            className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg bg-[#f39b39] px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
                           >
                             Lanjut
+                            <MdOutlineKeyboardArrowRight aria-hidden="true" className="text-sm" />
                           </Link>
                         </div>
                       ) : (
                         <div className="mt-4 flex items-center justify-between gap-3">
                           <p className="truncate text-xs text-[#202126] sm:text-sm">{item.teacher}</p>
                           <Link
-                            href={`/modul/${item.slug}`}
-                            className={`inline-flex shrink-0 items-center justify-center text-xs font-semibold transition-opacity hover:opacity-90 ${
-                              activeTab === 'relevan'
-                                ? 'text-[#f39b39] sm:text-sm'
-                                : 'bg-[#f39b39] text-white'
-                            }`}
+                            href={isLoggedIn ? `/modul/${item.slug}` : '/login'}
+                            className="inline-flex shrink-0 items-center justify-center gap-1 text-xs font-semibold text-[#f39b39] transition-opacity hover:opacity-90 sm:text-sm"
                           >
-                            {activeTab === 'relevan' ? 'Lihat Lebih Lanjut' : 'Lanjut'}
+                            Lihat Lebih Lanjut
+                            <MdOutlineKeyboardArrowRight aria-hidden="true" className="text-sm" />
                           </Link>
                         </div>
                       )}
