@@ -78,17 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       const data = await authApi.login(email, password);
 
-      // Persist session
+      // Persist session info for UI (auth is via HTTP-only cookies through proxy)
       localStorage.setItem('user', JSON.stringify(data.user));
       localStorage.setItem('role', data.role);
-
-      // If API returns tokens directly, store them
-      if (data.accessToken) {
-        localStorage.setItem('accessToken', data.accessToken);
-      }
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-      }
 
       setUser(data.user);
       setRole(data.role);
@@ -132,8 +124,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.removeItem('user');
     localStorage.removeItem('role');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
 
     setUser(null);
     setRole(null);

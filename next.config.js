@@ -9,6 +9,15 @@ const nextConfig = {
       },
     ],
   },
+  async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lms-express-api-o5uk.vercel.app';
+    return [
+      {
+        source: '/api-backend/:path*',
+        destination: `${apiUrl}/:path*`,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

@@ -1,4 +1,9 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+// Use the Next.js rewrite proxy so all API calls are same-origin.
+// This ensures HTTP-only cookies are sent/received correctly.
+const API_BASE =
+  typeof window !== 'undefined'
+    ? '/api-backend' // browser → same-origin proxy
+    : (process.env.NEXT_PUBLIC_API_URL || ''); // server-side → direct
 
 // ---------------------------------------------------------------------------
 // Generic fetch wrapper
@@ -15,18 +20,10 @@ export async function apiFetch<T = unknown>(
     ...(options.headers as Record<string, string>),
   };
 
-  // Attach bearer token from localStorage when available
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
-    }
-  }
-
   const res = await fetch(url, {
     ...options,
     headers,
-    credentials: 'include', // send cookies cross-origin
+    credentials: 'include', // send cookies (same-origin via proxy)
   });
 
   // Attempt to parse JSON body (some endpoints may return empty)
