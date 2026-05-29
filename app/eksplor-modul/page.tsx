@@ -7,6 +7,7 @@ import { FaLock, FaSearch } from 'react-icons/fa';
 import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
 import Header from '../component/Header';
 import { useAuth } from '../context/AuthContext';
+import { moduleApi, type SiswaModuleItem } from '../lib/api';
 import { moduleDetails } from '../modul/dummy';
 
 type RegisteredModule = (typeof moduleDetails)[number] & {
@@ -15,7 +16,23 @@ type RegisteredModule = (typeof moduleDetails)[number] & {
   status: 'belum-mulai' | 'dalam-progress' | 'selesai';
 };
 
-function isRegisteredModule(item: (typeof moduleDetails)[number] | RegisteredModule): item is RegisteredModule {
+type PublicModuleCard = {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  difficulty: string;
+  level: string;
+  classLabel: string;
+  image: string;
+  isLocked: boolean;
+  updatedAt: string;
+  slug: string;
+};
+
+type VisibleModule = RegisteredModule | PublicModuleCard;
+
+function isRegisteredModule(item: VisibleModule): item is RegisteredModule {
   return (
     'progress' in item &&
     typeof item.progress === 'number' &&
@@ -31,13 +48,63 @@ const statusFilters = [
   { id: 'selesai', label: 'Selesai' },
 ] as const;
 
+function pickModuleImage(moduleName: string) {
+  const normalized = moduleName.toLowerCase();
+
+  if (normalized.includes('kimia')) return '/assets/images/beranda-siswa/kimia.png';
+  if (normalized.includes('informatika')) return '/assets/images/beranda-siswa/informatika.png';
+  if (normalized.includes('sosiologi')) return '/assets/images/beranda-siswa/sosiologi.png';
+  if (normalized.includes('matematika')) return '/assets/images/beranda-siswa/matematika.png';
+  if (normalized.includes('biologi')) return '/assets/images/beranda-siswa/matapelajaran.png';
+
+  return '/assets/images/beranda-siswa/modul.png';
+}
+
+function mapApiModuleToCard(item: SiswaModuleItem): PublicModuleCard {
+  const levelLabel = item.level?.trim() || 'SMA';
+  const classLabel = item.class?.trim() ? `Kelas ${item.class}` : 'Kelas 11';
+
+  return {
+    id: item.id,
+    title: item.moduleName,
+    subtitle: item.subtitle || item.description || 'Modul terbaru',
+    description: item.description,
+    difficulty: item.difficulty,
+    level: levelLabel,
+    classLabel,
+    image: pickModuleImage(item.moduleName),
+    isLocked: item.isPaid,
+    updatedAt: item.updatedAt,
+    slug: item.id,
+  };
+}
+
+function mapFallbackModuleToCard(item: (typeof moduleDetails)[number]): PublicModuleCard {
+  return {
+    id: String(item.id),
+    title: item.title,
+    subtitle: item.teacher,
+    description: item.descriptionParagraphs[0] || item.descriptionParagraphs.join(' '),
+    difficulty: item.difficulty,
+    level: item.gradeLabel.replace('Jenjang ', '').split(' | ')[0] || 'SMA',
+    classLabel: item.gradeLabel.split('|')[1]?.trim() || 'Kelas 11',
+    image: item.image,
+    isLocked: item.isLocked,
+    updatedAt: item.updatedAt,
+    slug: item.slug,
+  };
+}
+
 export default function EksplorModulPage() {
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const isLoggedIn = Boolean(user);
 
   const [activeTab, setActiveTab] = useState<'relevan' | 'terbaru' | 'terdaftar'>('relevan');
   const [activeStatus, setActiveStatus] = useState<(typeof statusFilters)[number]['id']>('semua');
   const [searchQuery, setSearchQuery] = useState('');
+  const [publicModules, setPublicModules] = useState<PublicModuleCard[]>([]);
+  const [publicModulesLoading, setPublicModulesLoading] = useState(true);
+  const [publicModulesError, setPublicModulesError] = useState('');
 
   const registeredModules = useMemo<RegisteredModule[]>(
     () => [
@@ -73,23 +140,62 @@ export default function EksplorModulPage() {
     []
   );
 
-  const relevantModules = useMemo(
-    () =>
-      moduleDetails.filter(
-        (item) => item.isRecommended && !registeredModules.some((registeredItem) => registeredItem.slug === item.slug)
-      ),
-    [registeredModules]
-  );
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadModules = async () => {
+      if (isAuthLoading) {
+        return;
+      }
+
+      setPublicModulesLoading(true);
+      setPublicModulesError('');
+
+      if (!isLoggedIn) {
+        if (!isMounted) return;
+
+        setPublicModules(moduleDetails.map(mapFallbackModuleToCard));
+        setPublicModulesLoading(false);
+        return;
+      }
+
+      try {
+        const response = await moduleApi.siswa.list();
+
+        if (!isMounted) return;
+
+        setPublicModules(response.items.map(mapApiModuleToCard));
+      } catch {
+        if (!isMounted) return;
+
+        setPublicModulesError('Gagal memuat modul dari server. Menampilkan data cadangan.');
+        setPublicModules(moduleDetails.map(mapFallbackModuleToCard));
+      } finally {
+        if (isMounted) {
+          setPublicModulesLoading(false);
+        }
+      }
+    };
+
+    void loadModules();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthLoading, isLoggedIn]);
+
+  const relevantModules = useMemo(() => publicModules, [publicModules]);
 
   const latestModules = useMemo(
-    () =>
-      moduleDetails
-        .filter((item) => !registeredModules.some((registeredItem) => registeredItem.slug === item.slug))
-        .slice(0, 8),
-    [registeredModules]
+    () => [...publicModules].sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()),
+    [publicModules]
   );
 
   useEffect(() => {
+    if (isAuthLoading) {
+      return;
+    }
+
     if (isLoggedIn && activeTab === 'terbaru') {
       setActiveTab('relevan');
     }
@@ -97,9 +203,9 @@ export default function EksplorModulPage() {
     if (!isLoggedIn && activeTab === 'terdaftar') {
       setActiveTab('relevan');
     }
-  }, [activeTab, isLoggedIn]);
+  }, [activeTab, isAuthLoading, isLoggedIn]);
 
-  const filteredModules = useMemo(() => {
+  const filteredModules = useMemo<VisibleModule[]>(() => {
     const source =
       activeTab === 'terdaftar' && isLoggedIn
         ? registeredModules
@@ -110,13 +216,15 @@ export default function EksplorModulPage() {
     return source.filter((item) => {
       const matchesSearch =
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.teacher.toLowerCase().includes(searchQuery.toLowerCase());
+        (isRegisteredModule(item) ? item.teacher.toLowerCase() : item.subtitle.toLowerCase()).includes(
+          searchQuery.toLowerCase()
+        );
 
       if (!matchesSearch) {
         return false;
       }
 
-      if (activeTab !== 'terdaftar' || !isLoggedIn || activeStatus === 'semua' || !('status' in item)) {
+      if (activeTab !== 'terdaftar' || !isLoggedIn || activeStatus === 'semua' || !isRegisteredModule(item)) {
         return true;
       }
 
@@ -128,7 +236,7 @@ export default function EksplorModulPage() {
     <div className="min-h-screen bg-[#ffffff]">
       <Header />
 
-      <main className="mx-auto max-w-7xl px-4 pt-24 pb-8 sm:px-6 sm:pt-28 sm:pb-10">
+      <main className="mx-auto max-w-7xl px-4 pt-6 pb-8 sm:px-6  sm:pb-10">
         <div className="mb-6 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
             <h1 className="text-xl font-bold text-[#202126]">Eksplor Modul</h1>
@@ -171,6 +279,10 @@ export default function EksplorModulPage() {
               )}
             </div>
 
+            {publicModulesError && (
+              <p className="mt-3 text-xs text-[#8a8a96]">{publicModulesError}</p>
+            )}
+
             {isLoggedIn && activeTab === 'terdaftar' && (
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 {statusFilters.map((filter) => (
@@ -203,17 +315,25 @@ export default function EksplorModulPage() {
           </div>
         </div>
 
-        {filteredModules.length > 0 ? (
+        {publicModulesLoading ? (
+          <div className="rounded-2xl border border-[#d8d9e0] bg-white px-4 py-10 sm:px-8">
+            <div className="flex items-center justify-center py-10">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent" />
+            </div>
+          </div>
+        ) : filteredModules.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2">
             {filteredModules.map((item) => {
               const registeredItem =
                 isLoggedIn && activeTab === 'terdaftar' && isRegisteredModule(item) ? item : null;
 
+              const isPublicCard = !registeredItem;
+
               return (
                 <article key={item.id} className="relative rounded-2xl border border-[#d8d9e0] bg-white p-4 sm:p-5">
                   {activeTab !== 'terdaftar' && (
                     <div className="absolute right-4 top-4 text-[#a4a8b2]">
-                      <FaLock size={14} className={item.isLocked ? '' : 'invisible'} />
+                      <FaLock size={14} className={isPublicCard && 'isLocked' in item && item.isLocked ? '' : 'invisible'} />
                     </div>
                   )}
 
@@ -228,7 +348,9 @@ export default function EksplorModulPage() {
 
                     <div className="min-w-0 flex-1">
                       <h3 className="text-xl font-semibold text-[#202126]">{item.title}</h3>
-                      <p className="mt-1 text-xs text-[#60636d]">Jenjang SMA | Kelas 11</p>
+                      <p className="mt-1 text-xs text-[#60636d]">
+                        {'classLabel' in item ? `${item.level} | ${item.classLabel}` : 'Jenjang SMA | Kelas 11'}
+                      </p>
 
                       {registeredItem ? (
                         <div className="mt-4 flex items-end gap-3">
@@ -255,7 +377,9 @@ export default function EksplorModulPage() {
                         </div>
                       ) : (
                         <div className="mt-4 flex items-center justify-between gap-3">
-                          <p className="truncate text-xs text-[#202126] sm:text-sm">{item.teacher}</p>
+                          <p className="truncate text-xs text-[#202126] sm:text-sm">
+                            {'subtitle' in item ? item.subtitle : item.teacher}
+                          </p>
                           <Link
                             href={isLoggedIn ? `/modul/${item.slug}` : '/login'}
                             className="inline-flex shrink-0 items-center justify-center gap-1 text-xs font-semibold text-[#f39b39] transition-opacity hover:opacity-90 sm:text-sm"

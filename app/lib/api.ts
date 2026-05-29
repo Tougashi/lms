@@ -9,9 +9,25 @@ const API_BASE =
 // Generic fetch wrapper
 // ---------------------------------------------------------------------------
 
+let refreshPromise: Promise<void> | null = null;
+
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = authApi
+      .refresh()
+      .then(() => undefined)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
 export async function apiFetch<T = unknown>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retryOn401 = true
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
 
@@ -38,6 +54,16 @@ export async function apiFetch<T = unknown>(
     const msg =
       (data as Record<string, unknown>)?.message ??
       'Terjadi kesalahan pada server';
+
+    if (res.status === 401 && retryOn401 && path !== '/auth/login' && path !== '/auth/refresh') {
+      try {
+        await refreshAccessToken();
+        return apiFetch<T>(path, options, false);
+      } catch {
+        // fall through to the original 401 error
+      }
+    }
+
     throw new ApiError(String(msg), res.status, data);
   }
 
@@ -191,6 +217,33 @@ export interface RatingItem {
 }
 
 // ---------------------------------------------------------------------------
+// Student module API types
+// ---------------------------------------------------------------------------
+
+export interface SiswaModuleItem {
+  id: string;
+  moduleName: string;
+  subtitle: string;
+  description: string;
+  targetTime: number;
+  difficulty: string;
+  isPaid: boolean;
+  modulPrice: number | null;
+  level: string;
+  class: string;
+  modulType: string;
+  tutorId: string;
+  isDraft: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SiswaModuleListResponse {
+  items: SiswaModuleItem[];
+  next_cursor: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Auth endpoints
 // ---------------------------------------------------------------------------
 
@@ -233,5 +286,21 @@ export const dashboardApi = {
 
   tutor() {
     return apiFetch<TutorDashboard>('/tutor/dashboard');
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Student module endpoints
+// ---------------------------------------------------------------------------
+
+export const moduleApi = {
+  siswa: {
+    list() {
+      return apiFetch<SiswaModuleListResponse>('/siswa/modul');
+    },
+
+    detail(id: string) {
+      return apiFetch<SiswaModuleItem>(`/siswa/modul/${id}`);
+    },
   },
 };

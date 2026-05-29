@@ -75,7 +75,7 @@ export default function BerandaSiswaPage() {
     return (
       <div className="min-h-screen bg-[#ffffff]">
         <Header />
-        <main className="mx-auto max-w-7xl px-4 pt-24 pb-8 sm:px-6 sm:pt-28 sm:pb-10">
+        <main className="mx-auto max-w-7xl px-4  pb-8 sm:px-6 pt-6 sm:pb-10">
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-4">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
@@ -92,7 +92,7 @@ export default function BerandaSiswaPage() {
       <Header />
 
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 pt-24 pb-8 sm:px-6 sm:pt-28 sm:pb-10">
+      <main className="mx-auto max-w-7xl px-4  pb-8 sm:px-6 pt-6 sm:pb-10">
         {/* Error */}
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">

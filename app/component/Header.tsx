@@ -7,6 +7,7 @@ import { FaBell } from "react-icons/fa";
 import { IoPersonCircle } from "react-icons/io5";
 import { MdClose, MdLogout, MdMenu, MdOutlineKeyboardArrowDown } from "react-icons/md";
 import { useAuth } from "../context/AuthContext";
+import SiswaHeader from "./siswa/SiswaHeader";
 
 const guestMenuItems = [
   { label: "Beranda", href: "/" },
@@ -82,6 +83,10 @@ export default function Header() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  if (!isLoading && isLoggedIn) {
+    return <SiswaHeader />;
+  }
 
   return (
     <>
