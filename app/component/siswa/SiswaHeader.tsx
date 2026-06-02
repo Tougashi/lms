@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { MdDone, MdLogout, MdMenu, MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowRight } from 'react-icons/md';
 import { FaBell } from 'react-icons/fa';
-import { RiCustomerService2Line } from 'react-icons/ri';
+import { RiCustomerService2Fill } from 'react-icons/ri';
 import { IoPersonCircle } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
 import { notificationApi, type NotificationItem } from '../../lib/api';
@@ -174,14 +174,22 @@ export default function SiswaHeader() {
             )}
           </div>
 
+          <button
+            type="button"
+            aria-label="Customer Service"
+            className="rounded-full p-2 hover:bg-[#f7f6ff]"
+          >
+            <RiCustomerService2Fill size={20} className="text-[#A4A7AE] opacity-100" />
+          </button>
+
           <div className="relative" ref={profileMenuRef}>
             <button
               type="button"
               onClick={() => setIsProfileMenuOpen((prev) => !prev)}
               className="flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white px-1.5 py-1 shadow-sm transition-colors hover:bg-[#f7f6ff]"
             >
-              <IoPersonCircle size={28} className="text-[#7054dc]" />
-              <MdOutlineKeyboardArrowDown size={18} className="text-[#8a8a96]" />
+              <IoPersonCircle size={28} className="text-[#A4A7AE] opacity-100" />
+              <MdOutlineKeyboardArrowDown size={18} className="text-[#A4A7AE] opacity-100" />
             </button>
 
             {isProfileMenuOpen && (
@@ -199,13 +207,6 @@ export default function SiswaHeader() {
                 </div>
 
                 <div className="border-t border-[#d7d9df] bg-white px-2 py-2">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[#7b7f8b] transition-colors hover:bg-[#f7f6ff]"
-                  >
-                    <RiCustomerService2Line size={16} />
-                    <span className="text-[0.78rem] font-medium leading-none">Customer Service</span>
-                  </button>
 
                   <Link
                     href="/profil"
