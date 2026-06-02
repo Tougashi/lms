@@ -6,72 +6,35 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FaSearch } from 'react-icons/fa';
 import { FiEdit2, FiMoreVertical, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { MdKeyboardArrowLeft, MdKeyboardArrowRight } from 'react-icons/md';
 
 import GuruHeader from '../component/guru/GuruHeader';
-
-type ModuleCard = {
-  id: number;
-  title: string;
-  level: string;
-  image: string;
-};
-
-const publishedModules: ModuleCard[] = [
-  {
-    id: 1,
-    title: 'Biologi',
-    level: 'Jenjang SMA | Kelas 11',
-    image: '/assets/images/beranda-siswa/matapelajaran.png',
-  },
-  {
-    id: 2,
-    title: 'Kimia',
-    level: 'Jenjang SMA | Kelas 11',
-    image: '/assets/images/beranda-siswa/kimia.png',
-  },
-  {
-    id: 3,
-    title: 'Sejarah',
-    level: 'Jenjang SMA | Kelas 11',
-    image: '/assets/images/beranda-siswa/sosiologi.png',
-  },
-  {
-    id: 4,
-    title: 'Sosiologi',
-    level: 'Jenjang SMA | Kelas 11',
-    image: '/assets/images/beranda-siswa/sosiologi.png',
-  },
-];
-
-const draftModules: ModuleCard[] = [
-  {
-    id: 5,
-    title: 'Biologi',
-    level: 'Jenjang SMA | Kelas 11',
-    image: '/assets/images/beranda-siswa/matapelajaran.png',
-  },
-  {
-    id: 6,
-    title: 'Kimia',
-    level: 'Jenjang SMA | Kelas 11',
-    image: '/assets/images/beranda-siswa/kimia.png',
-  },
-];
+import { useGuruModules } from './hooks/useGuruModules';
 
 function ModulGuruPageContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const stateParam = searchParams.get('state');
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isDraftTab = tabParam === 'draft';
 
-  const hasPublished = useMemo(() => !['empty', 'all-empty'].includes(stateParam ?? ''), [stateParam]);
-  const hasDraft = useMemo(() => !['draft-empty', 'all-empty'].includes(stateParam ?? ''), [stateParam]);
+  const {
+    modules,
+    currentPageNumber,
+    hasPrev,
+    hasNext,
+    isLoading,
+    loadModules,
+    nextPage,
+    prevPage,
+  } = useGuruModules(10);
 
-  const publishedList = hasPublished ? publishedModules : [];
-  const draftList = hasDraft ? draftModules : [];
+  useEffect(() => {
+    loadModules();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -85,7 +48,17 @@ function ModulGuruPageContent() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const currentModules = isDraftTab ? draftList : publishedList;
+  const publishedModul = useMemo(() => modules.filter((m) => !m.isDraft), [modules]);
+  const draftModul = useMemo(() => modules.filter((m) => m.isDraft), [modules]);
+
+  const activeModules = isDraftTab ? draftModul : publishedModul;
+
+  const filteredModules = useMemo(
+    () => activeModules.filter((m) =>
+      m.moduleName.toLowerCase().includes(searchQuery.toLowerCase()),
+    ),
+    [activeModules, searchQuery],
+  );
 
   return (
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
@@ -115,6 +88,8 @@ function ModulGuruPageContent() {
             <div className="flex h-[44px] w-full items-center gap-3 rounded-full border border-[#e3e1ea] bg-white px-4 text-[#8a8d98] shadow-sm md:w-auto">
               <input
                 type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari modul belajarmu di sini"
                 className="min-w-0 flex-1 bg-transparent text-[13px] text-[#2d2d3a] outline-none placeholder:text-[#9ca0ad] md:w-[220px] md:flex-none"
               />
@@ -131,7 +106,11 @@ function ModulGuruPageContent() {
           </div>
         </div>
 
-        {currentModules.length === 0 ? (
+        {isLoading ? (
+          <div className="mt-16 flex flex-col items-center justify-center text-center">
+            <p className="text-[14px] text-[#8a8d98]">Memuat data...</p>
+          </div>
+        ) : filteredModules.length === 0 ? (
           <div className="mt-16 flex flex-col items-center justify-center text-center">
             <Image
               src="/assets/images/beranda-siswa/belum-ada.png"
@@ -141,82 +120,120 @@ function ModulGuruPageContent() {
               className="h-auto w-[180px]"
             />
             <p className="mt-5 max-w-[340px] text-[14px] leading-[1.6] text-[#8a8d98]">
-              {isDraftTab
-                ? 'Tidak ada draft modul. Klik Tambah Modul untuk membuat modul Anda.'
-                : 'Tidak ada modul yang terbit. Klik Tambah Modul untuk membuat modul Anda.'}
+              {searchQuery
+                ? 'Tidak ada modul yang cocok dengan pencarian Anda.'
+                : isDraftTab
+                  ? 'Tidak ada draft modul. Klik Tambah Modul untuk membuat modul Anda.'
+                  : 'Tidak ada modul yang terbit. Klik Tambah Modul untuk membuat modul Anda.'}
             </p>
           </div>
         ) : (
-          <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-5 lg:grid-cols-2">
-            {currentModules.map((module) => (
-              <div
-                key={module.id}
-                className="relative flex items-center justify-between gap-3 rounded-2xl border border-[#eceaf4] bg-white p-4 shadow-[0_10px_22px_rgba(12,12,18,0.06)] sm:gap-4 sm:p-5"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="hidden h-[72px] w-[72px] overflow-hidden rounded-2xl bg-[#f3f4f8] sm:block sm:w-[92px]">
-                    <Image
-                      src={module.image}
-                      alt={module.title}
-                      width={92}
-                      height={72}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <h2 className="text-[16px] font-semibold text-[#232530]">{module.title}</h2>
-                    <p className="mt-1 text-[12px] text-[#7c808f]">{module.level}</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="rounded-full border border-[#bdaef4] px-4 py-1.5 text-[12px] font-semibold text-[#7557ea] transition-colors hover:bg-[#f5f2ff]"
-                      >
-                        Lihat Kelas
-                      </button>
-                      {!isDraftTab && (
-                        <Link
-                          href="/modul-guru/manajemen"
-                          className="rounded-full border border-[#f4b46f] px-4 py-1.5 text-[12px] font-semibold text-[#f39b39] transition-colors hover:bg-[#fff3e6]"
+          <>
+            <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-5 lg:grid-cols-2">
+              {filteredModules.map((modul) => (
+                <div
+                  key={modul.id}
+                  className="relative flex items-center justify-between gap-3 rounded-2xl border border-[#eceaf4] bg-white p-4 shadow-[0_10px_22px_rgba(12,12,18,0.06)] sm:gap-4 sm:p-5"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="hidden h-[72px] w-[72px] overflow-hidden rounded-2xl bg-[#f3f4f8] sm:block sm:w-[92px]">
+                      <Image
+                        src={modul.thumbnail || '/assets/images/beranda-siswa/matapelajaran.png'}
+                        alt={modul.moduleName}
+                        width={92}
+                        height={72}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <h2 className="text-[16px] font-semibold text-[#232530]">{modul.moduleName}</h2>
+                      <p className="mt-1 text-[12px] text-[#7c808f]">
+                        {[modul.level, modul.class].filter(Boolean).join(' | Kelas ') || '-'}
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          className="rounded-full border border-[#bdaef4] px-4 py-1.5 text-[12px] font-semibold text-[#7557ea] transition-colors hover:bg-[#f5f2ff]"
                         >
-                          Manajemen Modul
-                        </Link>
-                      )}
+                          Lihat Kelas
+                        </button>
+                        {!isDraftTab && (
+                          <Link
+                            href="/modul-guru/manajemen"
+                            className="rounded-full border border-[#f4b46f] px-4 py-1.5 text-[12px] font-semibold text-[#f39b39] transition-colors hover:bg-[#fff3e6]"
+                          >
+                            Manajemen Modul
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="self-start" ref={menuRef}>
-                  <button
-                    type="button"
-                    onClick={() => setOpenMenuId((prev) => (prev === module.id ? null : module.id))}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[#8a8d98] transition-colors hover:bg-[#f3f2f8]"
-                    aria-label="Buka menu"
-                  >
-                    <FiMoreVertical size={18} />
-                  </button>
+                  <div className="self-start" ref={menuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenMenuId((prev) => (prev === modul.id ? null : modul.id))}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[#8a8d98] transition-colors hover:bg-[#f3f2f8]"
+                      aria-label="Buka menu"
+                    >
+                      <FiMoreVertical size={18} />
+                    </button>
 
-                  {openMenuId === module.id && (
-                    <div className="absolute right-4 top-[56px] w-[170px] overflow-hidden rounded-xl border border-[#eceaf4] bg-white shadow-[0_12px_26px_rgba(14,14,20,0.18)]">
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#4b4f5c] hover:bg-[#f6f6fb]"
-                      >
-                        <FiEdit2 size={16} />
-                        Sunting Modul
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#ff6b5d] hover:bg-[#fff1ef]"
-                      >
-                        <FiTrash2 size={16} />
-                        Hapus Modul
-                      </button>
-                    </div>
-                  )}
+                    {openMenuId === modul.id && (
+                      <div className="absolute right-4 top-[56px] w-[170px] overflow-hidden rounded-xl border border-[#eceaf4] bg-white shadow-[0_12px_26px_rgba(14,14,20,0.18)]">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#4b4f5c] hover:bg-[#f6f6fb]"
+                        >
+                          <FiEdit2 size={16} />
+                          Sunting Modul
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#ff6b5d] hover:bg-[#fff1ef]"
+                        >
+                          <FiTrash2 size={16} />
+                          Hapus Modul
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex items-center justify-center gap-2 text-sm text-[#818694]">
+              <button
+                type="button"
+                disabled={!hasPrev}
+                onClick={prevPage}
+                className={`inline-flex items-center gap-1 rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
+                  hasPrev
+                    ? 'border-[#7557ea] text-[#7557ea] hover:bg-[#f0ebff]'
+                    : 'border-[#d4d7e2] text-[#c6c8d0] cursor-not-allowed'
+                }`}
+              >
+                <MdKeyboardArrowLeft size={14} />
+                Sebelumnya
+              </button>
+              <span className="mx-3 text-xs font-semibold text-[#4d5260]">
+                Halaman {currentPageNumber}
+              </span>
+              <button
+                type="button"
+                disabled={!hasNext}
+                onClick={nextPage}
+                className={`inline-flex items-center gap-1 rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
+                  hasNext
+                    ? 'border-[#7557ea] text-[#7557ea] hover:bg-[#f0ebff]'
+                    : 'border-[#d4d7e2] text-[#c6c8d0] cursor-not-allowed'
+                }`}
+              >
+                Selanjutnya
+                <MdKeyboardArrowRight size={14} />
+              </button>
+            </div>
+          </>
         )}
       </main>
     </div>

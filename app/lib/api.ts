@@ -28,7 +28,7 @@ import type {
     TestSubmitPayload,
     TestSubmitResult,
 } from "./types/siswa";
-import type { TutorDashboard } from "./types/guru";
+import type { TutorDashboard, GuruModuleListResponse } from "./types/guru";
 import type {
     MateriItem,
     ModuleItem,
@@ -415,5 +415,21 @@ export const moduleApi = {
         detail(id: string) {
             return apiFetch<SiswaModuleItem>(`/siswa/modul/${id}`);
         },
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Modul endpoints
+// ---------------------------------------------------------------------------
+
+export const guruModulApi = {
+    getAll(params?: { cursor?: string; limit?: number }) {
+        const query = new URLSearchParams();
+        if (params?.cursor) query.set("cursor", params.cursor);
+        if (params?.limit) query.set("limit", String(params.limit));
+        const qs = query.toString();
+        return apiFetch<GuruModuleListResponse>(
+            `/tutor/modul${qs ? `?${qs}` : ""}`,
+        );
     },
 };
