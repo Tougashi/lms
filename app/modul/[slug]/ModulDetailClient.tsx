@@ -20,8 +20,8 @@ import {
 } from 'react-icons/fa';
 import { MdTimer } from 'react-icons/md';
 import SiswaHeader from '../../component/siswa/SiswaHeader';
-import { siswaModulApi, siswaTopikApi, siswaProgressApi } from '../../lib/api';
-import type { ModuleItem, TopikItem } from '../../lib/types/modul';
+import { siswaModulApi, siswaTopikApi, siswaMateriApi, siswaProgressApi } from '../../lib/api';
+import type { ModuleItem, TopikItem, MateriItem } from '../../lib/types/modul';
 import type { ProgressDetail } from '../../lib/types/siswa';
 import { ApiError } from '../../lib/types/umum';
 
@@ -108,14 +108,23 @@ export default function ModulDetailPage({ params }: { params: { id: string } }) 
       setIsLoading(true);
       setError('');
       try {
-        const [modul, topikRaw] = await Promise.all([
+        const [modul, topikRaw, materiRaw] = await Promise.all([
           siswaModulApi.getById(id),
           siswaTopikApi.getByModul(id),
+          siswaMateriApi.getByModul(id).catch(() => []),
         ]);
         setModuleData(modul);
         const topik = extractArray<TopikItem>(topikRaw);
-        setTopikData(topik);
-        if (topik.length > 0) setOpenSection(topik[0].id);
+        const materiList = extractArray<MateriItem>(materiRaw);
+        
+        // Attach materi to their respective topik
+        const topikWithMateri = topik.map(t => ({
+          ...t,
+          materi: materiList.filter(m => m.topikId === t.id)
+        }));
+        
+        setTopikData(topikWithMateri);
+        if (topikWithMateri.length > 0) setOpenSection(topikWithMateri[0].id);
 
         // Coba ambil progress (mungkin belum terdaftar)
         try {
@@ -381,16 +390,16 @@ export default function ModulDetailPage({ params }: { params: { id: string } }) 
                             isOpen ? 'bg-[#efebff] text-[#7054dc]' : 'text-[#202126]'
                           }`}
                         >
-                          {topik.nama_topik}
+                          {topik.nama_topik || topik.nama}
                           {isOpen ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
                         </button>
 
                         {isOpen && topik.materi && topik.materi.length > 0 && (
                           <div className="space-y-3 border-t border-[#e7e4f2] px-4 py-3">
-                            {topik.materi.map((m) => (
-                              <p key={m.id} className="flex items-center gap-2 text-sm text-[#3f4454]">
+                            {topik.materi.flatMap((m) => m.submateris || m.submateri || []).map((sub) => (
+                              <p key={sub.id} className="flex items-center gap-2 text-sm text-[#3f4454]">
                                 <FaRegDotCircle size={10} className="text-[#4f5364]" />
-                                {m.nama_materi}
+                                {sub.judul}
                               </p>
                             ))}
                           </div>

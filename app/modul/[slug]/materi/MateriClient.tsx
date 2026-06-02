@@ -132,24 +132,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         const topikList = extractArray<TopikItem>(topikRaw);
         const materiList = extractArray<MateriItemApi>(materiRaw);
 
-        // Build submateri for each materi
-        const submateriByMateri: Record<string, SubmateriItem[]> = {};
-        await Promise.all(
-          materiList.map(async (m) => {
-            try {
-              const subsRaw = await siswaSubmateriApi.getByMateri(m.id);
-              submateriByMateri[m.id] = extractArray<SubmateriItem>(subsRaw);
-            } catch {
-              submateriByMateri[m.id] = [];
-            }
-          })
-        );
-
         // Build content tree
         const tree: ContentSection[] = topikList.map((topik: TopikItem) => {
           const materiForTopik = materiList.filter((m) => m.topikId === topik.id);
           const items: ContentItem[] = materiForTopik.flatMap((m) => {
-            const subs = submateriByMateri[m.id] ?? [];
+            const subs = m.submateris || m.submateri || [];
             return subs.map((sub) => ({
               id: sub.id,
               title: sub.judul,
@@ -164,7 +151,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
           // Add summary item for each topik
           items.push({
             id: `summary-${topik.id}`,
-            title: `Rangkuman ${topik.nama_topik}`,
+            title: `Rangkuman ${topik.nama_topik || topik.nama}`,
             duration: "",
             type: "summary",
             hasVideo: false,
@@ -172,7 +159,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
           return {
             id: topik.id,
-            title: topik.nama_topik,
+            title: topik.nama_topik || topik.nama || "Topik",
             items,
           };
         });
@@ -188,16 +175,66 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
         // Fetch pretest soal
         try {
-          const pretest = await siswaPretestApi.getByModul(modulId);
-          setPretestSoal(pretest.soal ?? []);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const pretest: any = await siswaPretestApi.getByModul(modulId);
+          const rawSoal = pretest.pretestQuestions || pretest.soal || [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mappedSoal = rawSoal.map((q: any) => {
+            const options = [
+              q.answerOptions?.[0]?.option || q.pilihan_a || "Pilihan A",
+              q.answerOptions?.[1]?.option || q.pilihan_b || "Pilihan B",
+              q.answerOptions?.[2]?.option || q.pilihan_c || "Pilihan C",
+              q.answerOptions?.[3]?.option || q.pilihan_d || "Pilihan D",
+            ];
+            if (q.correctAnswer && !options.includes(q.correctAnswer)) {
+               const targetIdx = q.id ? q.id.charCodeAt(q.id.length - 1) % 4 : 0;
+               options[targetIdx] = q.correctAnswer;
+            }
+            return {
+              id: q.id,
+              pertanyaan: q.pertanyaan,
+              pilihan_a: options[0],
+              pilihan_b: options[1],
+              pilihan_c: options[2],
+              pilihan_d: options[3],
+              kunci_jawaban: q.correctAnswer,
+              gambar_url: q.pretestQuestionImgUrl || q.gambar_url || null,
+            };
+          });
+          setPretestSoal(mappedSoal);
         } catch {
           setPretestSoal([]);
         }
 
         // Fetch posttest soal
         try {
-          const posttest = await siswaPosttestApi.getByModul(modulId);
-          setPosttestSoal(posttest.soal ?? []);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const posttest: any = await siswaPosttestApi.getByModul(modulId);
+          const rawSoal = posttest.posttestQuestions || posttest.soal || [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mappedSoal = rawSoal.map((q: any) => {
+            const options = [
+              q.answerOptions?.[0]?.option || q.pilihan_a || "Pilihan A",
+              q.answerOptions?.[1]?.option || q.pilihan_b || "Pilihan B",
+              q.answerOptions?.[2]?.option || q.pilihan_c || "Pilihan C",
+              q.answerOptions?.[3]?.option || q.pilihan_d || "Pilihan D",
+            ];
+            if (q.correctAnswer && !options.includes(q.correctAnswer)) {
+               const targetIdx = q.id ? q.id.charCodeAt(q.id.length - 1) % 4 : 0;
+               options[targetIdx] = q.correctAnswer;
+            }
+            return {
+              id: q.id,
+              pertanyaan: q.pertanyaan,
+              pilihan_a: options[0],
+              pilihan_b: options[1],
+              pilihan_c: options[2],
+              pilihan_d: options[3],
+              kunci_jawaban: q.correctAnswer,
+              gambar_url: q.posttestQuestionImgUrl || q.gambar_url || null,
+            };
+          });
+          setPosttestSoal(mappedSoal);
         } catch {
           setPosttestSoal([]);
         }
@@ -335,10 +372,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const elapsed = PRETEST_DURATION_SECONDS - remainingSeconds;
     setFinishedElapsedSeconds(elapsed);
 
-    const answers = currentSoal.map((soal, idx) => ({
-      questionId: soal.id,
-      answer: mapAnswerIndex(selectedAnswers[idx] ?? 0),
-    }));
+    const answers = currentSoal.map((soal, idx) => {
+      const selectedIdx = selectedAnswers[idx] ?? 0;
+      const answerText = [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d][selectedIdx] || "";
+      return {
+        questionId: soal.id,
+        answer: answerText,
+      };
+    });
 
     try {
       let result: TestSubmitResult;
@@ -348,15 +389,31 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         result = await siswaPretestApi.submit(modulId, { answers });
         setIsPretestFinished(true);
       }
-      setTestResult(result);
+
+      // Calculate totalBenar and totalSalah manually (since new API only returns score)
+      const totalBenar = currentSoal.reduce((acc, soal, idx) => {
+        const selectedIdx = selectedAnswers[idx] ?? -1;
+        if (selectedIdx === -1) return acc;
+        const answerText = [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d][selectedIdx] || "";
+        return answerText === soal.kunci_jawaban ? acc + 1 : acc;
+      }, 0);
+      const totalSalah = currentSoal.length - totalBenar;
+
+      setTestResult({
+        ...result,
+        totalBenar,
+        totalSalah,
+      });
     } catch (err: unknown) {
       console.error("Test submit error:", err);
-      // Fallback: calculate locally
       const correct = currentSoal.reduce((acc, soal, idx) => {
-        // We don't know correct answer from API (no kunci_jawaban returned)
-        return acc;
+        const selectedIdx = selectedAnswers[idx] ?? -1;
+        if (selectedIdx === -1) return acc;
+        const answerText = [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d][selectedIdx] || "";
+        return answerText === soal.kunci_jawaban ? acc + 1 : acc;
       }, 0);
-      setTestResult({ score: 0, totalBenar: 0, totalSalah: answeredCount });
+      const totalSalah = currentSoal.length - correct;
+      setTestResult({ score: 0, totalBenar: correct, totalSalah: totalSalah });
       if (assessmentType !== "posttest") setIsPretestFinished(true);
     } finally {
       setCurrentView("pretest-result");
@@ -893,7 +950,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                           <FaCheck size={11} />
                         </span>
                       </p>
-                      <p className="mt-2 text-2xl font-bold text-[#202126]">{testResult?.totalBenar ?? "-"}</p>
+                      <p className="mt-2 text-2xl font-bold text-[#202126]">
+                        {testResult?.totalBenar ?? (progress?.pretestScore != null ? Math.floor(progress.pretestScore / 10) : "-")}
+                      </p>
                     </div>
                     <div>
                       <p className="inline-flex items-center gap-1 text-lg text-[#4f5565]">
@@ -902,7 +961,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                           <FaTimes size={11} />
                         </span>
                       </p>
-                      <p className="mt-2 text-2xl font-bold text-[#202126]">{testResult?.totalSalah ?? "-"}</p>
+                      <p className="mt-2 text-2xl font-bold text-[#202126]">
+                        {testResult?.totalSalah ?? (progress?.pretestScore != null ? Math.max(0, currentSoal.length - Math.floor(progress.pretestScore / 10)) : "-")}
+                      </p>
                     </div>
                     <div>
                       <p className="inline-flex items-center gap-1 text-lg text-[#4f5565]">
@@ -911,7 +972,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                           <FaRegClock size={12} />
                         </span>
                       </p>
-                      <p className="mt-2 text-2xl font-bold text-[#202126]">{formatRemainingTime(displayedElapsedSeconds)}</p>
+                      <p className="mt-2 text-2xl font-bold text-[#202126]">
+                        {testResult ? formatRemainingTime(displayedElapsedSeconds) : "-"}
+                      </p>
                     </div>
                     <div>
                       <p className="inline-flex items-center gap-1 text-lg text-[#4f5565]">
@@ -920,7 +983,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                           <PiMedalFill size={12} />
                         </span>
                       </p>
-                      <p className="mt-2 text-2xl font-bold text-[#202126]">{testResult?.score ?? "-"}</p>
+                      <p className="mt-2 text-2xl font-bold text-[#202126]">
+                        {testResult?.score ?? progress?.pretestScore ?? "-"}
+                      </p>
                     </div>
                   </div>
 

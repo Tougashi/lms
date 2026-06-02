@@ -33,17 +33,25 @@ export interface ModuleItem {
 export interface TopikItem {
   id: string;
   modulId: string;
-  nama_topik: string;
-  urutan: number;
+  nama_topik?: string;
+  nama?: string;
+  urutan?: number;
   materi?: MateriItem[];
 }
 
 export interface MateriItem {
   id: string;
   topikId: string;
-  nama_materi: string;
-  urutan: number;
+  nama_materi?: string;
+  urutan?: number;
+  isVideo?: boolean;
+  videoUrl?: string | null;
+  article?: string | null;
+  submateris?: SubmateriItem[];
   submateri?: SubmateriItem[];
+  tutor?: {
+    fullName?: string;
+  };
 }
 
 export interface SubmateriItem {
