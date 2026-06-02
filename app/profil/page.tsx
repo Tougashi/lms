@@ -17,11 +17,10 @@ import {
 
 function extractArray<T>(res: unknown): T[] {
   if (Array.isArray(res)) return res as T[];
-  if (res && typeof res === "object" && "items" in res && Array.isArray((res as Record<string, unknown>).items)) {
-    return (res as Record<string, unknown>).items as T[];
-  }
-  if (res && typeof res === "object" && "data" in res && Array.isArray((res as Record<string, unknown>).data)) {
-    return (res as Record<string, unknown>).data as T[];
+  if (res && typeof res === "object") {
+    const obj = res as Record<string, unknown>;
+    if ("items" in obj && Array.isArray(obj.items)) return obj.items as T[];
+    if ("data" in obj && Array.isArray(obj.data)) return obj.data as T[];
   }
   return [];
 }
