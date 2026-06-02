@@ -1,6 +1,4 @@
-import { notFound } from "next/navigation";
-import { getModuleBySlug } from "../../dummy";
-import MateriClient from "./MateriClient";
+import MateriClient from './MateriClient';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -8,11 +6,6 @@ type PageProps = {
 
 export default async function MateriPage({ params }: PageProps) {
   const { slug } = await params;
-  const moduleData = getModuleBySlug(slug);
-
-  if (!moduleData) {
-    notFound();
-  }
-
-  return <MateriClient moduleData={moduleData} slug={slug} />;
+  // 'slug' is the module UUID from the API
+  return <MateriClient modulId={slug} />;
 }

@@ -27,10 +27,16 @@ export default function DaftarPage() {
   const jenjangOptions = [
     { value: 'sd', label: 'SD' },
     { value: 'smp', label: 'SMP' },
-    { value: 'sma', label: 'SMA/SMK' },
+    { value: 'smk', label: 'SMK' },
   ];
 
-  const kelasOptions = ['1', '2', '3'];
+  const kelasOptionsMap: Record<string, string[]> = {
+    sd: ['1', '2', '3', '4', '5', '6'],
+    smp: ['7', '8', '9'],
+    smk: ['10', '11', '12'],
+  };
+
+  const kelasOptions = jenjang ? kelasOptionsMap[jenjang] || [] : [];
 
   const selectedJenjangLabel = jenjangOptions.find((item) => item.value === jenjang)?.label || '';
 

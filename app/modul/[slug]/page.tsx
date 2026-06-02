@@ -1,6 +1,4 @@
-import { notFound } from "next/navigation";
-import ModulDetailClient from "./ModulDetailClient";
-import { getModuleBySlug } from "../dummy";
+import ModulDetailClient from './ModulDetailClient';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -8,11 +6,6 @@ type PageProps = {
 
 export default async function ModulDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const moduleData = getModuleBySlug(slug);
-
-  if (!moduleData) {
-    notFound();
-  }
-
-  return <ModulDetailClient moduleData={moduleData} />;
+  // 'slug' here is the module UUID from the API
+  return <ModulDetailClient params={{ id: slug }} />;
 }

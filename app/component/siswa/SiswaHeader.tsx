@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { MdDone, MdLogout, MdMenu, MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowRight } from 'react-icons/md';
@@ -8,38 +8,56 @@ import { FaBell } from 'react-icons/fa';
 import { RiCustomerService2Line } from 'react-icons/ri';
 import { IoPersonCircle } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
+import { notificationApi, type NotificationItem } from '../../lib/api';
+
+function extractNotifications(res: unknown): NotificationItem[] {
+  if (Array.isArray(res)) return res as NotificationItem[];
+  if (res && typeof res === 'object' && 'items' in res && Array.isArray((res as Record<string, unknown>).items)) {
+    return (res as Record<string, unknown>).items as NotificationItem[];
+  }
+  if (res && typeof res === 'object' && 'data' in res && Array.isArray((res as Record<string, unknown>).data)) {
+    return (res as Record<string, unknown>).data as NotificationItem[];
+  }
+  return [];
+}
 
 export default function SiswaHeader() {
   const { user, logout } = useAuth();
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const notificationMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
-  const notifications = [
-    {
-      title: 'Materi Baru Terbuka!',
-      message: 'Selamat! Kamu sekarang bisa mengakses Biologi. Yuk, lanjut belajar!',
-      date: '2026-04-15',
-      highlighted: true,
-    },
-    {
-      title: 'Hasil Kuis Keluar ✨',
-      message: 'Kamu mendapatkan skor 100 di kuis Jaringan dan Sel. Pertahankan nilaiimu!',
-      date: '2026-04-10',
-    },
-    {
-      title: 'Sertifikat Siap Diunduh!',
-      message: 'Keren! Kamu telah menyelesaikan modul Matematika. Ambil sertifikat kelulusanmu di sini.',
-      date: '2026-03-08',
-    },
-    {
-      title: 'Pesan Baru dari Tutor 💬',
-      message: 'Tutor matematika mengirimkan catatan untuk hasil kuis kamu. Yuk, dicek!',
-      date: '2026-02-29',
-    },
-  ];
+  // Fetch unread count on mount
+  useEffect(() => {
+    if (!user) return;
+    notificationApi.getUnreadCount()
+      .then((res) => setUnreadCount(res.unreadCount ?? 0))
+      .catch(() => { /* ignore */ });
+  }, [user]);
+
+  // Fetch notifications when dropdown opens
+  useEffect(() => {
+    if (!isNotificationMenuOpen || !user) return;
+    notificationApi.getAll({ limit: 10 })
+      .then((res) => {
+        setNotifications(extractNotifications(res));
+      })
+      .catch(() => { /* ignore */ });
+  }, [isNotificationMenuOpen, user]);
+
+  const handleMarkAllRead = useCallback(async () => {
+    try {
+      await notificationApi.markAllRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -105,9 +123,14 @@ export default function SiswaHeader() {
             <button
               type="button"
               onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
-              className="rounded-full p-2 hover:bg-[#f7f6ff]"
+              className="relative rounded-full p-2 hover:bg-[#f7f6ff]"
             >
               <FaBell size={20} className="text-[#21212b]" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#e35f5f] px-1 text-[10px] font-bold text-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
 
             {isNotificationMenuOpen && (
@@ -116,6 +139,7 @@ export default function SiswaHeader() {
                   <h3 className="text-[1.05rem] font-bold text-[#202126]">Pemberitahuan</h3>
                   <button
                     type="button"
+                    onClick={handleMarkAllRead}
                     className="flex items-center gap-1.5 text-[0.82rem] font-medium text-[#7054dc] transition-opacity hover:opacity-80"
                   >
                     <MdDone size={17} />
@@ -124,19 +148,27 @@ export default function SiswaHeader() {
                 </div>
 
                 <div className="max-h-[430px] overflow-y-auto">
-                  {notifications.map((item, index) => (
-                    <div
-                      key={`${item.title}-${item.date}`}
-                      className={`px-4 py-3 ${item.highlighted ? 'bg-[#f1ecff]' : 'bg-white'}`}
-                    >
-                      <h4 className="text-[0.95rem] font-bold text-[#202126]">{item.title}</h4>
-                      <p className="mt-1.5 text-[0.88rem] leading-6 text-[#202126]">{item.message}</p>
-                      <p className="mt-1.5 text-[0.82rem] text-[#8a8a96]">{item.date}</p>
-                      {index !== notifications.length - 1 && !item.highlighted && (
-                        <div className="mt-3 border-t border-transparent" />
-                      )}
+                  {notifications.length > 0 ? (
+                    notifications.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className={`px-4 py-3 ${!item.read ? 'bg-[#f1ecff]' : 'bg-white'}`}
+                      >
+                        <h4 className="text-[0.95rem] font-bold text-[#202126]">{item.title}</h4>
+                        <p className="mt-1.5 text-[0.88rem] leading-6 text-[#202126]">{item.message}</p>
+                        <p className="mt-1.5 text-[0.82rem] text-[#8a8a96]">
+                          {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                        {index !== notifications.length - 1 && item.read && (
+                          <div className="mt-3 border-t border-transparent" />
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm text-[#8a8a96]">
+                      Belum ada notifikasi
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
