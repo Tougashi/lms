@@ -1,1 +1,237 @@
-// Admin-specific types will be added here
+// Admin-specific types based on DOKUMENTASI_API_ADMIN.md
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+
+export interface AdminDashboardStats {
+    activeStudents: number;
+    activeQuizzes: number;
+    activeTutors: number;
+    activeModules: number;
+    countAllUsers: number;
+    activeClass: number;
+}
+
+// ── Modul ────────────────────────────────────────────────────────────────────
+
+export interface AdminModulItem {
+    id: string;
+    moduleName: string;
+    isDraft: boolean;
+    modulType?: "SISWA" | "UMUM" | string;
+    type?: "SISWA" | "UMUM" | string;  // alias lama, tetap ada
+    description?: string;
+    tutorId?: string;
+    tutor?: { fullName: string };
+    totalSiswa?: number;
+}
+
+export interface AdminModulCreatePayload {
+    moduleName: string;
+    description?: string;
+    type?: string;
+    isDraft?: boolean;
+    tutorId?: string;
+}
+
+export interface AdminModulUpdatePayload {
+    moduleName?: string;
+    description?: string;
+    isDraft?: boolean;
+    tutorId?: string;
+}
+
+export interface AdminAssignPayload {
+    moduleId: string;
+    studentId: string;
+}
+
+export interface AdminEnrollmentItem {
+    id: string;
+    moduleId: string;
+    studentId: string;
+    createdAt?: string;
+}
+
+// ── Topik ────────────────────────────────────────────────────────────────────
+
+export interface AdminTopikItem {
+    id: string;
+    name: string;
+    modulId: string;
+    order: number;
+}
+
+export interface AdminTopikCreatePayload {
+    name: string;
+    modulId: string;
+    order?: number;
+}
+
+export interface AdminTopikUpdatePayload {
+    name?: string;
+    order?: number;
+}
+
+// ── Materi ───────────────────────────────────────────────────────────────────
+
+export interface AdminMateriItem {
+    id: string;
+    title: string;
+    topikId?: string;
+    modulId: string;
+    order: number;
+}
+
+export interface AdminMateriCreatePayload {
+    title: string;
+    topikId?: string;
+    modulId: string;
+    order?: number;
+}
+
+export interface AdminMateriUpdatePayload {
+    title?: string;
+    order?: number;
+}
+
+// ── Kuis ─────────────────────────────────────────────────────────────────────
+
+// AdminKuisItem = satu Modul yang dikembalikan oleh GET /admin/kuis
+// Backend query ke tabel Modul dengan include topiks→materis→quizzes + tutor
+export interface AdminKuizQuizEntry {
+    id: string;
+    question: string;
+    correctAnswer: string;
+}
+
+export interface AdminKuisMateri {
+    id: string;
+    quizzes: AdminKuizQuizEntry[];
+}
+
+export interface AdminKuisTopik {
+    id: string;
+    nama: string;
+    materis: AdminKuisMateri[];
+}
+
+export interface AdminKuisTutor {
+    id: string;
+    fullName: string;
+}
+
+export interface AdminKuisItem {
+    id: string;
+    moduleName: string;
+    tutorId?: string;
+    tutor?: AdminKuisTutor;
+    isDraft?: boolean;
+    topiks?: AdminKuisTopik[];
+    createdAt?: string;
+}
+
+export interface AdminKuisCreatePayload {
+    question: string;
+    optionA: string;
+    optionB: string;
+    optionC: string;
+    optionD: string;
+    answer: "A" | "B" | "C" | "D";
+    knowledgeComponentId?: string;
+    submateriId?: string;
+}
+
+export interface AdminKuisUpdatePayload {
+    question?: string;
+    optionA?: string;
+    optionB?: string;
+    optionC?: string;
+    optionD?: string;
+    answer?: "A" | "B" | "C" | "D";
+}
+
+// ── Siswa ────────────────────────────────────────────────────────────────────
+
+export interface AdminSiswaItem {
+    id: string;
+    nama_lengkap: string;
+    email: string;
+    jenjang?: string;
+    kelas_sekolah?: string;
+    role?: string;          // "siswa" | "umum" — pembeda siswa biasa vs umum
+    studentType?: "SISWA" | "GURU" | string;
+    isActive?: boolean;
+    createdAt?: string;
+}
+
+export interface AdminSiswaCreatePayload {
+    nama_lengkap: string;
+    email: string;
+    password: string;
+    jenjang?: string;
+    kelas_sekolah?: string;
+    role?: "siswa" | "umum";
+    studentType?: "SISWA" | "GURU";
+}
+
+export interface AdminSiswaUpdatePayload {
+    nama_lengkap?: string;
+    kelas_sekolah?: string;
+    jenjang?: string;
+}
+
+// ── Tutor ────────────────────────────────────────────────────────────────────
+
+export interface AdminTutorItem {
+    id: string;
+    fullName: string;
+    email: string;
+    gender?: "MALE" | "FEMALE" | string;
+    whatsappNumber?: string;
+    isActive?: boolean;
+    createdAt?: string;
+}
+
+export interface AdminTutorCreatePayload {
+    fullName: string;
+    email: string;
+    password: string;
+    gender?: "MALE" | "FEMALE";
+    whatsappNumber?: string;
+}
+
+export interface AdminTutorUpdatePayload {
+    fullName?: string;
+    whatsappNumber?: string;
+    gender?: "MALE" | "FEMALE";
+}
+
+// ── Progress ─────────────────────────────────────────────────────────────────
+
+export interface AdminProgressItem {
+    studentId: string;
+    moduleId?: string;
+    [key: string]: unknown;
+}
+
+export interface AdminCTAnalysis {
+    studentId: string;
+    decomposition: number;
+    abstraction: number;
+    patternRecognition: number;
+    algorithm: number;
+    overall: number;
+}
+
+// ── Profile ──────────────────────────────────────────────────────────────────
+
+export interface AdminProfile {
+    id: string;
+    email: string;
+    username?: string;
+    fullName: string;
+    gender?: "MALE" | "FEMALE" | string;
+    whatsappNumber?: string;
+    profileImg?: string;
+    role: "admin";
+}

@@ -2,11 +2,14 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FaBell } from 'react-icons/fa';
 import { RiCustomerService2Line, RiHome5Fill } from 'react-icons/ri';
 import { IoPersonCircle } from 'react-icons/io5';
 import { MdOutlineKeyboardArrowDown } from 'react-icons/md';
+import { adminModulApi, adminTutorApi } from '../../lib/api';
+import type { AdminTutorItem } from '../../lib/types/admin';
+import { useRouter } from 'next/navigation';
 import {
   FiFileText,
   FiDollarSign,
@@ -114,11 +117,31 @@ const sidebarSections: SidebarSection[] = [
 /* ───────────────── main page ───────────────── */
 
 export default function TambahModulAdminPage() {
+  const router = useRouter();
   const [accessType, setAccessType] = useState<'siswa' | 'umum'>('siswa');
   const [prePostTest, setPrePostTest] = useState<'aktif' | 'tidak'>('aktif');
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [deskripsiLen, setDeskripsiLen] = useState(0);
   const [pesanLen, setPesanLen] = useState(0);
+
+  // Form fields
+  const [moduleName, setModuleName] = useState('Biologi');
+  const [description, setDescription] = useState('');
+  const [selectedTutorId, setSelectedTutorId] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  // Tutor list from API
+  const [tutorList, setTutorList] = useState<AdminTutorItem[]>([]);
+
+  const fetchTutors = useCallback(async () => {
+    try {
+      const data = await adminTutorApi.getAll();
+      setTutorList(data);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { fetchTutors(); }, [fetchTutors]);
 
   useEffect(() => {
     return () => {
@@ -127,6 +150,27 @@ export default function TambahModulAdminPage() {
       }
     };
   }, [coverPreview]);
+
+  const handleSimpan = async () => {
+    if (!moduleName.trim()) { setSaveError('Judul modul wajib diisi.'); return; }
+    setIsSaving(true);
+    setSaveError('');
+    try {
+      await adminModulApi.create({
+        moduleName: moduleName.trim(),
+        description: description.trim() || undefined,
+        type: accessType === 'siswa' ? 'SISWA' : 'UMUM',
+        isDraft: true,
+        tutorId: selectedTutorId || undefined,
+      });
+      router.push('/admin/manajemen-modul');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal menyimpan modul.';
+      setSaveError(msg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
@@ -176,9 +220,11 @@ export default function TambahModulAdminPage() {
             <div className="mt-auto space-y-2.5 pt-8">
               <button
                 type="button"
-                className="w-full rounded-full bg-[#7054dc] px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_6px_16px_rgba(112,84,220,0.3)] transition-colors hover:bg-[#5f46cc]"
+                onClick={handleSimpan}
+                disabled={isSaving}
+                className="w-full rounded-full bg-[#7054dc] px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_6px_16px_rgba(112,84,220,0.3)] transition-colors hover:bg-[#5f46cc] disabled:opacity-60"
               >
-                Simpan
+                {isSaving ? 'Menyimpan...' : 'Simpan'}
               </button>
               <button
                 type="button"
@@ -246,12 +292,20 @@ export default function TambahModulAdminPage() {
 
             {/* Form fields */}
             <div className="mx-auto mt-8 max-w-[720px]">
+              {/* Error message */}
+              {saveError && (
+                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-600">
+                  {saveError}
+                </div>
+              )}
+
               {/* Judul Modul */}
               <div>
                 <label className="text-[13px] font-bold text-[#232530]">Judul Modul</label>
                 <input
                   type="text"
-                  defaultValue="Biologi"
+                  value={moduleName}
+                  onChange={(e) => setModuleName(e.target.value)}
                   placeholder="Masukkan judul modul"
                   className={inputClassName}
                 />
@@ -276,11 +330,15 @@ export default function TambahModulAdminPage() {
                 </div>
                 <div>
                   <label className="text-[13px] font-bold text-[#232530]">Guru Modul</label>
-                  <select className={selectClassName} defaultValue="">
-                    <option value="" disabled>Pilih Guru</option>
-                    <option>Aryanti Yusi S.Pd</option>
-                    <option>Yinar Susi S.Pd</option>
-                    <option>Budi Santoso S.Pd</option>
+                  <select
+                    className={selectClassName}
+                    value={selectedTutorId}
+                    onChange={(e) => setSelectedTutorId(e.target.value)}
+                  >
+                    <option value="">Pilih Guru</option>
+                    {tutorList.map((t) => (
+                      <option key={t.id} value={t.id}>{t.fullName}</option>
+                    ))}
                   </select>
                   <p className="mt-1 text-[11px] text-[#7e8290]">
                     Pilih Guru untuk Modul ini
@@ -293,11 +351,11 @@ export default function TambahModulAdminPage() {
                 <label className="text-[13px] font-bold text-[#232530]">Deskripsi Kursus</label>
                 <textarea
                   rows={5}
-                  defaultValue="Selamat datang di perjalanan eksplorasi bioproses yang akan mengungkap rahasia kehidupan dari skala terkecil hingga sistem organ yang kompleks! Dalam materi Biologi Kelas 11 ini, kamu tidak hanya sekadar menghafal, tetapi akan diajak menelusuri mekanisme kerja sel sebagai unit fundamental kehidupan, memahami struktur ajaib jaringan tumbuhan, hingga mengupas tuntas cara kerja sistem tubuh manusia mulai dari sirkulasi darah hingga sistem pertahanan tubuh (imunitas)."
+                  value={description}
                   placeholder="Masukkan deskripsi kursus ..."
                   className={textareaClassName}
                   maxLength={200}
-                  onChange={(e) => setDeskripsiLen(e.target.value.length)}
+                  onChange={(e) => { setDescription(e.target.value); setDeskripsiLen(e.target.value.length); }}
                 />
                 <div className="mt-1 flex items-center justify-between text-[11px] text-[#7e8290]">
                   <span>Deskripsikan kursus anda secara singkat</span>
@@ -437,9 +495,11 @@ export default function TambahModulAdminPage() {
               <div className="mt-8 flex justify-center">
                 <button
                   type="button"
-                  className="h-[44px] w-[240px] rounded-xl bg-[#7054dc] text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(112,84,220,0.3)] transition-colors hover:bg-[#5f46cc]"
+                  onClick={handleSimpan}
+                  disabled={isSaving}
+                  className="h-[44px] w-[240px] rounded-xl bg-[#7054dc] text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(112,84,220,0.3)] transition-colors hover:bg-[#5f46cc] disabled:opacity-60"
                 >
-                  Simpan
+                  {isSaving ? 'Menyimpan...' : 'Simpan'}
                 </button>
               </div>
             </div>

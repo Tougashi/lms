@@ -12,8 +12,8 @@ type AdminSidebarProps = {
 
 const navItems = [
   { key: "dashboard", label: "Dashboard", href: "/admin/dashboard", icon: FaBookOpen },
-  { key: "pengguna", label: "Pengguna", href: "/admin/manajemen-pengguna", icon: FaUsers },
-  { key: "modul", label: "Paket Modul", href: "/admin/manajemen-modul", icon: FaBook },
+  { key: "pengguna", label: "Manajemen Pengguna", href: "/admin/manajemen-pengguna", icon: FaUsers },
+  { key: "modul", label: "Manajemen Modul", href: "/admin/manajemen-modul", icon: FaBook },
 ] as const;
 
 export default function AdminSidebar({ active }: AdminSidebarProps) {

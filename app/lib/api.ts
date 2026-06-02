@@ -35,6 +35,32 @@ import type {
     SubmateriItem,
     TopikItem,
 } from "./types/modul";
+import type {
+    AdminDashboardStats,
+    AdminModulItem,
+    AdminModulCreatePayload,
+    AdminModulUpdatePayload,
+    AdminAssignPayload,
+    AdminEnrollmentItem,
+    AdminTopikItem,
+    AdminTopikCreatePayload,
+    AdminTopikUpdatePayload,
+    AdminMateriItem,
+    AdminMateriCreatePayload,
+    AdminMateriUpdatePayload,
+    AdminKuisItem,
+    AdminKuisCreatePayload,
+    AdminKuisUpdatePayload,
+    AdminSiswaItem,
+    AdminSiswaCreatePayload,
+    AdminSiswaUpdatePayload,
+    AdminTutorItem,
+    AdminTutorCreatePayload,
+    AdminTutorUpdatePayload,
+    AdminProgressItem,
+    AdminCTAnalysis,
+    AdminProfile,
+} from "./types/admin";
 
 const API_BASE =
     typeof window !== "undefined"
@@ -419,17 +445,314 @@ export const moduleApi = {
 };
 
 // ---------------------------------------------------------------------------
+<<<<<<< Updated upstream
 // Guru / Tutor – Modul endpoints
 // ---------------------------------------------------------------------------
 
 export const guruModulApi = {
+=======
+// Admin – Dashboard endpoints
+// ---------------------------------------------------------------------------
+
+export const adminDashboardApi = {
+    get() {
+        return apiFetch<AdminDashboardStats>("/admin/dashboard/");
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Modul endpoints
+// ---------------------------------------------------------------------------
+
+export const adminModulApi = {
+>>>>>>> Stashed changes
     getAll(params?: { cursor?: string; limit?: number }) {
         const query = new URLSearchParams();
         if (params?.cursor) query.set("cursor", params.cursor);
         if (params?.limit) query.set("limit", String(params.limit));
         const qs = query.toString();
+<<<<<<< Updated upstream
         return apiFetch<GuruModuleListResponse>(
             `/tutor/modul${qs ? `?${qs}` : ""}`,
         );
     },
 };
+=======
+        return apiFetch<CursorPagination<AdminModulItem>>(
+            `/admin/modul${qs ? `?${qs}` : ""}`,
+        );
+    },
+
+    getById(id: string) {
+        return apiFetch<AdminModulItem>(`/admin/modul/${id}`);
+    },
+
+    create(payload: AdminModulCreatePayload) {
+        return apiFetch<AdminModulItem>("/admin/modul", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: AdminModulUpdatePayload) {
+        return apiFetch<AdminModulItem>(`/admin/modul/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string, tutorId?: string) {
+        return apiFetch<{ message: string }>(`/admin/modul/${id}`, {
+            method: "DELETE",
+            data: tutorId ? { tutorId } : undefined,
+        });
+    },
+
+    assign(payload: AdminAssignPayload) {
+        return apiFetch<AdminEnrollmentItem>("/admin/modul/assign", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    unassign(payload: AdminAssignPayload) {
+        return apiFetch<{ message: string }>("/admin/modul/unassign", {
+            method: "DELETE",
+            data: payload,
+        });
+    },
+
+    getAssigned(payload: AdminAssignPayload) {
+        return apiFetch<AdminEnrollmentItem[]>("/admin/modul/assigned", {
+            method: "GET",
+            data: payload,
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Topik endpoints
+// ---------------------------------------------------------------------------
+
+export const adminTopikApi = {
+    getByModul(modulId: string) {
+        return apiFetch<AdminTopikItem[]>(`/admin/topik/${modulId}`);
+    },
+
+    create(payload: AdminTopikCreatePayload) {
+        return apiFetch<AdminTopikItem>("/admin/topik", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: AdminTopikUpdatePayload) {
+        return apiFetch<AdminTopikItem>(`/admin/topik/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<AdminTopikItem>(`/admin/topik/${id}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Materi endpoints
+// ---------------------------------------------------------------------------
+
+export const adminMateriApi = {
+    getByModul(modulId: string) {
+        return apiFetch<AdminMateriItem[]>(`/admin/materi/${modulId}`);
+    },
+
+    create(payload: AdminMateriCreatePayload) {
+        return apiFetch<AdminMateriItem>("/admin/materi", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: AdminMateriUpdatePayload) {
+        return apiFetch<AdminMateriItem>(`/admin/materi/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<AdminMateriItem>(`/admin/materi/${id}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Kuis endpoints
+// ---------------------------------------------------------------------------
+
+export const adminKuisApi = {
+    getAll(params?: { cursor?: string; limit?: number }) {
+        const query = new URLSearchParams();
+        if (params?.cursor) query.set("cursor", params.cursor);
+        if (params?.limit) query.set("limit", String(params.limit));
+        const qs = query.toString();
+        return apiFetch<CursorPagination<AdminKuisItem>>(
+            `/admin/kuis${qs ? `?${qs}` : ""}`,
+        );
+    },
+
+    getById(id: string) {
+        return apiFetch<AdminKuisItem>(`/admin/kuis/${id}`);
+    },
+
+    create(payload: AdminKuisCreatePayload) {
+        return apiFetch<AdminKuisItem>("/admin/kuis", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: AdminKuisUpdatePayload) {
+        return apiFetch<AdminKuisItem>(`/admin/kuis/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<AdminKuisItem>(`/admin/kuis/${id}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Siswa endpoints
+// ---------------------------------------------------------------------------
+
+export const adminSiswaApi = {
+    getAll() {
+        return apiFetch<AdminSiswaItem[]>("/admin/siswa");
+    },
+
+    search(q: string) {
+        return apiFetch<AdminSiswaItem[]>(
+            `/admin/siswa/search?q=${encodeURIComponent(q)}`,
+        );
+    },
+
+    create(payload: AdminSiswaCreatePayload) {
+        return apiFetch<AdminSiswaItem>("/admin/siswa", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: AdminSiswaUpdatePayload) {
+        return apiFetch<AdminSiswaItem>(`/admin/siswa/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/admin/siswa/${id}`, {
+            method: "DELETE",
+        });
+    },
+
+    deactivate(id: string) {
+        return apiFetch<AdminSiswaItem>(`/admin/siswa/${id}/deactivate`, {
+            method: "PATCH",
+        });
+    },
+
+    activate(id: string) {
+        return apiFetch<AdminSiswaItem>(`/admin/siswa/${id}/activate`, {
+            method: "PATCH",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Tutor endpoints
+// ---------------------------------------------------------------------------
+
+export const adminTutorApi = {
+    getAll() {
+        return apiFetch<AdminTutorItem[]>("/admin/tutor");
+    },
+
+    search(q: string) {
+        return apiFetch<AdminTutorItem[]>(
+            `/admin/tutor/search?q=${encodeURIComponent(q)}`,
+        );
+    },
+
+    create(payload: AdminTutorCreatePayload) {
+        return apiFetch<AdminTutorItem>("/admin/tutor", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: AdminTutorUpdatePayload) {
+        return apiFetch<AdminTutorItem>(`/admin/tutor/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/admin/tutor/${id}`, {
+            method: "DELETE",
+        });
+    },
+
+    deactivate(id: string) {
+        return apiFetch<AdminTutorItem>(`/admin/tutor/${id}/deactivate`, {
+            method: "PATCH",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Progress endpoints
+// ---------------------------------------------------------------------------
+
+export const adminProgressApi = {
+    getAll(params?: { cursor?: string; limit?: number }) {
+        const query = new URLSearchParams();
+        if (params?.cursor) query.set("cursor", params.cursor);
+        if (params?.limit) query.set("limit", String(params.limit));
+        const qs = query.toString();
+        return apiFetch<AdminProgressItem[]>(
+            `/admin/progress${qs ? `?${qs}` : ""}`,
+        );
+    },
+
+    getById(studentId: string) {
+        return apiFetch<AdminProgressItem>(`/admin/progress/${studentId}`);
+    },
+
+    analyze(studentId: string) {
+        return apiFetch<AdminCTAnalysis>(
+            `/admin/progress/${studentId}/analyze`,
+        );
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Profile endpoints
+// ---------------------------------------------------------------------------
+
+export const adminProfileApi = {
+    get() {
+        return apiFetch<AdminProfile>("/admin/profile/profile");
+    },
+};
+>>>>>>> Stashed changes

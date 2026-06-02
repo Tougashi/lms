@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   FaBell,
   FaCheckSquare,
@@ -24,35 +24,19 @@ import {
   MdPersonAddAlt1,
 } from 'react-icons/md';
 import AdminSidebar from '../components/AdminSidebar';
+import {
+  AdminConfirmDialog,
+  AdminToastContainer,
+  useAdminToast,
+} from '../components/AdminToast';
+import {
+  adminTutorApi,
+  adminSiswaApi,
+  adminDashboardApi,
+} from '../../lib/api';
+import type { AdminTutorItem, AdminSiswaItem } from '../../lib/types/admin';
 
 type UserTab = 'guru' | 'siswa';
-
-type UserRow = {
-  id: string;
-  name: string;
-  level: string;
-  field: string;
-  whatsapp: string;
-  email: string;
-};
-
-const guruRows: UserRow[] = Array.from({ length: 10 }).map((_, index) => ({
-  id: `guru-${index + 1}`,
-  name: 'Aryanti Yusi S.Pd',
-  level: 'Guru SMA',
-  field: 'Matematika',
-  whatsapp: '0823 1234 1234',
-  email: 'Aryanti@gmail.com',
-}));
-
-const siswaRows: UserRow[] = Array.from({ length: 10 }).map((_, index) => ({
-  id: `siswa-${index + 1}`,
-  name: 'Aryanti Yusi S.Pd',
-  level: 'Siswa SMA',
-  field: 'IPA',
-  whatsapp: '0823 1234 1234',
-  email: 'Aryanti@gmail.com',
-}));
 
 const filterOptions = [
   { id: 'nama-lengkap', label: 'Nama Lengkap' },
@@ -72,19 +56,10 @@ function StatCard({
   accent: 'purple' | 'orange';
 }) {
   const isPurple = accent === 'purple';
-
   return (
-    <div
-      className={`relative min-h-[118px] overflow-hidden rounded-[22px] p-4 shadow-sm ${
-        isPurple ? 'bg-[#e9e2ff]' : 'bg-[#f9eddc]'
-      }`}
-    >
+    <div className={`relative min-h-[118px] overflow-hidden rounded-[22px] p-4 shadow-sm ${isPurple ? 'bg-[#e9e2ff]' : 'bg-[#f9eddc]'}`}>
       <div className="relative z-10 flex h-full flex-col">
-        <div
-          className={`flex h-8 w-8 items-center justify-center rounded-full border bg-white ${
-            isPurple ? 'border-[#7054dc] text-[#7054dc]' : 'border-[#f39b39] text-[#f39b39]'
-          }`}
-        >
+        <div className={`flex h-8 w-8 items-center justify-center rounded-full border bg-white ${isPurple ? 'border-[#7054dc] text-[#7054dc]' : 'border-[#f39b39] text-[#f39b39]'}`}>
           <FaUsers size={14} />
         </div>
         <div className={`ml-auto -mt-1 text-4xl font-semibold leading-none ${isPurple ? 'text-[#7054dc]' : 'text-[#f39b39]'}`}>
@@ -92,7 +67,6 @@ function StatCard({
         </div>
         <p className="mt-auto max-w-[120px] pb-1 text-sm font-semibold text-[#202126]">{label}</p>
       </div>
-
       <div className="pointer-events-none absolute -bottom-6 -right-3 opacity-70">
         <Image
           src={isPurple ? '/assets/images/beranda-siswa/star-purple.png' : '/assets/images/beranda-siswa/star-orange.png'}
@@ -105,34 +79,6 @@ function StatCard({
   );
 }
 
-function ActionMenu({ isSiswa }: { isSiswa?: boolean }) {
-  return (
-    <div className="absolute right-0 top-9 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
-      <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]">
-        <FaEdit size={13} />
-        Edit
-      </button>
-      {isSiswa && (
-        <Link
-          href="/admin/nilai-siswa"
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
-        >
-          <FaChartBar size={13} />
-          Lihat Nilai
-        </Link>
-      )}
-      <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#60636d] hover:bg-[#f7f6ff]">
-        <FaUsers size={13} />
-        Nonaktifkan
-      </button>
-      <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]">
-        <FaTrash size={13} />
-        Hapus
-      </button>
-    </div>
-  );
-}
-
 export default function ManajemenPenggunaPage() {
   const [activeTab, setActiveTab] = useState<UserTab>('guru');
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,38 +87,95 @@ export default function ManajemenPenggunaPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState<string[]>(['nama-lengkap']);
 
-  const currentRows = activeTab === 'guru' ? guruRows : siswaRows;
+  // Toast & confirm
+  const { toasts, showToast, dismissToast } = useAdminToast();
+  const [confirmState, setConfirmState] = useState<{ id: string; action: 'delete' | 'deactivate' } | null>(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
+
+  // API state
+  const [guruList, setGuruList] = useState<AdminTutorItem[]>([]);
+  const [siswaList, setSiswaList] = useState<AdminSiswaItem[]>([]);
+  const [tutorCount, setTutorCount] = useState(0);
+  const [siswaCount, setSiswaCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [dashRes, tutorRes, siswaRes] = await Promise.allSettled([
+        adminDashboardApi.get(),
+        adminTutorApi.getAll(),
+        adminSiswaApi.getAll(),
+      ]);
+      if (dashRes.status === 'fulfilled') {
+        setTutorCount(dashRes.value.activeTutors);
+        setSiswaCount(dashRes.value.activeStudents);
+      }
+      if (tutorRes.status === 'fulfilled') setGuruList(tutorRes.value);
+      if (siswaRes.status === 'fulfilled') setSiswaList(siswaRes.value);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Search via API (debounced) when query >= 2 chars
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (trimmed.length >= 2) {
+      const t = setTimeout(async () => {
+        try {
+          if (activeTab === 'guru') {
+            const res = await adminTutorApi.search(trimmed);
+            setGuruList(res);
+          } else {
+            const res = await adminSiswaApi.search(trimmed);
+            setSiswaList(res);
+          }
+        } catch { /* ignore */ }
+      }, 400);
+      return () => clearTimeout(t);
+    } else if (trimmed.length === 0) {
+      fetchData();
+    }
+  }, [searchQuery, activeTab, fetchData]);
+
+  const currentRows = activeTab === 'guru' ? guruList : siswaList;
 
   const filteredRows = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return currentRows;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return currentRows;
+    if (activeTab === 'guru') {
+      return (currentRows as AdminTutorItem[]).filter((r) =>
+        r.fullName.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
+      );
     }
-
-    return currentRows.filter(
-      (row) =>
-        row.name.toLowerCase().includes(normalizedQuery) ||
-        row.level.toLowerCase().includes(normalizedQuery) ||
-        row.field.toLowerCase().includes(normalizedQuery) ||
-        row.whatsapp.toLowerCase().includes(normalizedQuery) ||
-        row.email.toLowerCase().includes(normalizedQuery)
+    return (currentRows as AdminSiswaItem[]).filter((r) =>
+      r.nama_lengkap.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
     );
-  }, [currentRows, searchQuery]);
+  }, [currentRows, searchQuery, activeTab]);
 
-  const allRowsSelected = filteredRows.length > 0 && filteredRows.every((row) => selectedRowIds[row.id]);
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedRows = filteredRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  // Reset page when tab or search changes
+  useEffect(() => { setCurrentPage(1); }, [activeTab, searchQuery]);
+
+  const allRowsSelected =
+    filteredRows.length > 0 && filteredRows.every((row) => selectedRowIds[row.id]);
 
   const toggleSelectAll = () => {
     setSelectedRowIds((prev) => {
       const next = { ...prev };
       if (allRowsSelected) {
-        filteredRows.forEach((row) => {
-          delete next[row.id];
-        });
+        filteredRows.forEach((row) => { delete next[row.id]; });
       } else {
-        filteredRows.forEach((row) => {
-          next[row.id] = true;
-        });
+        filteredRows.forEach((row) => { next[row.id] = true; });
       }
       return next;
     });
@@ -183,7 +186,39 @@ export default function ManajemenPenggunaPage() {
   };
 
   const toggleFilterOption = (id: string) => {
-    setSelectedFilters((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+    setSelectedFilters((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleDeactivate = (id: string) => {
+    setOpenActionMenuId(null);
+    setConfirmState({ id, action: 'deactivate' });
+  };
+
+  const handleDelete = (id: string) => {
+    setOpenActionMenuId(null);
+    setConfirmState({ id, action: 'delete' });
+  };
+
+  const executeConfirm = async () => {
+    if (!confirmState) return;
+    const { id, action } = confirmState;
+    setConfirmState(null);
+    try {
+      if (action === 'delete') {
+        if (activeTab === 'guru') await adminTutorApi.delete(id);
+        else await adminSiswaApi.delete(id);
+        showToast('success', 'Data berhasil dihapus.');
+      } else {
+        if (activeTab === 'guru') await adminTutorApi.deactivate(id);
+        else await adminSiswaApi.deactivate(id);
+        showToast('success', 'Akun berhasil dinonaktifkan.');
+      }
+      fetchData();
+    } catch {
+      showToast('error', action === 'delete' ? 'Gagal menghapus data.' : 'Gagal menonaktifkan akun.');
+    }
   };
 
   const tableColumns =
@@ -191,20 +226,43 @@ export default function ManajemenPenggunaPage() {
       ? ['Nama Lengkap', 'Tingkat Pengajar', 'Bidang Pengajar', 'No Wa', 'Email']
       : ['Nama Lengkap', 'Tingkat Siswa', 'Kelas', 'No Wa', 'Email'];
 
+  function getGuruCols(r: AdminTutorItem) {
+    return [r.fullName, 'Guru', r.gender ?? '-', r.whatsappNumber ?? '-', r.email];
+  }
+
+  function getSiswaCols(r: AdminSiswaItem) {
+    return [r.nama_lengkap, r.jenjang ?? '-', r.kelas_sekolah ?? '-', '-', r.email];
+  }
+
   return (
     <div className="h-screen overflow-hidden bg-[#f3f3f6]">
+      {/* Custom confirm dialog */}
+      {confirmState && (
+        <AdminConfirmDialog
+          message={
+            confirmState.action === 'delete'
+              ? 'Yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.'
+              : 'Yakin ingin menonaktifkan akun ini?'
+          }
+          danger={confirmState.action === 'delete'}
+          confirmLabel={confirmState.action === 'delete' ? 'Ya, Hapus' : 'Ya, Nonaktifkan'}
+          onConfirm={executeConfirm}
+          onCancel={() => setConfirmState(null)}
+        />
+      )}
+      {/* Toast notifications */}
+      <AdminToastContainer toasts={toasts} onDismiss={dismissToast} />
       <div className="grid h-screen grid-cols-1 lg:grid-cols-[260px_1fr]">
         <AdminSidebar active="pengguna" />
 
         <main className="overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-[#202126]">Selamat datang, Olivia</p>
+              <p className="text-sm font-semibold text-[#202126]">Selamat datang, Admin</p>
               <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#7054dc] sm:text-4xl lg:text-5xl">
                 Management Pengguna
               </h1>
             </div>
-
             <div className="flex items-center gap-3 rounded-full border border-[#dcd9e8] bg-white px-4 py-3 shadow-sm">
               <FaBell className="text-[#9396a3]" size={18} />
               <FaHeadset className="text-[#9396a3]" size={19} />
@@ -219,36 +277,32 @@ export default function ManajemenPenggunaPage() {
             <div className="flex items-center gap-2 px-2 pt-1 xl:pt-2">
               <button
                 type="button"
-                onClick={() => setActiveTab('guru')}
-                className={`rounded-full px-7 py-2 text-sm font-semibold transition-colors ${
-                  activeTab === 'guru' ? 'bg-[#7054dc] text-white' : 'bg-[#ece7ff] text-[#7054dc]'
-                }`}
+                onClick={() => { setActiveTab('guru'); setSearchQuery(''); }}
+                className={`rounded-full px-7 py-2 text-sm font-semibold transition-colors ${activeTab === 'guru' ? 'bg-[#7054dc] text-white' : 'bg-[#ece7ff] text-[#7054dc]'}`}
               >
                 Guru
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('siswa')}
-                className={`rounded-full px-7 py-2 text-sm font-semibold transition-colors ${
-                  activeTab === 'siswa' ? 'bg-[#7054dc] text-white' : 'bg-[#ece7ff] text-[#7054dc]'
-                }`}
+                onClick={() => { setActiveTab('siswa'); setSearchQuery(''); }}
+                className={`rounded-full px-7 py-2 text-sm font-semibold transition-colors ${activeTab === 'siswa' ? 'bg-[#7054dc] text-white' : 'bg-[#ece7ff] text-[#7054dc]'}`}
               >
                 Siswa
               </button>
             </div>
 
             <div className="grid w-full max-w-[420px] shrink-0 gap-3 sm:grid-cols-2 xl:ml-auto">
-              <StatCard label="Guru" value={98} accent="purple" />
-              <StatCard label="Siswa" value={421} accent="orange" />
+              <StatCard label="Guru" value={tutorCount} accent="purple" />
+              <StatCard label="Siswa" value={siswaCount} accent="orange" />
             </div>
           </div>
 
-          <div className="rounded-[22px] border border-[#e1dff0] bg-white p-3 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+          <div className="rounded-[22px] border border-[#e1dff0] bg-white p-3 shadow-[0_2px_12px_rgba(0,0,0,0.04)] mt-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-3">
                 <button className="inline-flex items-center gap-2 rounded-full bg-[#f39b39] px-4 py-2 text-sm font-semibold text-white shadow-sm">
                   <MdPersonAddAlt1 size={14} />
-                  Tambah Guru
+                  {activeTab === 'guru' ? 'Tambah Guru' : 'Tambah Siswa'}
                 </button>
                 <label className="flex h-8 w-full max-w-[340px] items-center gap-2 rounded-full border border-[#c8c9d0] bg-white px-3 text-sm text-[#8a8a96] sm:w-[320px]">
                   <FaSearch size={12} className="text-[#a0a3b0]" />
@@ -279,7 +333,6 @@ export default function ManajemenPenggunaPage() {
                       <div className="mt-2 space-y-2">
                         {filterOptions.map((option) => {
                           const isSelected = selectedFilters.includes(option.id);
-
                           return (
                             <button
                               key={option.id}
@@ -315,84 +368,135 @@ export default function ManajemenPenggunaPage() {
                         <button
                           type="button"
                           onClick={toggleSelectAll}
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-sm border ${
-                            allRowsSelected ? 'border-[#7054dc] bg-[#7054dc] text-white' : 'border-[#cfd3de] text-[#9aa0ab]'
-                          }`}
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-sm border ${allRowsSelected ? 'border-[#7054dc] bg-[#7054dc] text-white' : 'border-[#cfd3de] text-[#9aa0ab]'}`}
                         >
                           <FaCheckSquare size={12} />
                         </button>
                       </th>
                       {tableColumns.map((column) => (
-                        <th key={column} className="px-4 py-3 text-left font-medium">
-                          {column}
-                        </th>
+                        <th key={column} className="px-4 py-3 text-left font-medium">{column}</th>
                       ))}
                       <th className="w-[48px] px-4 py-3 text-left font-medium" />
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRows.map((row) => (
-                      <tr key={row.id} className="border-t border-[#eef0f5] text-sm text-[#4d5260]">
-                        <td className="px-4 py-4 align-middle">
-                          <button
-                            type="button"
-                            onClick={() => toggleRow(row.id)}
-                            className={`inline-flex h-6 w-6 items-center justify-center rounded-sm border ${
-                              selectedRowIds[row.id]
-                                ? 'border-[#7054dc] bg-[#7054dc] text-white'
-                                : 'border-[#cfd3de] text-[#9aa0ab]'
-                            }`}
-                          >
-                            <FaCheckSquare size={12} />
-                          </button>
-                        </td>
-                        <td className="px-4 py-4 align-middle font-medium text-[#5a5f6a]">
-                          {activeTab === 'siswa' ? (
-                            <Link href="/admin/nilai-siswa" className="hover:text-[#7054dc] hover:underline transition-colors">
-                              {row.name}
-                            </Link>
-                          ) : (
-                            row.name
-                          )}
-                        </td>
-                        <td className="px-4 py-4 align-middle">{row.level}</td>
-                        <td className="px-4 py-4 align-middle">{row.field}</td>
-                        <td className="px-4 py-4 align-middle">{row.whatsapp}</td>
-                        <td className="px-4 py-4 align-middle">{row.email}</td>
-                        <td className="px-4 py-4 align-middle text-right">
-                          <div className="relative inline-flex">
-                            <button
-                              type="button"
-                              onClick={() => setOpenActionMenuId((prev) => (prev === row.id ? null : row.id))}
-                              className="text-[#8d909c] hover:text-[#7054dc]"
-                            >
-                              <MdMoreVert size={18} />
-                            </button>
-                            {openActionMenuId === row.id && <ActionMenu isSiswa={activeTab === 'siswa'} />}
-                          </div>
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={tableColumns.length + 2} className="py-10 text-center text-sm text-[#9396a3]">
+                          Memuat data...
                         </td>
                       </tr>
-                    ))}
+                    ) : paginatedRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={tableColumns.length + 2} className="py-10 text-center text-sm text-[#9396a3]">
+                          Tidak ada data.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedRows.map((row) => {
+                        const cols = activeTab === 'guru'
+                          ? getGuruCols(row as AdminTutorItem)
+                          : getSiswaCols(row as AdminSiswaItem);
+                        return (
+                          <tr key={row.id} className="border-t border-[#eef0f5] text-sm text-[#4d5260]">
+                            <td className="px-4 py-4 align-middle">
+                              <button
+                                type="button"
+                                onClick={() => toggleRow(row.id)}
+                                className={`inline-flex h-6 w-6 items-center justify-center rounded-sm border ${selectedRowIds[row.id] ? 'border-[#7054dc] bg-[#7054dc] text-white' : 'border-[#cfd3de] text-[#9aa0ab]'}`}
+                              >
+                                <FaCheckSquare size={12} />
+                              </button>
+                            </td>
+                            <td className="px-4 py-4 align-middle font-medium text-[#5a5f6a]">
+                              {activeTab === 'siswa' ? (
+                                <Link href="/admin/nilai-siswa" className="hover:text-[#7054dc] hover:underline transition-colors">
+                                  {cols[0]}
+                                </Link>
+                              ) : cols[0]}
+                            </td>
+                            <td className="px-4 py-4 align-middle">{cols[1]}</td>
+                            <td className="px-4 py-4 align-middle">{cols[2]}</td>
+                            <td className="px-4 py-4 align-middle">{cols[3]}</td>
+                            <td className="px-4 py-4 align-middle">{cols[4]}</td>
+                            <td className="px-4 py-4 align-middle text-right">
+                              <div className="relative inline-flex">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenActionMenuId((prev) => (prev === row.id ? null : row.id))}
+                                  className="text-[#8d909c] hover:text-[#7054dc]"
+                                >
+                                  <MdMoreVert size={18} />
+                                </button>
+                                {openActionMenuId === row.id && (
+                                  <div className="absolute right-0 top-9 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
+                                    <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]">
+                                      <FaEdit size={13} />
+                                      Edit
+                                    </button>
+                                    {activeTab === 'siswa' && (
+                                      <Link
+                                        href="/admin/nilai-siswa"
+                                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
+                                      >
+                                        <FaChartBar size={13} />
+                                        Lihat Nilai
+                                      </Link>
+                                    )}
+                                    <button
+                                      onClick={() => handleDeactivate(row.id)}
+                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#60636d] hover:bg-[#f7f6ff]"
+                                    >
+                                      <FaUsers size={13} />
+                                      Nonaktifkan
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(row.id)}
+                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]"
+                                    >
+                                      <FaTrash size={13} />
+                                      Hapus
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
 
               <div className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-1 text-[#b4b6bf]">
-                  <button className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-[#c6c8d0]">
+                <p className="text-xs text-[#9396a3]">{filteredRows.length} data</p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={safePage <= 1}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-[#7054dc] disabled:opacity-40"
+                  >
                     <MdKeyboardArrowLeft size={16} />
                   </button>
-                  {[1, 2, 3, 4, 5].map((page) => (
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <button
                       key={page}
+                      onClick={() => setCurrentPage(page)}
                       className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${
-                        page === 1 ? 'border-[#7054dc] bg-[#7054dc] text-white' : 'border-[#d4d7e2] text-[#818694]'
+                        page === safePage
+                          ? 'border-[#7054dc] bg-[#7054dc] text-white'
+                          : 'border-[#d4d7e2] text-[#818694] hover:border-[#7054dc] hover:text-[#7054dc]'
                       }`}
                     >
                       {page}
                     </button>
                   ))}
-                  <button className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-[#7054dc]">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safePage >= totalPages}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-[#7054dc] disabled:opacity-40"
+                  >
                     <MdKeyboardArrowRight size={16} />
                   </button>
                 </div>
