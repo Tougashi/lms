@@ -9,12 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import {
-  authApi,
-  type UserSession,
-  type LoginResponse,
-  type RegisterPayload,
-} from '../lib/api';
+import { authApi } from '../lib/api';
+import type { UserSession, LoginResponse, RegisterPayload } from '../lib/types/umum';
 
 // ---------------------------------------------------------------------------
 // Types

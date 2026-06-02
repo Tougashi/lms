@@ -8,7 +8,7 @@ import {
   MdOutlineVisibilityOff,
 } from 'react-icons/md';
 import { useAuth } from '../context/AuthContext';
-import type { TutorRegisterPayload } from '../lib/api';
+import type { TutorRegisterPayload } from '../lib/types/umum';
 
 export default function DaftarTutorPage() {
   const { register } = useAuth();

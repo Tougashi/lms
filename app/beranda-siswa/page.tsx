@@ -11,7 +11,8 @@ import { FaBookOpen } from 'react-icons/fa';
 import { RiFileList3Fill } from 'react-icons/ri';
 import Header from '../component/Header';
 import { useAuth } from '../context/AuthContext';
-import { dashboardApi, type SiswaDashboard, type ProgressItem } from '../lib/api';
+import { dashboardApi } from '../lib/api';
+import type { SiswaDashboard, ProgressItem } from '../lib/types/siswa';
 
 export default function BerandaSiswaPage() {
   const { user, isLoading: authLoading } = useAuth();

@@ -7,7 +7,10 @@ import { FiExternalLink, FiPlus } from 'react-icons/fi';
 import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
 import GuruHeader from '../component/guru/GuruHeader';
 import { useAuth } from '../context/AuthContext';
-import { dashboardApi, type TutorDashboard, type ModuleItem, type RatingItem } from '../lib/api';
+import { dashboardApi } from '../lib/api';
+import type { TutorDashboard } from '../lib/types/guru';
+import type { ModuleItem } from '../lib/types/modul';
+import type { RatingItem } from '../lib/types/umum';
 
 function StatCard({ value, label }: { value: number; label: string }) {
   return (

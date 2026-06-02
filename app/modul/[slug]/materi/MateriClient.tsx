@@ -25,15 +25,10 @@ import {
   siswaProgressApi,
   siswaRatingApi,
   siswaCertificateApi,
-  type TopikItem,
-  type MateriItem as MateriItemApi,
-  type SubmateriItem,
-  type SoalItem,
-  type TestSubmitResult,
-  type CertificateItem,
-  type ProgressDetail,
-  ApiError,
 } from "../../../lib/api";
+import type { TopikItem, MateriItem as MateriItemApi, SubmateriItem } from "../../../lib/types/modul";
+import type { SoalItem, TestSubmitResult, CertificateItem, ProgressDetail } from "../../../lib/types/siswa";
+import { ApiError } from "../../../lib/types/umum";
 
 // ---------------------------------------------------------------------------
 // Helpers
