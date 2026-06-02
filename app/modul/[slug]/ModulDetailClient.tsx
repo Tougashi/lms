@@ -20,15 +20,10 @@ import {
 } from 'react-icons/fa';
 import { MdTimer } from 'react-icons/md';
 import SiswaHeader from '../../component/siswa/SiswaHeader';
-import {
-  siswaModulApi,
-  siswaTopikApi,
-  siswaProgressApi,
-  type ModuleItem,
-  type TopikItem,
-  type ProgressDetail,
-  ApiError,
-} from '../../lib/api';
+import { siswaModulApi, siswaTopikApi, siswaProgressApi } from '../../lib/api';
+import type { ModuleItem, TopikItem } from '../../lib/types/modul';
+import type { ProgressDetail } from '../../lib/types/siswa';
+import { ApiError } from '../../lib/types/umum';
 
 function getAvatarUrl(seed: string) {
   return `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(seed)}`;

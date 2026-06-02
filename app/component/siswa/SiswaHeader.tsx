@@ -8,7 +8,8 @@ import { FaBell } from 'react-icons/fa';
 import { RiCustomerService2Fill } from 'react-icons/ri';
 import { IoPersonCircle } from 'react-icons/io5';
 import { useAuth } from '../../context/AuthContext';
-import { notificationApi, type NotificationItem } from '../../lib/api';
+import { notificationApi } from '../../lib/api';
+import type { NotificationItem } from '../../lib/types/umum';
 
 function extractNotifications(res: unknown): NotificationItem[] {
   if (Array.isArray(res)) return res as NotificationItem[];

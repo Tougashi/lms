@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { MdKeyboardArrowDown, MdOutlineVisibility, MdOutlineVisibilityOff } from 'react-icons/md';
 import { useAuth } from '../context/AuthContext';
-import type { SiswaRegisterPayload } from '../lib/api';
+import type { SiswaRegisterPayload } from '../lib/types/umum';
 
 export default function DaftarPage() {
   const { register } = useAuth();

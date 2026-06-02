@@ -7,13 +7,8 @@ import SiswaHeader from "../component/siswa/SiswaHeader";
 import { FaBell, FaEye, FaEyeSlash, FaFileAlt, FaLock, FaRegEdit, FaSignOutAlt, FaUser } from "react-icons/fa";
 import { MdVerified } from "react-icons/md";
 import { useAuth } from "../context/AuthContext";
-import {
-  siswaProfileApi,
-  siswaCertificateApi,
-  authApi,
-  type SiswaProfile,
-  type CertificateItem,
-} from "../lib/api";
+import { siswaProfileApi, siswaCertificateApi, authApi } from "../lib/api";
+import type { SiswaProfile, CertificateItem } from "../lib/types/siswa";
 
 function extractArray<T>(res: unknown): T[] {
   if (Array.isArray(res)) return res as T[];

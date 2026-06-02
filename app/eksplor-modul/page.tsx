@@ -5,11 +5,9 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { FaBookOpen, FaLock, FaSearch } from 'react-icons/fa';
 import SiswaHeader from '../component/siswa/SiswaHeader';
-import {
-  siswaModulApi,
-  type ModuleItem,
-  type EnrolledModuleItem,
-} from '../lib/api';
+import { siswaModulApi } from '../lib/api';
+import type { ModuleItem } from '../lib/types/modul';
+import type { EnrolledModuleItem } from '../lib/types/siswa';
 
 const statusFilters = [
   { id: 'semua', label: 'Semua' },
