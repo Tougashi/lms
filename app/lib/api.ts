@@ -37,7 +37,9 @@ import type {
 } from "./types/modul";
 
 const API_BASE =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
+    typeof window !== "undefined"
+        ? "/api-backend"
+        : (process.env.NEXT_PUBLIC_API_URL || "");
 
 const apiClient = axios.create({
     baseURL: API_BASE,
