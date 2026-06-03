@@ -141,6 +141,83 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
     const [isModuleSidebarOpen, setIsModuleSidebarOpen] = useState(false);
 
+    const handleSubmitTest = async () => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+        const elapsed = PRETEST_DURATION_SECONDS - remainingSeconds;
+        setFinishedElapsedSeconds(elapsed);
+
+        const answers = currentSoal.map((soal, idx) => {
+            const selectedIdx = selectedAnswers[idx] ?? 0;
+            const answerText =
+                [
+                    soal.pilihan_a,
+                    soal.pilihan_b,
+                    soal.pilihan_c,
+                    soal.pilihan_d,
+                ][selectedIdx] || "";
+            return {
+                questionId: soal.id,
+                answer: answerText,
+            };
+        });
+
+        try {
+            let result: TestSubmitResult;
+            if (assessmentType === "posttest") {
+                result = await siswaPosttestApi.submit(modulId, { answers });
+            } else {
+                result = await siswaPretestApi.submit(modulId, { answers });
+                setIsPretestFinished(true);
+            }
+
+            // Calculate totalBenar and totalSalah manually (since new API only returns score)
+            const totalBenar = currentSoal.reduce((acc, soal, idx) => {
+                const selectedIdx = selectedAnswers[idx] ?? -1;
+                if (selectedIdx === -1) return acc;
+                const answerText =
+                    [
+                        soal.pilihan_a,
+                        soal.pilihan_b,
+                        soal.pilihan_c,
+                        soal.pilihan_d,
+                    ][selectedIdx] || "";
+                return answerText === soal.kunci_jawaban ? acc + 1 : acc;
+            }, 0);
+            const totalSalah = currentSoal.length - totalBenar;
+
+            setTestResult({
+                ...result,
+                totalBenar,
+                totalSalah,
+            });
+        } catch (err: unknown) {
+            console.error("Test submit error:", err);
+            const correct = currentSoal.reduce((acc, soal, idx) => {
+                const selectedIdx = selectedAnswers[idx] ?? -1;
+                if (selectedIdx === -1) return acc;
+                const answerText =
+                    [
+                        soal.pilihan_a,
+                        soal.pilihan_b,
+                        soal.pilihan_c,
+                        soal.pilihan_d,
+                    ][selectedIdx] || "";
+                return answerText === soal.kunci_jawaban ? acc + 1 : acc;
+            }, 0);
+            const totalSalah = currentSoal.length - correct;
+            setTestResult({
+                score: 0,
+                totalBenar: correct,
+                totalSalah: totalSalah,
+            });
+            if (assessmentType !== "posttest") setIsPretestFinished(true);
+        } finally {
+            setCurrentView("pretest-result");
+            setIsSubmitting(false);
+        }
+    };
+
     // ─── Load data from API ──────────────────────────────────────────────────
     useEffect(() => {
         // API may return array directly OR { data: [...] } wrapper
@@ -474,83 +551,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             console.error("Failed to mark submateri complete:", err);
         }
     }, []);
-
-    const handleSubmitTest = async () => {
-        if (isSubmitting) return;
-        setIsSubmitting(true);
-        const elapsed = PRETEST_DURATION_SECONDS - remainingSeconds;
-        setFinishedElapsedSeconds(elapsed);
-
-        const answers = currentSoal.map((soal, idx) => {
-            const selectedIdx = selectedAnswers[idx] ?? 0;
-            const answerText =
-                [
-                    soal.pilihan_a,
-                    soal.pilihan_b,
-                    soal.pilihan_c,
-                    soal.pilihan_d,
-                ][selectedIdx] || "";
-            return {
-                questionId: soal.id,
-                answer: answerText,
-            };
-        });
-
-        try {
-            let result: TestSubmitResult;
-            if (assessmentType === "posttest") {
-                result = await siswaPosttestApi.submit(modulId, { answers });
-            } else {
-                result = await siswaPretestApi.submit(modulId, { answers });
-                setIsPretestFinished(true);
-            }
-
-            // Calculate totalBenar and totalSalah manually (since new API only returns score)
-            const totalBenar = currentSoal.reduce((acc, soal, idx) => {
-                const selectedIdx = selectedAnswers[idx] ?? -1;
-                if (selectedIdx === -1) return acc;
-                const answerText =
-                    [
-                        soal.pilihan_a,
-                        soal.pilihan_b,
-                        soal.pilihan_c,
-                        soal.pilihan_d,
-                    ][selectedIdx] || "";
-                return answerText === soal.kunci_jawaban ? acc + 1 : acc;
-            }, 0);
-            const totalSalah = currentSoal.length - totalBenar;
-
-            setTestResult({
-                ...result,
-                totalBenar,
-                totalSalah,
-            });
-        } catch (err: unknown) {
-            console.error("Test submit error:", err);
-            const correct = currentSoal.reduce((acc, soal, idx) => {
-                const selectedIdx = selectedAnswers[idx] ?? -1;
-                if (selectedIdx === -1) return acc;
-                const answerText =
-                    [
-                        soal.pilihan_a,
-                        soal.pilihan_b,
-                        soal.pilihan_c,
-                        soal.pilihan_d,
-                    ][selectedIdx] || "";
-                return answerText === soal.kunci_jawaban ? acc + 1 : acc;
-            }, 0);
-            const totalSalah = currentSoal.length - correct;
-            setTestResult({
-                score: 0,
-                totalBenar: correct,
-                totalSalah: totalSalah,
-            });
-            if (assessmentType !== "posttest") setIsPretestFinished(true);
-        } finally {
-            setCurrentView("pretest-result");
-            setIsSubmitting(false);
-        }
-    };
 
     const handleFooterPrevious = () => {
         if (currentView === "certificate" || currentView === "rating") {
@@ -1056,7 +1056,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
                 {/* ── Main content ── */}
                 <section className="flex h-[calc(100vh-76px)] min-h-[calc(100vh-76px)] flex-col overflow-hidden">
-                    {JSON.stringify(progress, null, 2)}
+                    {/* {JSON.stringify(progress, null, 2)} */}
                     <div
                         className={`flex-1 p-5 ${currentView === "materi" ? "overflow-y-auto" : "overflow-y-auto"}`}
                     >
