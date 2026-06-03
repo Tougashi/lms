@@ -294,13 +294,10 @@ export const siswaProgressApi = {
         return apiFetch<ProgressDetail>(`/siswa/progress/${modulId}`);
     },
 
-    completeSubmateri(submateriId: string, payload?: { progressPercentage: number; status?: string }) {
+    completeSubmateri(submateriId: string) {
         return apiFetch<{ message: string }>(
             `/siswa/progress/submateri/${submateriId}/complete`,
-            { 
-                method: "POST",
-                data: payload,
-            },
+            { method: "POST" },
         );
     },
 };

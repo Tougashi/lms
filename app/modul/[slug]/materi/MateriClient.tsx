@@ -36,6 +36,7 @@ import { ApiError } from "../../../lib/types/umum";
 // Helpers
 // ---------------------------------------------------------------------------
 const PRETEST_DURATION_SECONDS = 15 * 60;
+const POSTTEST_DURATION_SECONDS = 15 * 60;
 
 function formatRemainingTime(totalSeconds: number) {
   const safeValue = Math.max(0, totalSeconds);
@@ -89,12 +90,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
   const [isPretestStarted, setIsPretestStarted] = useState(false);
   const [isPretestFinished, setIsPretestFinished] = useState(false);
+  const [isPosttestStarted, setIsPosttestStarted] = useState(false);
+  const [isPosttestFinished, setIsPosttestFinished] = useState(false);
   const [testResult, setTestResult] = useState<TestSubmitResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [remainingSeconds, setRemainingSeconds] = useState(PRETEST_DURATION_SECONDS);
+  const [testDurationSeconds, setTestDurationSeconds] = useState(PRETEST_DURATION_SECONDS);
   const [finishedElapsedSeconds, setFinishedElapsedSeconds] = useState<number | null>(null);
 
   const [isMaterialMode, setIsMaterialMode] = useState(false);
@@ -337,23 +341,27 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     load();
   }, [modulId]);
 
-  // ─── Timer ───────────────────────────────────────────────────────────────
+  // ─── Timer (works for both pretest and posttest) ────────────────────────
+  const isTimerActive = (
+    (isPretestStarted && !isPretestFinished && assessmentType === "pretest") ||
+    (isPosttestStarted && !isPosttestFinished && assessmentType === "posttest")
+  );
   useEffect(() => {
-    if (!isPretestStarted || isPretestFinished) return;
+    if (!isTimerActive) return;
     if (remainingSeconds <= 0) return;
     const timer = setInterval(() => {
       setRemainingSeconds((prev) => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(timer);
-  }, [isPretestFinished, isPretestStarted, remainingSeconds]);
+  }, [isTimerActive, remainingSeconds]);
 
   // Auto-submit when timer runs out
   useEffect(() => {
-    if (isPretestStarted && !isPretestFinished && remainingSeconds === 0) {
+    if (isTimerActive && remainingSeconds === 0) {
       handleSubmitTest();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingSeconds]);
+  }, [remainingSeconds, isTimerActive]);
 
   // ─── Sidebar events ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -379,7 +387,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   const currentSoal = assessmentType === "posttest" ? posttestSoal : assessmentType === "kuis" ? pretestSoal : pretestSoal;
   const activeQuestion = currentSoal[activeQuestionIndex];
   const answeredCount = useMemo(() => Object.keys(selectedAnswers).length, [selectedAnswers]);
-  const elapsedSeconds = PRETEST_DURATION_SECONDS - remainingSeconds;
+  const elapsedSeconds = testDurationSeconds - remainingSeconds;
   const displayedElapsedSeconds = finishedElapsedSeconds ?? elapsedSeconds;
 
   const hasUnlockedUntilSummary = isMaterialMode || isPretestFinished;
@@ -412,16 +420,22 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     : undefined;
 
   // Calculate local progress: count non-summary completed items vs total non-summary items
+  // Total steps = pretest(1) + submateri items + posttest(1)
   const realContentItems = useMemo(
     () => flatContentItems.filter((item) => !item.id.startsWith("summary-")),
     [flatContentItems]
   );
+  const totalSteps = realContentItems.length + 2; // +1 pretest, +1 posttest
   const localCompletedCount = useMemo(
     () => realContentItems.filter((item) => completedContentItemMap[item.id]).length,
     [realContentItems, completedContentItemMap]
   );
-  const localProgressPercent = realContentItems.length > 0
-    ? Math.round((localCompletedCount / realContentItems.length) * 100)
+  // Count pretest and posttest as completed steps
+  const pretestDone = isPretestFinished || progress?.pretestScore != null ? 1 : 0;
+  const posttestDone = isPosttestFinished || progress?.posttestScore != null ? 1 : 0;
+  const totalCompletedSteps = localCompletedCount + pretestDone + posttestDone;
+  const localProgressPercent = totalSteps > 0
+    ? Math.round((totalCompletedSteps / totalSteps) * 100)
     : 0;
   // Use the higher value between backend and local calculation. Force 100% if completed.
   const displayProgressPercent = (progress?.status === "COMPLETED" || progress?.isGraduated)
@@ -445,8 +459,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
       }
       const newMap = { ...prev, [itemId]: true };
       const newCompletedCount = realContentItems.filter((item) => newMap[item.id]).length;
-      localNewPercent = realContentItems.length > 0
-        ? Math.round((newCompletedCount / realContentItems.length) * 100)
+      // Include pretest/posttest in total steps calculation
+      const ptDone = isPretestFinished || progress?.pretestScore != null ? 1 : 0;
+      const postDone = isPosttestFinished || progress?.posttestScore != null ? 1 : 0;
+      const total = realContentItems.length + 2; // pretest + submateri + posttest
+      localNewPercent = total > 0
+        ? Math.round(((newCompletedCount + ptDone + postDone) / total) * 100)
         : 0;
       console.log(`[MateriClient] markContentItemAsCompleted: item=${itemId}, newCount=${newCompletedCount}, newPercent=${localNewPercent}`);
       return newMap;
@@ -457,10 +475,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     }
 
     try {
-      await siswaProgressApi.completeSubmateri(itemId, { 
-        progressPercentage: localNewPercent,
-        ...(localNewPercent === 100 && { status: "COMPLETED" })
-      });
+      await siswaProgressApi.completeSubmateri(itemId);
       if (modulId) {
         const progRaw = await siswaProgressApi.getByModul(modulId);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -470,12 +485,21 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     } catch (err) {
       console.error("Failed to mark submateri complete:", err);
     }
-  }, [modulId, realContentItems]);
+  }, [modulId, realContentItems, isPretestFinished, isPosttestFinished, progress?.pretestScore, progress?.posttestScore]);
+
+  // Helper: compute current progress percentage including pretest/posttest/submateri
+  const computeProgressPercent = useCallback((overrides?: { pretestJustDone?: boolean; posttestJustDone?: boolean }) => {
+    const submateriDone = realContentItems.filter((item) => completedContentItemMap[item.id]).length;
+    const ptDone = overrides?.pretestJustDone || isPretestFinished || progress?.pretestScore != null ? 1 : 0;
+    const postDone = overrides?.posttestJustDone || isPosttestFinished || progress?.posttestScore != null ? 1 : 0;
+    const total = realContentItems.length + 2; // pretest + submateri + posttest
+    return total > 0 ? Math.round(((submateriDone + ptDone + postDone) / total) * 100) : 0;
+  }, [realContentItems, completedContentItemMap, isPretestFinished, isPosttestFinished, progress?.pretestScore, progress?.posttestScore]);
 
   const handleSubmitTest = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
-    const elapsed = PRETEST_DURATION_SECONDS - remainingSeconds;
+    const elapsed = testDurationSeconds - remainingSeconds;
     setFinishedElapsedSeconds(elapsed);
 
     const answers = currentSoal.map((soal, idx) => {
@@ -491,6 +515,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
       let result: TestSubmitResult | null = null;
       if (assessmentType === "posttest") {
         result = await siswaPosttestApi.submit(modulId, { answers });
+        setIsPosttestFinished(true);
         // Save certificate from posttest response if returned
         if (result?.certificate) {
           setCertificate(result.certificate);
@@ -565,7 +590,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
       }, 0);
       const totalSalah = currentSoal.length - correct;
       setTestResult({ score: 0, totalBenar: correct, totalSalah: totalSalah });
-      if (assessmentType !== "posttest") setIsPretestFinished(true);
+      if (assessmentType === "pretest") setIsPretestFinished(true);
+      if (assessmentType === "posttest") setIsPosttestFinished(true);
     } finally {
       setCurrentView("pretest-result");
       setIsSubmitting(false);
@@ -901,8 +927,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                   setIsFinalSummaryView(false);
                   setActiveQuestionIndex(0);
                   setSelectedAnswers({});
-                  setRemainingSeconds(PRETEST_DURATION_SECONDS);
+                  setRemainingSeconds(POSTTEST_DURATION_SECONDS);
+                  setTestDurationSeconds(POSTTEST_DURATION_SECONDS);
                   setTestResult(null);
+                  setIsPosttestStarted(false);
+                  setIsPosttestFinished(false);
                 }
               }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
@@ -1014,7 +1043,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     <button
                       type="button"
                       onClick={() => {
-                        setIsPretestStarted(true);
+                        if (assessmentType === "posttest") {
+                          setIsPosttestStarted(true);
+                          setRemainingSeconds(POSTTEST_DURATION_SECONDS);
+                          setTestDurationSeconds(POSTTEST_DURATION_SECONDS);
+                        } else {
+                          setIsPretestStarted(true);
+                          setRemainingSeconds(PRETEST_DURATION_SECONDS);
+                          setTestDurationSeconds(PRETEST_DURATION_SECONDS);
+                        }
                         setCurrentView("pretest-quiz");
                       }}
                       className="mx-auto mt-6 inline-flex w-fit min-w-[170px] shrink-0 items-center justify-center rounded-xl bg-[#7054dc] px-5 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
