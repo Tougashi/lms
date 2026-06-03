@@ -8,9 +8,11 @@ import { MdKeyboardArrowLeft, MdKeyboardArrowRight } from 'react-icons/md';
 
 import GuruHeader from '../../component/guru/GuruHeader';
 import { useGuruModules } from '../hooks/useGuruModules';
+import { guruModulApi } from '../../lib/api';
 
 export default function ManajemenModulPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const {
     modules,
@@ -34,6 +36,21 @@ export default function ManajemenModulPage() {
     ),
     [modules, searchQuery],
   );
+
+  const handleDelete = async (modulId: string) => {
+    if (deletingId) return;
+    if (!confirm('Apakah Anda yakin ingin menghapus modul ini?')) return;
+    setDeletingId(modulId);
+    try {
+      await guruModulApi.delete(modulId);
+      loadModules();
+    } catch (err) {
+      console.error('Delete module error:', err);
+      alert('Gagal menghapus modul.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
@@ -118,19 +135,21 @@ export default function ManajemenModulPage() {
                     </td>
                     <td className="px-5 py-4 text-right">
                       <div className="inline-flex items-center gap-2">
-                        <button
-                          type="button"
+                        <Link
+                          href={`/modul-guru/tambah/profil?modulId=${modul.id}`}
                           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold text-[#7557ea] transition-colors hover:bg-[#f0ebff]"
                         >
                           <FiEdit2 size={13} />
                           Edit
-                        </button>
+                        </Link>
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold text-[#ff6b5d] transition-colors hover:bg-[#fff1ef]"
+                          onClick={() => handleDelete(modul.id)}
+                          disabled={deletingId === modul.id}
+                          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold text-[#ff6b5d] transition-colors hover:bg-[#fff1ef] disabled:opacity-50"
                         >
                           <FiTrash2 size={13} />
-                          Hapus
+                          {deletingId === modul.id ? 'Menghapus...' : 'Hapus'}
                         </button>
                       </div>
                     </td>

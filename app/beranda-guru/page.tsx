@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { FaRegStar, FaStar } from 'react-icons/fa';
 import { FiExternalLink, FiPlus } from 'react-icons/fi';
@@ -114,13 +115,13 @@ function BerandaGuruPageContent() {
             </h1>
           </div>
 
-          <button
-            type="button"
+          <Link
+            href="/modul-guru/tambah"
             className="inline-flex h-12 items-center gap-2 self-start rounded-[14px] bg-[#7557ea] px-6 text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(117,87,234,0.35)] transition-colors hover:bg-[#6648df] sm:mt-4"
           >
             <FiPlus size={18} />
             Buat Modul Baru
-          </button>
+          </Link>
         </div>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -134,12 +135,12 @@ function BerandaGuruPageContent() {
           <div className="overflow-hidden rounded-2xl border border-[#e8e9ef] bg-white shadow-[0_4px_14px_rgba(19,23,31,0.05)]">
             <div className="flex items-center justify-between border-b border-[#f0f1f6] px-5 py-4">
               <h2 className="text-lg font-semibold leading-none tracking-[-0.01em] text-[#252834] sm:text-2xl">Top Modul / Kelas</h2>
-              <button
-                type="button"
+              <Link
+                href="/modul-guru"
                 className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-none text-[#7557ea] sm:text-[16px]"
               >
                 Lihat Semua
-              </button>
+              </Link>
             </div>
 
             {topModules.length === 0 ? (
@@ -187,12 +188,12 @@ function BerandaGuruPageContent() {
           <div className="overflow-hidden rounded-2xl border border-[#e8e9ef] bg-white shadow-[0_4px_14px_rgba(19,23,31,0.05)]">
             <div className="flex items-center justify-between border-b border-[#f0f1f6] px-5 py-4">
               <h2 className="text-lg font-semibold leading-none tracking-[-0.01em] text-[#252834] sm:text-2xl">Draft Modul</h2>
-              <button
-                type="button"
+              <Link
+                href="/modul-guru?tab=draft"
                 className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-none text-[#7557ea] sm:text-[16px]"
               >
                 Lihat Semua
-              </button>
+              </Link>
             </div>
 
             {draftModules.length === 0 ? (
@@ -226,12 +227,12 @@ function BerandaGuruPageContent() {
                       {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
                     </p>
 
-                    <button
-                      type="button"
+                    <Link
+                      href={`/modul-guru/tambah/profil?modulId=${item.id}`}
                       className="justify-self-start text-[13px] font-medium text-[#f39b39] transition-colors hover:text-[#de8524]"
                     >
                       Selesaikan Modul
-                    </button>
+                    </Link>
                   </div>
                 ))}
               </div>

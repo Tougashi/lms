@@ -28,7 +28,16 @@ import type {
     TestSubmitPayload,
     TestSubmitResult,
 } from "./types/siswa";
-import type { TutorDashboard, GuruModuleListResponse } from "./types/guru";
+import type {
+    TutorDashboard,
+    GuruModuleListResponse,
+    GuruModuleItem,
+    GuruModuleCreatePayload,
+    GuruModuleUpdatePayload,
+    GuruMateriItem,
+    GuruMateriCreatePayload,
+    GuruMateriUpdatePayload,
+} from "./types/guru";
 import type {
     MateriItem,
     ModuleItem,
@@ -447,6 +456,16 @@ export const moduleApi = {
 };
 
 // ---------------------------------------------------------------------------
+// Guru / Tutor – Dashboard endpoints
+// ---------------------------------------------------------------------------
+
+export const guruDashboardApi = {
+    get() {
+        return apiFetch<TutorDashboard>("/tutor/dashboard");
+    },
+};
+
+// ---------------------------------------------------------------------------
 // Guru / Tutor – Modul endpoints
 // ---------------------------------------------------------------------------
 
@@ -459,6 +478,60 @@ export const guruModulApi = {
         return apiFetch<GuruModuleListResponse>(
             `/tutor/modul${qs ? `?${qs}` : ""}`,
         );
+    },
+
+    create(payload: GuruModuleCreatePayload) {
+        return apiFetch<GuruModuleItem>("/tutor/modul", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    detail(id: string) {
+        return apiFetch<GuruModuleItem>(`/tutor/modul/${id}`);
+    },
+
+    update(id: string, payload: GuruModuleUpdatePayload) {
+        return apiFetch<GuruModuleItem>(`/tutor/modul/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/tutor/modul/${id}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Materi endpoints
+// ---------------------------------------------------------------------------
+
+export const guruMateriApi = {
+    getByModul(modulId: string) {
+        return apiFetch<GuruMateriItem[]>(`/tutor/materi/${modulId}`);
+    },
+
+    create(payload: GuruMateriCreatePayload) {
+        return apiFetch<GuruMateriItem>("/tutor/materi", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: GuruMateriUpdatePayload) {
+        return apiFetch<GuruMateriItem>(`/tutor/materi/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/tutor/materi/${id}`, {
+            method: "DELETE",
+        });
     },
 };
 

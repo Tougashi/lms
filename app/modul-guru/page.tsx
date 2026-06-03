@@ -10,12 +10,14 @@ import { MdKeyboardArrowLeft, MdKeyboardArrowRight } from 'react-icons/md';
 
 import GuruHeader from '../component/guru/GuruHeader';
 import { useGuruModules } from './hooks/useGuruModules';
+import { guruModulApi } from '../lib/api';
 
 function ModulGuruPageContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isDraftTab = tabParam === 'draft';
@@ -59,6 +61,22 @@ function ModulGuruPageContent() {
     ),
     [activeModules, searchQuery],
   );
+
+  const handleDelete = async (modulId: string) => {
+    if (deletingId) return;
+    if (!confirm('Apakah Anda yakin ingin menghapus modul ini?')) return;
+    setDeletingId(modulId);
+    try {
+      await guruModulApi.delete(modulId);
+      setOpenMenuId(null);
+      loadModules();
+    } catch (err) {
+      console.error('Delete module error:', err);
+      alert('Gagal menghapus modul.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
@@ -151,12 +169,12 @@ function ModulGuruPageContent() {
                         {[modul.level, modul.class].filter(Boolean).join(' | Kelas ') || '-'}
                       </p>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
+                        <Link
+                          href={`/modul/${modul.id}`}
                           className="rounded-full border border-[#bdaef4] px-4 py-1.5 text-[12px] font-semibold text-[#7557ea] transition-colors hover:bg-[#f5f2ff]"
                         >
                           Lihat Kelas
-                        </button>
+                        </Link>
                         {!isDraftTab && (
                           <Link
                             href="/modul-guru/manajemen"
@@ -181,19 +199,21 @@ function ModulGuruPageContent() {
 
                     {openMenuId === modul.id && (
                       <div className="absolute right-4 top-[56px] w-[170px] overflow-hidden rounded-xl border border-[#eceaf4] bg-white shadow-[0_12px_26px_rgba(14,14,20,0.18)]">
-                        <button
-                          type="button"
+                        <Link
+                          href={`/modul-guru/tambah/profil?modulId=${modul.id}`}
                           className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#4b4f5c] hover:bg-[#f6f6fb]"
                         >
                           <FiEdit2 size={16} />
                           Sunting Modul
-                        </button>
+                        </Link>
                         <button
                           type="button"
-                          className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#ff6b5d] hover:bg-[#fff1ef]"
+                          onClick={() => handleDelete(modul.id)}
+                          disabled={deletingId === modul.id}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#ff6b5d] hover:bg-[#fff1ef] disabled:opacity-50"
                         >
                           <FiTrash2 size={16} />
-                          Hapus Modul
+                          {deletingId === modul.id ? 'Menghapus...' : 'Hapus Modul'}
                         </button>
                       </div>
                     )}

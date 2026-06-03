@@ -34,3 +34,54 @@ export interface GuruModuleListResponse {
   items: GuruModuleItem[];
   next_cursor: string | null;
 }
+
+export interface GuruModuleCreatePayload {
+  moduleName: string;
+  subtitle: string;
+  description: string;
+  targetTime: number;
+  difficulty: string;
+  isPaid?: boolean;
+  modulPrice?: number | null;
+  level?: string;
+  class?: string;
+  modulType?: string;
+  tutorId: string;
+}
+
+export interface GuruModuleUpdatePayload {
+  moduleName?: string;
+  subtitle?: string;
+  description?: string;
+  targetTime?: number;
+  difficulty?: string;
+  isPaid?: boolean;
+  modulPrice?: number | null;
+  level?: string;
+  class?: string;
+  modulType?: string;
+  isDraft?: boolean;
+}
+
+export interface GuruMateriItem {
+  id: string;
+  topik_id: string;
+  is_video: boolean;
+  video_url?: string | null;
+  article?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GuruMateriCreatePayload {
+  topik_id: string;
+  is_video?: boolean;
+  video_url?: string | null;
+  article?: string | null;
+}
+
+export interface GuruMateriUpdatePayload {
+  is_video?: boolean;
+  video_url?: string | null;
+  article?: string | null;
+}
