@@ -78,6 +78,8 @@ export interface TestSubmitPayload {
 
 export interface TestSubmitResult {
   score: number;
+  unlocked_count?: number;
+  total_submodules?: number;
   totalBenar?: number;
   totalSalah?: number;
   message?: string;

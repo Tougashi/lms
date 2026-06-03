@@ -78,6 +78,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   const [posttestSoal, setPosttestSoal] = useState<SoalItem[]>([]);
   const [progress, setProgress] = useState<ProgressDetail | null>(null);
   const [certificate, setCertificate] = useState<CertificateItem | null>(null);
+  const [unlockedCount, setUnlockedCount] = useState<number | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dataError, setDataError] = useState("");
 
@@ -94,6 +95,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   const [isPosttestFinished, setIsPosttestFinished] = useState(false);
   const [testResult, setTestResult] = useState<TestSubmitResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
@@ -153,11 +155,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         const topikList = extractArray<TopikItem>(topikRaw);
         const materiList = extractArray<MateriItemApi>(materiRaw);
 
-        // Build content tree
-        const tree: ContentSection[] = topikList.map((topik: TopikItem) => {
-          const materiForTopik = materiList.filter((m) => m.topikId === topik.id);
+        // Build content tree — sorted by urutan for proper cross-module flattening
+        const sortedTopik = [...topikList].sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
+        const tree: ContentSection[] = sortedTopik.map((topik: TopikItem) => {
+          const materiForTopik = materiList
+            .filter((m) => m.topikId === topik.id)
+            .sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
           const items: ContentItem[] = materiForTopik.flatMap((m) => {
-            const subs = m.submateris || m.submateri || [];
+            const subs = (m.submateris || m.submateri || [])
+              .sort((a, b) => (a.urutan ?? 0) - (b.urutan ?? 0));
             return subs.map((sub) => ({
               id: sub.id,
               // Strip CUID fragments (5-25 chars starting with 'c') and any preceding separator
@@ -282,6 +288,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             setIsPretestFinished(true);
             setIsMaterialMode(true);
             setCurrentView("materi");
+            // Restore unlocked_count from localStorage when refreshing
+            try {
+              const stored = localStorage.getItem(`unlocked_count_${modulId}`);
+              if (stored != null) setUnlockedCount(Number(stored));
+            } catch { /* ignore */ }
 
             // Mark completed submateri
             const completedMap: Record<string, boolean> = {};
@@ -450,6 +461,38 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     ? 100
     : Math.max(progress?.completionRate ?? progress?.progressPercentage ?? 0, localProgressPercent);
 
+  // ─── Cross-boundary unlock map ──────────────────────────────────────────
+  // Flatten all items sorted by topik→materi→submateri urutan.
+  // unlockedCount = number of lesson-type items to unlock.
+  // Quiz & summary items do NOT consume the quota but inherit the unlock
+  // boundary: every item before the boundary is AVAILABLE, after is LOCKED.
+  const unlockedItemMap = useMemo<Record<string, boolean>>(() => {
+    const map: Record<string, boolean> = {};
+
+    if (unlockedCount == null) {
+      // No pretest result yet – use legacy hasUnlockedUntilSummary
+      if (hasUnlockedUntilSummary) {
+        flatContentItems.forEach((item) => { map[item.id] = true; });
+      }
+      return map;
+    }
+
+    let lessonCounter = 0;
+    for (const item of flatContentItems) {
+      if (item.type === "lesson") lessonCounter += 1;
+      if (lessonCounter <= unlockedCount) {
+        map[item.id] = true;
+      }
+    }
+    return map;
+  }, [flatContentItems, unlockedCount, hasUnlockedUntilSummary]);
+
+  // Strict: posttest / final summary only unlock when ALL unlocked items are completed
+  const allUnlockedItemsCompleted = useMemo(() => {
+    const unlockedIds = Object.keys(unlockedItemMap).filter((id) => unlockedItemMap[id]);
+    return unlockedIds.length > 0 && unlockedIds.every((id) => completedContentItemMap[id]);
+  }, [unlockedItemMap, completedContentItemMap]);
+
   const markContentItemAsCompleted = useCallback(async (itemId: string) => {
     // Skip API call if it's a summary item
     if (itemId.startsWith("summary-")) {
@@ -527,6 +570,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
       } else if (assessmentType === "pretest") {
         result = await siswaPretestApi.submit(modulId, { answers });
         setIsPretestFinished(true);
+        if (result?.unlocked_count != null) {
+          setUnlockedCount(result.unlocked_count);
+          try { localStorage.setItem(`unlocked_count_${modulId}`, String(result.unlocked_count)); } catch { /* ignore */ }
+        }
       } else if (assessmentType === "kuis") {
         // Submit kuis answers
         await Promise.all(
@@ -579,6 +626,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
       setTestResult({
         score: result?.score ?? 0,
+        unlocked_count: result?.unlocked_count,
+        total_submodules: result?.total_submodules,
         message: result?.message,
         certificate: result?.certificate,
         totalBenar,
@@ -602,7 +651,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     }
   };
 
-  const handleFooterPrevious = () => {
+  const handleFooterPrevious = async () => {
     if (currentView === "certificate" || currentView === "rating") {
       setCurrentView("materi");
       setIsMaterialMode(true);
@@ -611,8 +660,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     }
     if (currentView === "materi") {
       if (selectedContentItemIndex > 0) {
-        // Mark current item as complete before navigating away
-        markContentItemAsCompleted(flatContentItems[selectedContentItemIndex].id);
+        setIsNavigating(true);
+        try {
+          await markContentItemAsCompleted(flatContentItems[selectedContentItemIndex].id);
+        } finally {
+          setIsNavigating(false);
+        }
         const previousItem = flatContentItems[selectedContentItemIndex - 1];
         setSelectedContentItemId(previousItem.id);
       }
@@ -621,7 +674,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     setActiveQuestionIndex((prev) => Math.max(0, prev - 1));
   };
 
-  const handleFooterNext = () => {
+  const handleFooterNext = async () => {
     if (currentView === "certificate") {
       setCurrentView("materi");
       setIsMaterialMode(true);
@@ -638,17 +691,24 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     if (currentView === "pretest-result") {
       setCurrentView("materi");
       setIsMaterialMode(true);
-      // Mark the first item as complete when starting material mode
       if (flatContentItems.length > 0) {
-        markContentItemAsCompleted(flatContentItems[0].id);
+        setIsNavigating(true);
+        try {
+          await markContentItemAsCompleted(flatContentItems[0].id);
+        } finally {
+          setIsNavigating(false);
+        }
       }
       return;
     }
     if (currentView === "materi") {
-      // Mark current item as complete before moving to next
       if (selectedContentItemIndex >= 0 && selectedContentItemIndex < flatContentItems.length) {
-        const currentItem = flatContentItems[selectedContentItemIndex];
-        markContentItemAsCompleted(currentItem.id);
+        setIsNavigating(true);
+        try {
+          await markContentItemAsCompleted(flatContentItems[selectedContentItemIndex].id);
+        } finally {
+          setIsNavigating(false);
+        }
       }
       if (selectedContentItemIndex < flatContentItems.length - 1) {
         const nextItem = flatContentItems[selectedContentItemIndex + 1];
@@ -773,7 +833,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
             {/* Content tree sections */}
             {contentTree.map((section, sectionIndex) => {
-              const sectionUnlocked = hasUnlockedUntilSummary;
+              const sectionUnlocked = section.items.some((item) => unlockedItemMap[item.id]);
               const isSectionCompleted = section.items.every((item) => completedContentItemMap[item.id]);
 
               return (
@@ -803,7 +863,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     <div className="border-t border-[#eceaf4] bg-white">
                       {section.items.map((item) => {
                         const isSelected = selectedContentItemId === item.id;
-                        const isItemLocked = !sectionUnlocked;
+                        const isItemLocked = !unlockedItemMap[item.id];
                         const isItemCompleted = completedContentItemMap[item.id];
                         const isQuizActive =
                           item.type === "quiz" &&
@@ -815,7 +875,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                           <button
                             key={item.id}
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               if (isItemLocked) return;
                               setIsModuleSidebarOpen(false);
                               if (item.type === "quiz") {
@@ -829,10 +889,16 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                 setRemainingSeconds(PRETEST_DURATION_SECONDS);
                                 return;
                               }
+                              if (selectedContentItemId) {
+                                setIsNavigating(true);
+                                try {
+                                  await markContentItemAsCompleted(selectedContentItemId);
+                                } finally {
+                                  setIsNavigating(false);
+                                }
+                              }
                               setSelectedContentItemId(item.id);
                               setActiveQuizItemId(null);
-                              // Mark item as complete when clicked in sidebar
-                              markContentItemAsCompleted(item.id);
                               setCurrentView("materi");
                               setIsMaterialMode(true);
                               setIsFinalSummaryView(false);
@@ -883,9 +949,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             {/* Rangkuman Akhir */}
             <button
               type="button"
-              disabled={!hasUnlockedUntilSummary}
+              disabled={!allUnlockedItemsCompleted}
               onClick={() => {
-                if (!hasUnlockedUntilSummary) return;
+                if (!allUnlockedItemsCompleted) return;
                 setIsModuleSidebarOpen(false);
                 setCurrentView("materi");
                 setIsMaterialMode(true);
@@ -894,14 +960,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 setActiveQuizItemId(null);
               }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                !hasUnlockedUntilSummary
+                !allUnlockedItemsCompleted
                   ? "cursor-not-allowed border border-[#dcdae3] bg-white text-[#8f95a3]"
                   : isFinalSummaryActive
                   ? "border border-[#e0d5ff] bg-[#efe9ff] text-[#7054dc]"
                   : "border border-[#dcdae3] bg-white text-[#313643]"
               }`}
             >
-              {hasUnlockedUntilSummary ? (
+              {allUnlockedItemsCompleted ? (
                 <FaBookOpen size={11} className={isFinalSummaryActive ? "text-[#7054dc]" : "text-[#202126]"} />
               ) : (
                 <FaLock size={11} className="text-[#8f95a3]" />
@@ -912,9 +978,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             {/* Post-Test */}
             <button
               type="button"
-              disabled={!hasUnlockedUntilSummary}
+              disabled={!allUnlockedItemsCompleted}
               onClick={() => {
-                if (!hasUnlockedUntilSummary) return;
+                if (!allUnlockedItemsCompleted) return;
                 setIsModuleSidebarOpen(false);
                 setAssessmentType("posttest");
                 setActiveQuizItemId(null);
@@ -939,7 +1005,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 }
               }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                !hasUnlockedUntilSummary
+                !allUnlockedItemsCompleted
                   ? "cursor-not-allowed border border-[#dcdae3] bg-white text-[#8f95a3]"
                   : isPosttestActive
                   ? "border border-[#e0d5ff] bg-[#efe9ff] text-[#7054dc]"
@@ -951,13 +1017,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                   <FaCheck size={9} className="text-white" />
                 </span>
               )}
-              {hasUnlockedUntilSummary ? (
+              {allUnlockedItemsCompleted ? (
                 <FaFileAlt size={11} className={isPosttestActive ? "text-[#7054dc]" : "text-[#202126]"} />
               ) : (
                 <FaLock size={11} className="text-[#8f95a3]" />
               )}
               Post-Test
-              {posttestSoal.length === 0 && hasUnlockedUntilSummary && progress?.posttestScore == null && (
+              {posttestSoal.length === 0 && allUnlockedItemsCompleted && progress?.posttestScore == null && (
                 <span className="ml-auto text-[10px] text-[#8a8a96]">Belum tersedia</span>
               )}
             </button>
@@ -988,16 +1054,16 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             {/* Lihat Sertifikat */}
             <button
               type="button"
-              disabled={!hasUnlockedUntilSummary}
+              disabled={!allUnlockedItemsCompleted}
               onClick={() => {
-                if (!hasUnlockedUntilSummary) return;
+                if (!allUnlockedItemsCompleted) return;
                 setCurrentView("certificate");
                 setIsMaterialMode(false);
                 setIsFinalSummaryView(false);
                 setActiveQuizItemId(null);
               }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                !hasUnlockedUntilSummary
+                !allUnlockedItemsCompleted
                   ? "cursor-not-allowed border border-[#dcdae3] bg-white text-[#8f95a3]"
                   : isCertificateView
                   ? "border border-[#e0d5ff] bg-[#efe9ff] text-[#7054dc]"
@@ -1009,7 +1075,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                   <FaCheck size={9} className="text-white" />
                 </span>
               )}
-              {hasUnlockedUntilSummary ? (
+              {allUnlockedItemsCompleted ? (
                 <FaFileAlt size={11} className={isCertificateView ? "text-[#7054dc]" : "text-[#202126]"} />
               ) : (
                 <FaLock size={11} className="text-[#8f95a3]" />
@@ -1230,6 +1296,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     </div>
                   </div>
 
+                  {assessmentType === "pretest" && testResult?.unlocked_count != null && (
+                    <div className="mx-auto mt-6 max-w-[540px] rounded-xl border border-[#e0d5ff] bg-[#f8f6ff] px-4 py-3 text-sm text-[#4f5565]">
+                      <span className="font-semibold text-[#7054dc]">{testResult.unlocked_count}</span> dari{' '}
+                      <span className="font-semibold text-[#7054dc]">{testResult.total_submodules ?? '-'}</span> materi
+                      telah terbuka untuk dipelajari
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => {
@@ -1434,12 +1508,17 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                   type="button"
                   onClick={handleFooterPrevious}
                   disabled={
+                    isNavigating ||
                     (currentView === "materi" && !isFinalSummaryView && selectedContentItemIndex === 0) ||
                     (currentView === "pretest-quiz" && activeQuestionIndex === 0)
                   }
                   className="inline-flex items-center gap-2 rounded-lg border border-[#e0dfe6] px-4 py-2 text-sm font-medium text-[#202126] hover:bg-[#f7f6ff] disabled:opacity-40"
                 >
-                  <MdArrowBack size={16} /> Sebelumnya
+                  {isNavigating ? (
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#202126] border-t-transparent" />
+                  ) : (
+                    <><MdArrowBack size={16} /> Sebelumnya</>
+                  )}
                 </button>
 
                 {currentView === "materi" && !isFinalSummaryView && (
@@ -1452,13 +1531,18 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                   type="button"
                   onClick={handleFooterNext}
                   disabled={
-                    currentView === "materi" &&
+                    isNavigating ||
+                    (currentView === "materi" &&
                     !isFinalSummaryView &&
-                    selectedContentItemIndex === flatContentItems.length - 1
+                    selectedContentItemIndex === flatContentItems.length - 1)
                   }
                   className="inline-flex items-center gap-2 rounded-lg bg-[#7054dc] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
                 >
-                  Selanjutnya <MdArrowForward size={16} />
+                  {isNavigating ? (
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <>Selanjutnya <MdArrowForward size={16} /></>
+                  )}
                 </button>
               </div>
             </div>
