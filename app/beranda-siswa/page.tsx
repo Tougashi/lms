@@ -11,7 +11,7 @@ import { FaBookOpen } from 'react-icons/fa';
 import { RiFileList3Fill } from 'react-icons/ri';
 import Header from '../component/Header';
 import { useAuth } from '../context/AuthContext';
-import { dashboardApi } from '../lib/api';
+import { dashboardApi, siswaModulApi } from '../lib/api';
 import type { SiswaDashboard, ProgressItem } from '../lib/types/siswa';
 
 export default function BerandaSiswaPage() {
@@ -28,6 +28,42 @@ export default function BerandaSiswaPage() {
     const fetchDashboard = async () => {
       try {
         const data = await dashboardApi.siswa();
+
+        // Resolve module names for progress items that lack modul relation
+        const progressItems = data.latestProgress ?? [];
+        const unresolvedIds = new Set<string>();
+        for (const p of progressItems) {
+          if (!p.modul?.moduleName && !p.modul?.nama_modul && p.modulId) {
+            unresolvedIds.add(p.modulId);
+          }
+        }
+        if (data.lastActivity && !data.lastActivity.modul?.moduleName && !data.lastActivity.modul?.nama_modul && data.lastActivity.modulId) {
+          unresolvedIds.add(data.lastActivity.modulId);
+        }
+
+        if (unresolvedIds.size > 0) {
+          const resolvedNames: Record<string, string> = {};
+          await Promise.all(
+            Array.from(unresolvedIds).map(async (mid) => {
+              try {
+                const m = await siswaModulApi.getById(mid);
+                resolvedNames[mid] = m.moduleName || m.nama_modul || 'Modul';
+              } catch {
+                resolvedNames[mid] = 'Modul';
+              }
+            })
+          );
+
+          for (const p of progressItems) {
+            if ((!p.modul?.moduleName && !p.modul?.nama_modul) && p.modulId && resolvedNames[p.modulId]) {
+              p.modul = { ...p.modul, id: p.modulId, moduleName: resolvedNames[p.modulId] } as ProgressItem['modul'];
+            }
+          }
+          if (data.lastActivity && (!data.lastActivity.modul?.moduleName && !data.lastActivity.modul?.nama_modul) && data.lastActivity.modulId && resolvedNames[data.lastActivity.modulId]) {
+            data.lastActivity.modul = { ...data.lastActivity.modul, id: data.lastActivity.modulId, moduleName: resolvedNames[data.lastActivity.modulId] } as ProgressItem['modul'];
+          }
+        }
+
         setDashboard(data);
       } catch (err: unknown) {
         console.error('Dashboard fetch error:', err);
@@ -69,7 +105,7 @@ export default function BerandaSiswaPage() {
   };
 
   const getModuleName = (item: ProgressItem) => {
-    return item.modul?.moduleName || item.modul?.nama_modul || `Modul ${item.modulId?.slice(0, 8) || ''}`;
+    return item.modul?.moduleName || item.modul?.nama_modul || 'Modul';
   };
 
   if (authLoading || isLoadingData) {
@@ -228,7 +264,7 @@ export default function BerandaSiswaPage() {
                       <div>
                         <span className="font-medium text-[#21212b]">{getModuleName(item)}</span>
                         <p className="text-sm text-[#8a8a96]">
-                          {item.status === 'COMPLETED' ? 'Selesai' : `${Math.round(item.progressPercentage || 0)}% selesai`}
+                          {item.status === 'COMPLETED' ? 'Selesai' : `${Math.round(item.completionRate ?? item.progressPercentage ?? 0)}% selesai`}
                         </p>
                       </div>
                     </div>
@@ -237,10 +273,10 @@ export default function BerandaSiswaPage() {
                       <div className="flex-1 max-w-[220px] h-2 bg-[#e7e7e7] rounded-full overflow-hidden">
                         <div
                           className="h-full bg-[#7054dc] transition-all"
-                          style={{ width: `${item.progressPercentage || 0}%` }}
+                          style={{ width: `${item.completionRate ?? item.progressPercentage ?? 0}%` }}
                         />
                       </div>
-                      <span className="text-sm font-medium text-[#8a8a96] min-w-[40px]">{Math.round(item.progressPercentage || 0)}%</span>
+                      <span className="text-sm font-medium text-[#8a8a96] min-w-[40px]">{Math.round(item.completionRate ?? item.progressPercentage ?? 0)}%</span>
                     </div>
 
                     <div className="w-32 flex items-center">
@@ -306,7 +342,7 @@ export default function BerandaSiswaPage() {
                     </div>
                     
                     <p className="text-sm text-[#8a8a96]">
-                      Progres: {Math.round(lastActivity.progressPercentage || 0)}%
+                      Progres: {Math.round(lastActivity.completionRate ?? lastActivity.progressPercentage ?? 0)}%
                     </p>
                   </div>
                   

@@ -10,11 +10,14 @@ const nextConfig = {
     ],
   },
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lms-express-api-o5uk.vercel.app';
+    let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lms-express-api-o5uk.vercel.app/api/v1';
+    if (!apiUrl.endsWith('/api/v1')) {
+      apiUrl += '/api/v1';
+    }
     return [
       {
         source: '/api-backend/:path*',
-        destination: `${apiUrl}/api/v1/:path*`,
+        destination: `${apiUrl}/:path*`,
       },
     ];
   },
