@@ -418,12 +418,14 @@ export const notificationApi = {
     markAllRead() {
         return apiFetch<{ message: string }>("/notifications", {
             method: "PATCH",
+            data: {},
         });
     },
 
     markRead(id: string) {
         return apiFetch<{ message: string }>(`/notifications/${id}/read`, {
             method: "PATCH",
+            data: {},
         });
     },
 };

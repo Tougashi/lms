@@ -104,8 +104,8 @@ export default function BerandaAdminPage() {
         if (dashData.status === "fulfilled") setStats(dashData.value);
         if (tutorData.status === "fulfilled") setGuruRows(tutorData.value);
         if (siswaData.status === "fulfilled") setSiswaRows(siswaData.value);
-        if (modulData.status === "fulfilled") setModulRows(modulData.value.items ?? []);
-        if (kuisData.status === "fulfilled") setKuisRows(kuisData.value.items ?? []);
+        if (modulData.status === "fulfilled") setModulRows(modulData.value.data ?? []);
+        if (kuisData.status === "fulfilled") setKuisRows(kuisData.value.data ?? []);
       } finally {
         setIsLoading(false);
       }

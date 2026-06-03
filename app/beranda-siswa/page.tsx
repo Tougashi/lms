@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import {
@@ -81,6 +83,9 @@ export default function BerandaSiswaPage() {
   const modulCount = dashboard?.accessibleModules?.length ?? 0;
   const certCount = dashboard?.certificateData?.length ?? 0;
   const lastActivity = dashboard?.lastActivity ?? null;
+  const continueModuleId = lastActivity?.modulId || (progressData.length > 0 ? progressData[0].modulId : null);
+  const continueHref = continueModuleId ? `/modul/${continueModuleId}/materi` : '/eksplor-modul';
+  const continueText = continueModuleId ? 'Lanjutkan Belajar' : 'Mulai Belajar';
 
   // Calculate overall stats
   const totalProgress = progressData.length;
@@ -162,9 +167,9 @@ export default function BerandaSiswaPage() {
             <div className="relative z-10">
               <p className="mb-3 text-sm">Halo, {user?.nama_lengkap || user?.fullName || 'Siswa'}! 👋</p>
               <h3 className="mb-6 text-xl font-bold">Siap lanjut belajar hari ini? <br /> Cek modul kelas kamu hari ini</h3>
-              <button className="inline-flex items-center gap-2 rounded-lg bg-[#7054dc] px-4 py-2 text-sm font-semibold hover:bg-[#5d42b0] transition-colors">
-                Lanjutkan Belajar
-              </button>
+              <Link href={continueHref} className="inline-flex items-center gap-2 rounded-lg bg-[#7054dc] px-4 py-2 text-sm font-semibold hover:bg-[#5d42b0] transition-colors">
+                {continueText}
+              </Link>
             </div>
               {/* Illustration with Glow */}
               <div className="absolute right-4 top-[56%] -translate-y-1/2 h-60 w-60 sm:h-[20rem] sm:w-[20rem] z-5">
@@ -256,7 +261,7 @@ export default function BerandaSiswaPage() {
               {/* Body */}
               {showProgress && progressData.length > 0 ? (
                 progressData.map((item) => (
-                  <div key={item.id} className="flex border-b border-[#f0f0f0] last:border-b-0 hover:bg-[#fafafa] transition-colors py-4 px-6">
+                  <Link key={item.id} href={`/modul/${item.modulId || item.modul?.id}/materi`} className="flex border-b border-[#f0f0f0] last:border-b-0 hover:bg-[#fafafa] transition-colors py-4 px-6">
                     <div className="flex-1 flex items-center gap-3">
                       <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#f1ecff]">
                         <FaBookOpen size={24} className="text-[#7054dc]" />
@@ -284,7 +289,7 @@ export default function BerandaSiswaPage() {
                         {getStatusLabel(item)}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 ))
               ) : showProgress && progressData.length === 0 ? (
                 <div className="flex justify-center px-4 py-8">
@@ -347,10 +352,10 @@ export default function BerandaSiswaPage() {
                   </div>
                   
                   <div className="mt-4 flex justify-end">
-                    <a href="#" className="inline-flex items-center gap-1 text-sm font-semibold text-[#f39b39] hover:text-[#e68a2a] transition-colors">
+                    <Link href={`/modul/${lastActivity.modulId || lastActivity.modul?.id}/materi`} className="inline-flex items-center gap-1 text-sm font-semibold text-[#f39b39] hover:text-[#e68a2a] transition-colors">
                       Lanjutkan
                       <MdOutlineKeyboardArrowRight size={16} />
-                    </a>
+                    </Link>
                   </div>
                 </>
               ) : (

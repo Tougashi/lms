@@ -110,8 +110,8 @@ export default function ManajemenModulPage() {
         setModulCount(dashRes.value.activeModules);
         setKuisCount(dashRes.value.activeQuizzes);
       }
-      if (modulRes.status === 'fulfilled') setModulList(modulRes.value.items ?? []);
-      if (kuisRes.status === 'fulfilled') setKuisList(kuisRes.value.items ?? []);
+      if (modulRes.status === 'fulfilled') setModulList(modulRes.value.data ?? []);
+      if (kuisRes.status === 'fulfilled') setKuisList(kuisRes.value.data ?? []);
     } finally {
       setIsLoading(false);
     }
