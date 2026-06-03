@@ -17,6 +17,7 @@ import { MdArrowBack, MdArrowForward } from "react-icons/md";
 import { PiMedalFill } from "react-icons/pi";
 import SiswaHeader from "../../../component/siswa/SiswaHeader";
 import {
+  siswaModulApi,
   siswaTopikApi,
   siswaMateriApi,
   siswaSubmateriApi,
@@ -25,6 +26,7 @@ import {
   siswaProgressApi,
   siswaRatingApi,
   siswaCertificateApi,
+  siswaKuisApi,
 } from "../../../lib/api";
 import type { TopikItem, MateriItem as MateriItemApi, SubmateriItem } from "../../../lib/types/modul";
 import type { SoalItem, TestSubmitResult, CertificateItem, ProgressDetail } from "../../../lib/types/siswa";
@@ -107,6 +109,17 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   const [isRatingSubmitted, setIsRatingSubmitted] = useState(false);
   const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (modulId && progress?.siswaId) {
+      try {
+        const stored = localStorage.getItem(`rating_submitted_${modulId}_${progress.siswaId}`);
+        if (stored === "true") {
+          setIsRatingSubmitted(true);
+        }
+      } catch { /* ignore */ }
+    }
+  }, [modulId, progress?.siswaId]);
+
   const [isModuleSidebarOpen, setIsModuleSidebarOpen] = useState(false);
 
   // ─── Load data from API ──────────────────────────────────────────────────
@@ -126,6 +139,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
       setIsLoadingData(true);
       setDataError("");
       try {
+        // Fetch modul details to get the module name
+        const modulRes = await siswaModulApi.getById(modulId);
+        const moduleName = modulRes.moduleName || modulRes.nama_modul || "Modul";
+
         // Fetch topik + materi + submateri tree
         const topikRaw = await siswaTopikApi.getByModul(modulId);
         const materiRaw = await siswaMateriApi.getByModul(modulId);
@@ -139,7 +156,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             const subs = m.submateris || m.submateri || [];
             return subs.map((sub) => ({
               id: sub.id,
-              title: sub.judul,
+              // Strip CUID fragments (5-25 chars starting with 'c') and any preceding separator
+              title: sub.judul
+                ? sub.judul
+                    .replace(/\s*[-–]\s*[c][a-z0-9]{4,24}$/gi, "")
+                    .replace(/\b[c][a-z0-9]{4,24}\b/gi, moduleName)
+                    .trim()
+                : "",
               duration: sub.durasi ?? "",
               type: sub.tipe === "quiz" ? "quiz" : "lesson",
               hasVideo: !!sub.video_url,
@@ -210,14 +233,16 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const posttest: any = await siswaPosttestApi.getByModul(modulId);
-          const rawSoal = posttest.posttestQuestions || posttest.soal || [];
+          const rawSoal = posttest.posttestQuestions || posttest.soals || posttest.soal || [];
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mappedSoal = rawSoal.map((q: any) => {
+            // Handle both answerOptions (objects) and pilihan (string array) formats
+            const pilihanArr = Array.isArray(q.pilihan) ? q.pilihan : [];
             const options = [
-              q.answerOptions?.[0]?.option || q.pilihan_a || "Pilihan A",
-              q.answerOptions?.[1]?.option || q.pilihan_b || "Pilihan B",
-              q.answerOptions?.[2]?.option || q.pilihan_c || "Pilihan C",
-              q.answerOptions?.[3]?.option || q.pilihan_d || "Pilihan D",
+              q.answerOptions?.[0]?.option || q.pilihan_a || pilihanArr[0] || "Pilihan A",
+              q.answerOptions?.[1]?.option || q.pilihan_b || pilihanArr[1] || "Pilihan B",
+              q.answerOptions?.[2]?.option || q.pilihan_c || pilihanArr[2] || "Pilihan C",
+              q.answerOptions?.[3]?.option || q.pilihan_d || pilihanArr[3] || "Pilihan D",
             ];
             if (q.correctAnswer && !options.includes(q.correctAnswer)) {
                const targetIdx = q.id ? q.id.charCodeAt(q.id.length - 1) % 4 : 0;
@@ -225,13 +250,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             }
             return {
               id: q.id,
-              pertanyaan: q.pertanyaan,
+              pertanyaan: q.pertanyaan || q.question,
               pilihan_a: options[0],
               pilihan_b: options[1],
               pilihan_c: options[2],
               pilihan_d: options[3],
               kunci_jawaban: q.correctAnswer,
-              gambar_url: q.posttestQuestionImgUrl || q.gambar_url || null,
+              gambar_url: q.posttestQuestionImgUrl || q.gambar_url || q.quizImgQuestionUrl || null,
             };
           });
           setPosttestSoal(mappedSoal);
@@ -241,7 +266,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
         // Fetch progress
         try {
-          const prog = await siswaProgressApi.getByModul(modulId);
+          const progRaw = await siswaProgressApi.getByModul(modulId);
+          // Handle potential response wrapping: API might return { data: {...} } or direct object
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const prog: ProgressDetail = (progRaw as any)?.data ?? progRaw;
+          console.log("[MateriClient] Progress loaded:", JSON.stringify(prog, null, 2));
           setProgress(prog);
 
           // If pretest already done, go directly to materi
@@ -252,18 +281,46 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
             // Mark completed submateri
             const completedMap: Record<string, boolean> = {};
-            (prog.completedSubmateri ?? []).forEach((sid) => { completedMap[sid] = true; });
+            if (prog.status === "COMPLETED" || prog.isGraduated || prog.completionRate === 100) {
+              tree.forEach((section) => {
+                section.items.forEach((item) => {
+                  if (!item.id.startsWith("summary-")) completedMap[item.id] = true;
+                });
+              });
+            } else {
+              const completedIds = prog.completedSubmateri ?? [];
+              completedIds.forEach((sid) => { completedMap[sid] = true; });
+            }
+            
+            // Also mark the first content item if it's not yet completed
+            const firstItem = tree[0]?.items[0];
+            if (firstItem && !completedMap[firstItem.id] && !firstItem.id.startsWith("summary-")) {
+              completedMap[firstItem.id] = true;
+              // Fire and forget API call to mark first item complete
+              siswaProgressApi.completeSubmateri(firstItem.id)
+                .then(() => siswaProgressApi.getByModul(modulId))
+                .then((updatedProg) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const p = (updatedProg as any)?.data ?? updatedProg;
+                  setProgress(p);
+                })
+                .catch((e) => console.error("Failed to mark first item:", e));
+            }
             setCompletedContentItemMap(completedMap);
           }
 
-          // Fetch certificate if graduated
-          if (prog.isGraduated) {
+          // Fetch certificate if posttest done, graduated, or completed
+          if (prog.posttestScore != null || prog.isGraduated || prog.status === 'COMPLETED') {
             try {
               const certs = await siswaCertificateApi.getAll({ limit: 20 });
-              const cert = certs.data.find((c) => c.modulId === modulId);
+              // Handle both { data: [...] } and { items: [...] } response formats
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const certList = (certs as any).items || certs.data || [];
+              console.log("[MateriClient] Certificates found:", certList.length, certList);
+              const cert = certList.find((c: CertificateItem) => c.modulId === modulId);
               if (cert) setCertificate(cert);
-            } catch {
-              // no cert yet
+            } catch (certErr) {
+              console.error("[MateriClient] Certificate fetch error:", certErr);
             }
           }
         } catch {
@@ -319,7 +376,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   }, [isModuleSidebarOpen]);
 
   // ─── Derived values ───────────────────────────────────────────────────────
-  const currentSoal = assessmentType === "posttest" ? posttestSoal : pretestSoal;
+  const currentSoal = assessmentType === "posttest" ? posttestSoal : assessmentType === "kuis" ? pretestSoal : pretestSoal;
   const activeQuestion = currentSoal[activeQuestionIndex];
   const answeredCount = useMemo(() => Object.keys(selectedAnswers).length, [selectedAnswers]);
   const elapsedSeconds = PRETEST_DURATION_SECONDS - remainingSeconds;
@@ -354,17 +411,66 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     ? "Rangkuman ini merangkum poin-poin penting dari topik yang telah dipelajari."
     : undefined;
 
-  // ─── Handlers ─────────────────────────────────────────────────────────────
+  // Calculate local progress: count non-summary completed items vs total non-summary items
+  const realContentItems = useMemo(
+    () => flatContentItems.filter((item) => !item.id.startsWith("summary-")),
+    [flatContentItems]
+  );
+  const localCompletedCount = useMemo(
+    () => realContentItems.filter((item) => completedContentItemMap[item.id]).length,
+    [realContentItems, completedContentItemMap]
+  );
+  const localProgressPercent = realContentItems.length > 0
+    ? Math.round((localCompletedCount / realContentItems.length) * 100)
+    : 0;
+  // Use the higher value between backend and local calculation. Force 100% if completed.
+  const displayProgressPercent = (progress?.status === "COMPLETED" || progress?.isGraduated)
+    ? 100
+    : Math.max(progress?.completionRate ?? progress?.progressPercentage ?? 0, localProgressPercent);
+
   const markContentItemAsCompleted = useCallback(async (itemId: string) => {
-    setCompletedContentItemMap((prev) => ({ ...prev, [itemId]: true }));
-    // Don't mark summary items to the server
-    if (itemId.startsWith("summary-")) return;
+    // Skip API call if it's a summary item
+    if (itemId.startsWith("summary-")) {
+      return;
+    }
+    
+    // Use a flag to check if already completed via functional update
+    let alreadyCompleted = false;
+    let localNewPercent = 0;
+    
+    setCompletedContentItemMap((prev) => {
+      if (prev[itemId]) {
+        alreadyCompleted = true;
+        return prev;
+      }
+      const newMap = { ...prev, [itemId]: true };
+      const newCompletedCount = realContentItems.filter((item) => newMap[item.id]).length;
+      localNewPercent = realContentItems.length > 0
+        ? Math.round((newCompletedCount / realContentItems.length) * 100)
+        : 0;
+      console.log(`[MateriClient] markContentItemAsCompleted: item=${itemId}, newCount=${newCompletedCount}, newPercent=${localNewPercent}`);
+      return newMap;
+    });
+
+    if (alreadyCompleted) {
+      return;
+    }
+
     try {
-      await siswaProgressApi.completeSubmateri(itemId);
+      await siswaProgressApi.completeSubmateri(itemId, { 
+        progressPercentage: localNewPercent,
+        ...(localNewPercent === 100 && { status: "COMPLETED" })
+      });
+      if (modulId) {
+        const progRaw = await siswaProgressApi.getByModul(modulId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const prog: ProgressDetail = (progRaw as any)?.data ?? progRaw;
+        setProgress(prog);
+      }
     } catch (err) {
       console.error("Failed to mark submateri complete:", err);
     }
-  }, []);
+  }, [modulId, realContentItems]);
 
   const handleSubmitTest = async () => {
     if (isSubmitting) return;
@@ -382,13 +488,56 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     });
 
     try {
-      let result: TestSubmitResult;
+      let result: TestSubmitResult | null = null;
       if (assessmentType === "posttest") {
         result = await siswaPosttestApi.submit(modulId, { answers });
-      } else {
+        // Save certificate from posttest response if returned
+        if (result?.certificate) {
+          setCertificate(result.certificate);
+        }
+      } else if (assessmentType === "pretest") {
         result = await siswaPretestApi.submit(modulId, { answers });
         setIsPretestFinished(true);
+      } else if (assessmentType === "kuis") {
+        // Submit kuis answers
+        await Promise.all(
+          currentSoal.map(async (soal, idx) => {
+            const selectedIdx = selectedAnswers[idx] ?? 0;
+            const answerText = [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d][selectedIdx] || "";
+            try {
+              await siswaKuisApi.submit({
+                quizId: soal.id,
+                answer: answerText,
+                knowledgeComponentId: (soal as any).knowledgeComponentId || "unknown",
+              });
+            } catch (e) {
+              console.error("Failed to submit kuis answer", e);
+            }
+          })
+        );
+        if (activeQuizItemId) {
+          await markContentItemAsCompleted(activeQuizItemId);
+        }
+        result = { score: 100, message: "Kuis selesai" } as unknown as TestSubmitResult;
       }
+
+      // Refetch progress after any test submission to get updated scores & percentages
+      try {
+        const updatedProgressRaw = await siswaProgressApi.getByModul(modulId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const updatedProgress: ProgressDetail = (updatedProgressRaw as any)?.data ?? updatedProgressRaw;
+        setProgress(updatedProgress);
+        // Also fetch certificate if module is now completed
+        if ((updatedProgress.isGraduated || updatedProgress.status === 'COMPLETED') && !certificate) {
+          try {
+            const certs = await siswaCertificateApi.getAll({ limit: 20 });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const certList = (certs as any).items || certs.data || [];
+            const cert = certList.find((c: CertificateItem) => c.modulId === modulId);
+            if (cert) setCertificate(cert);
+          } catch { /* no cert yet */ }
+        }
+      } catch { /* progress refetch failed, non-critical */ }
 
       // Calculate totalBenar and totalSalah manually (since new API only returns score)
       const totalBenar = currentSoal.reduce((acc, soal, idx) => {
@@ -400,7 +549,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
       const totalSalah = currentSoal.length - totalBenar;
 
       setTestResult({
-        ...result,
+        score: result?.score ?? 0,
+        message: result?.message,
+        certificate: result?.certificate,
         totalBenar,
         totalSalah,
       });
@@ -430,9 +581,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     }
     if (currentView === "materi") {
       if (selectedContentItemIndex > 0) {
+        // Mark current item as complete before navigating away
+        markContentItemAsCompleted(flatContentItems[selectedContentItemIndex].id);
         const previousItem = flatContentItems[selectedContentItemIndex - 1];
         setSelectedContentItemId(previousItem.id);
-        markContentItemAsCompleted(previousItem.id);
       }
       return;
     }
@@ -456,13 +608,21 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     if (currentView === "pretest-result") {
       setCurrentView("materi");
       setIsMaterialMode(true);
+      // Mark the first item as complete when starting material mode
+      if (flatContentItems.length > 0) {
+        markContentItemAsCompleted(flatContentItems[0].id);
+      }
       return;
     }
     if (currentView === "materi") {
+      // Mark current item as complete before moving to next
+      if (selectedContentItemIndex >= 0 && selectedContentItemIndex < flatContentItems.length) {
+        const currentItem = flatContentItems[selectedContentItemIndex];
+        markContentItemAsCompleted(currentItem.id);
+      }
       if (selectedContentItemIndex < flatContentItems.length - 1) {
         const nextItem = flatContentItems[selectedContentItemIndex + 1];
         setSelectedContentItemId(nextItem.id);
-        markContentItemAsCompleted(nextItem.id);
       }
       return;
     }
@@ -475,9 +635,16 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     try {
       await siswaRatingApi.rate(modulId, { rating: selectedRating, komentar: reviewText || undefined });
       setIsRatingSubmitted(true);
+      if (progress?.siswaId) {
+        localStorage.setItem(`rating_submitted_${modulId}_${progress.siswaId}`, "true");
+      }
     } catch (err) {
       console.error("Rating submit error:", err);
-      setIsRatingSubmitted(true); // still mark as submitted on UI
+      // If backend returns 400 (already rated), mark as submitted
+      setIsRatingSubmitted(true);
+      if (progress?.siswaId) {
+        localStorage.setItem(`rating_submitted_${modulId}_${progress.siswaId}`, "true");
+      }
     } finally {
       setIsRatingSubmitting(false);
     }
@@ -549,6 +716,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 setIsMaterialMode(false);
                 setIsFinalSummaryView(false);
                 if (isPretestFinished) {
+                  // Clear testResult so we use fallback from progress.pretestScore
+                  setTestResult(null);
                   setCurrentView("pretest-result");
                 } else if (isPretestStarted) {
                   setCurrentView("pretest-quiz");
@@ -632,6 +801,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                               }
                               setSelectedContentItemId(item.id);
                               setActiveQuizItemId(null);
+                              // Mark item as complete when clicked in sidebar
                               markContentItemAsCompleted(item.id);
                               setCurrentView("materi");
                               setIsMaterialMode(true);
@@ -718,13 +888,22 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 setIsModuleSidebarOpen(false);
                 setAssessmentType("posttest");
                 setActiveQuizItemId(null);
-                setCurrentView("pretest-intro");
-                setIsMaterialMode(false);
-                setIsFinalSummaryView(false);
-                setActiveQuestionIndex(0);
-                setSelectedAnswers({});
-                setRemainingSeconds(PRETEST_DURATION_SECONDS);
-                setTestResult(null);
+                
+                if (progress?.posttestScore != null) {
+                  // Clear testResult so we use fallback from progress.posttestScore
+                  setTestResult(null);
+                  setCurrentView("pretest-result");
+                  setIsMaterialMode(false);
+                  setIsFinalSummaryView(false);
+                } else {
+                  setCurrentView("pretest-intro");
+                  setIsMaterialMode(false);
+                  setIsFinalSummaryView(false);
+                  setActiveQuestionIndex(0);
+                  setSelectedAnswers({});
+                  setRemainingSeconds(PRETEST_DURATION_SECONDS);
+                  setTestResult(null);
+                }
               }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
                 !hasUnlockedUntilSummary
@@ -734,13 +913,18 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                   : "border border-[#dcdae3] bg-white text-[#313643]"
               }`}
             >
+              {progress?.posttestScore != null && (
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#7054dc]">
+                  <FaCheck size={9} className="text-white" />
+                </span>
+              )}
               {hasUnlockedUntilSummary ? (
                 <FaFileAlt size={11} className={isPosttestActive ? "text-[#7054dc]" : "text-[#202126]"} />
               ) : (
                 <FaLock size={11} className="text-[#8f95a3]" />
               )}
               Post-Test
-              {posttestSoal.length === 0 && hasUnlockedUntilSummary && (
+              {posttestSoal.length === 0 && hasUnlockedUntilSummary && progress?.posttestScore == null && (
                 <span className="ml-auto text-[10px] text-[#8a8a96]">Belum tersedia</span>
               )}
             </button>
@@ -753,12 +937,17 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 setIsMaterialMode(false);
                 setIsFinalSummaryView(false);
                 setActiveQuizItemId(null);
-                setIsRatingSubmitted(false);
+                // Don't reset isRatingSubmitted - keep showing "already rated" if true
               }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
                 isRatingView ? "border border-[#e0d5ff] bg-[#efe9ff] text-[#7054dc]" : "border border-[#dcdae3] bg-white text-[#313643]"
               }`}
             >
+              {isRatingSubmitted && (
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#7054dc]">
+                  <FaCheck size={9} className="text-white" />
+                </span>
+              )}
               <FaStar size={11} className={isRatingView ? "text-[#7054dc]" : "text-[#202126]"} />
               Beri Penilaian
             </button>
@@ -782,6 +971,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                   : "border border-[#dcdae3] bg-white text-[#313643]"
               }`}
             >
+              {certificate && (
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#7054dc]">
+                  <FaCheck size={9} className="text-white" />
+                </span>
+              )}
               {hasUnlockedUntilSummary ? (
                 <FaFileAlt size={11} className={isCertificateView ? "text-[#7054dc]" : "text-[#202126]"} />
               ) : (
@@ -951,7 +1145,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         </span>
                       </p>
                       <p className="mt-2 text-2xl font-bold text-[#202126]">
-                        {testResult?.totalBenar ?? (progress?.pretestScore != null ? Math.floor(progress.pretestScore / 10) : "-")}
+                        {testResult?.totalBenar ?? (() => {
+                          const score = assessmentType === "posttest" ? progress?.posttestScore : progress?.pretestScore;
+                          return score != null ? Math.floor(score / 10) : "-";
+                        })()}
                       </p>
                     </div>
                     <div>
@@ -962,7 +1159,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         </span>
                       </p>
                       <p className="mt-2 text-2xl font-bold text-[#202126]">
-                        {testResult?.totalSalah ?? (progress?.pretestScore != null ? Math.max(0, currentSoal.length - Math.floor(progress.pretestScore / 10)) : "-")}
+                        {testResult?.totalSalah ?? (() => {
+                          const score = assessmentType === "posttest" ? progress?.posttestScore : progress?.pretestScore;
+                          return score != null ? Math.max(0, currentSoal.length - Math.floor(score / 10)) : "-";
+                        })()}
                       </p>
                     </div>
                     <div>
@@ -984,7 +1184,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         </span>
                       </p>
                       <p className="mt-2 text-2xl font-bold text-[#202126]">
-                        {testResult?.score ?? progress?.pretestScore ?? "-"}
+                        {testResult?.score ?? (assessmentType === "posttest" ? progress?.posttestScore : progress?.pretestScore) ?? "-"}
                       </p>
                     </div>
                   </div>
@@ -1007,11 +1207,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 <div className="w-full p-5 sm:p-7">
                   <div className="mx-auto max-w-5xl">
                     <div className="mb-3">
-                      <p className="text-sm font-semibold text-[#7054dc]">{selectedMaterialProgressPercent}% Progress</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-[#7054dc]">{displayProgressPercent}% Progress</p>
+                        <p className="text-xs text-[#8a8a96]">{selectedContentItemIndex + 1}/{flatContentItems.length} materi</p>
+                      </div>
                       <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#e2dfee]">
                         <div
                           className="h-full rounded-full bg-[#7054dc] transition-all"
-                          style={{ width: `${selectedMaterialProgressPercent}%` }}
+                          style={{ width: `${displayProgressPercent}%` }}
                         />
                       </div>
                     </div>

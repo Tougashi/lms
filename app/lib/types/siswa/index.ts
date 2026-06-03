@@ -18,6 +18,7 @@ export interface ProgressItem {
   status: string;
   isGraduated: boolean;
   progressPercentage: number;
+  completionRate?: number;
   modul?: ModuleItem;
 }
 
@@ -34,6 +35,7 @@ export interface CertificateItem {
 export interface EnrolledModuleItem extends ModuleItem {
   progress?: ProgressItem;
   progressPercentage?: number;
+  completionRate?: number;
   pretestScore?: number | null;
   status?: string;
   isGraduated?: boolean;
@@ -92,6 +94,7 @@ export interface ProgressDetail {
   status: string;
   isGraduated: boolean;
   progressPercentage: number;
+  completionRate?: number;
   completedSubmateri?: string[];
   modul?: ModuleItem;
 }

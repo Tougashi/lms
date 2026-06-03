@@ -294,10 +294,13 @@ export const siswaProgressApi = {
         return apiFetch<ProgressDetail>(`/siswa/progress/${modulId}`);
     },
 
-    completeSubmateri(submateriId: string) {
+    completeSubmateri(submateriId: string, payload?: { progressPercentage: number; status?: string }) {
         return apiFetch<{ message: string }>(
             `/siswa/progress/submateri/${submateriId}/complete`,
-            { method: "POST" },
+            { 
+                method: "POST",
+                data: payload,
+            },
         );
     },
 };
@@ -445,12 +448,22 @@ export const moduleApi = {
 };
 
 // ---------------------------------------------------------------------------
-<<<<<<< Updated upstream
 // Guru / Tutor – Modul endpoints
 // ---------------------------------------------------------------------------
 
 export const guruModulApi = {
-=======
+    getAll(params?: { cursor?: string; limit?: number }) {
+        const query = new URLSearchParams();
+        if (params?.cursor) query.set("cursor", params.cursor);
+        if (params?.limit) query.set("limit", String(params.limit));
+        const qs = query.toString();
+        return apiFetch<GuruModuleListResponse>(
+            `/tutor/modul${qs ? `?${qs}` : ""}`,
+        );
+    },
+};
+
+// ---------------------------------------------------------------------------
 // Admin – Dashboard endpoints
 // ---------------------------------------------------------------------------
 
@@ -465,19 +478,11 @@ export const adminDashboardApi = {
 // ---------------------------------------------------------------------------
 
 export const adminModulApi = {
->>>>>>> Stashed changes
     getAll(params?: { cursor?: string; limit?: number }) {
         const query = new URLSearchParams();
         if (params?.cursor) query.set("cursor", params.cursor);
         if (params?.limit) query.set("limit", String(params.limit));
         const qs = query.toString();
-<<<<<<< Updated upstream
-        return apiFetch<GuruModuleListResponse>(
-            `/tutor/modul${qs ? `?${qs}` : ""}`,
-        );
-    },
-};
-=======
         return apiFetch<CursorPagination<AdminModulItem>>(
             `/admin/modul${qs ? `?${qs}` : ""}`,
         );
@@ -755,4 +760,3 @@ export const adminProfileApi = {
         return apiFetch<AdminProfile>("/admin/profile/profile");
     },
 };
->>>>>>> Stashed changes
