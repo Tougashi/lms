@@ -7,9 +7,11 @@ import { useState } from 'react';
 import GuruHeader from '../../component/guru/GuruHeader';
 import { useAuth } from '../../context/AuthContext';
 import { guruModulApi } from '../../lib/api';
+import { useRoleGuard } from '../../lib/hooks/useRoleGuard';
 
 export default function TambahModulIntroPage() {
   const { user } = useAuth();
+  const { isAuthorized } = useRoleGuard(['tutor']);
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -41,6 +43,18 @@ export default function TambahModulIntroPage() {
       setIsCreating(false);
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-white text-[#232530]">
+        <GuruHeader />
+        <main className="mx-auto flex min-h-[calc(100vh-74px)] w-full max-w-[960px] flex-col items-center justify-center px-6 py-12 text-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent mb-4"></div>
+          <p className="text-sm text-[#8a8d98]">Memeriksa otorisasi...</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-[#232530]">

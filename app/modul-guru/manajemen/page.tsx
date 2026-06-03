@@ -9,8 +9,10 @@ import { MdKeyboardArrowLeft, MdKeyboardArrowRight } from 'react-icons/md';
 import GuruHeader from '../../component/guru/GuruHeader';
 import { useGuruModules } from '../hooks/useGuruModules';
 import { guruModulApi } from '../../lib/api';
+import { useRoleGuard } from '../../lib/hooks/useRoleGuard';
 
 export default function ManajemenModulPage() {
+  const { isAuthorized } = useRoleGuard(['tutor']);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -51,6 +53,20 @@ export default function ManajemenModulPage() {
       setDeletingId(null);
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
+        <GuruHeader />
+        <main className="mx-auto w-full max-w-[1260px] px-4 pb-10 pt-6 sm:px-6 sm:pt-8">
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7557ea] border-t-transparent mb-4"></div>
+            <p className="text-sm text-[#8a8d98]">Memeriksa otorisasi...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">

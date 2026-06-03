@@ -14,10 +14,12 @@ import { RiFileList3Fill } from 'react-icons/ri';
 import Header from '../component/Header';
 import { useAuth } from '../context/AuthContext';
 import { dashboardApi, siswaModulApi } from '../lib/api';
+import { useRoleGuard } from '../lib/hooks/useRoleGuard';
 import type { SiswaDashboard, ProgressItem } from '../lib/types/siswa';
 
 export default function BerandaSiswaPage() {
   const { user, isLoading: authLoading } = useAuth();
+  const { isAuthorized } = useRoleGuard(['siswa']);
   const [searchQuery, setSearchQuery] = useState('');
   const [showProgress, setShowProgress] = useState(true);
   const [dashboard, setDashboard] = useState<SiswaDashboard | null>(null);
@@ -113,15 +115,15 @@ export default function BerandaSiswaPage() {
     return item.modul?.moduleName || item.modul?.nama_modul || 'Modul';
   };
 
-  if (authLoading || isLoadingData) {
+  if (authLoading || isLoadingData || !isAuthorized) {
     return (
-      <div className="min-h-screen bg-[#ffffff]">
+      <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
         <Header />
-        <main className="mx-auto max-w-7xl px-4  pb-8 sm:px-6 pt-6 sm:pb-10">
+        <main className="mx-auto w-full max-w-[1260px] px-6 pb-8 pt-8">
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-4">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
-              <p className="text-sm text-[#8a8a96]">Memuat dashboard...</p>
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7557ea] border-t-transparent"></div>
+              <p className="text-sm text-[#8a8d98]">Memuat dashboard...</p>
             </div>
           </div>
         </main>
@@ -269,7 +271,7 @@ export default function BerandaSiswaPage() {
                       <div>
                         <span className="font-medium text-[#21212b]">{getModuleName(item)}</span>
                         <p className="text-sm text-[#8a8a96]">
-                          {item.status === 'COMPLETED' ? 'Selesai' : `${Math.round(item.completionRate ?? item.progressPercentage ?? 0)}% selesai`}
+                          {item.status === 'COMPLETED' ? 'Selesai' : `${Math.round(item.progressPercentage ?? 0)}% selesai`}
                         </p>
                       </div>
                     </div>
@@ -278,10 +280,10 @@ export default function BerandaSiswaPage() {
                       <div className="flex-1 max-w-[220px] h-2 bg-[#e7e7e7] rounded-full overflow-hidden">
                         <div
                           className="h-full bg-[#7054dc] transition-all"
-                          style={{ width: `${item.completionRate ?? item.progressPercentage ?? 0}%` }}
+                          style={{ width: `${item.progressPercentage ?? 0}%` }}
                         />
                       </div>
-                      <span className="text-sm font-medium text-[#8a8a96] min-w-[40px]">{Math.round(item.completionRate ?? item.progressPercentage ?? 0)}%</span>
+                      <span className="text-sm font-medium text-[#8a8a96] min-w-[40px]">{Math.round(item.progressPercentage ?? 0)}%</span>
                     </div>
 
                     <div className="w-32 flex items-center">
@@ -347,7 +349,7 @@ export default function BerandaSiswaPage() {
                     </div>
                     
                     <p className="text-sm text-[#8a8a96]">
-                      Progres: {Math.round(lastActivity.completionRate ?? lastActivity.progressPercentage ?? 0)}%
+                      Progres: {Math.round(lastActivity.progressPercentage ?? 0)}%
                     </p>
                   </div>
                   

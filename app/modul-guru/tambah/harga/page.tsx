@@ -3,15 +3,33 @@
 import { Suspense, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FiBookOpen, FiCheckSquare, FiDollarSign, FiFileText, FiLayers } from 'react-icons/fi';
+import Link from 'next/link';
 
 import GuruHeader from '../../../component/guru/GuruHeader';
+import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
 
 function TambahModulHargaPageContent() {
+  const { isAuthorized } = useRoleGuard(['tutor']);
   const searchParams = useSearchParams();
   const router = useRouter();
+  const modulId = searchParams.get('modulId');
   const priceParam = searchParams.get('price');
   const isPaidDefault = useMemo(() => priceParam === 'paid', [priceParam]);
   const [isPaid, setIsPaid] = useState(isPaidDefault);
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
+        <GuruHeader />
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
+            <p className="text-sm text-[#8a8d98]">Memeriksa otorisasi...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
@@ -23,10 +41,10 @@ function TambahModulHargaPageContent() {
             <div className="flex h-full flex-col">
               <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
               <nav className="mt-4 space-y-3 text-[13px]">
-                <div className="flex items-center gap-2 text-[#7a7e8a]">
+                <Link href={modulId ? `/modul-guru/tambah/profil?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors">
                   <FiFileText size={12} />
                   Profil Modul Anda
-                </div>
+                </Link>
                 <div className="flex items-center gap-2 text-[#7054dc]">
                   <FiDollarSign size={12} />
                   <span className="font-semibold">Penetapan Harga Modul</span>
@@ -35,18 +53,18 @@ function TambahModulHargaPageContent() {
 
               <p className="mt-8 text-[13px] font-semibold text-[#232530]">Konten Modul Anda</p>
               <nav className="mt-4 space-y-3 text-[13px] text-[#7a7e8a]">
-                <div className="flex items-center gap-2">
+                <Link href={modulId ? `/modul-guru/tambah/konten?modulId=${modulId}` : '#'} className="flex items-center gap-2 hover:text-[#7054dc] transition-colors">
                   <FiLayers size={12} />
                   Konten Modul
-                </div>
-                <div className="flex items-center gap-2">
+                </Link>
+                <Link href={modulId ? `/modul-guru/tambah/pre-post-test?modulId=${modulId}` : '#'} className="flex items-center gap-2 hover:text-[#7054dc] transition-colors">
                   <FiCheckSquare size={12} />
                   Pree - Post Test Modul
-                </div>
-                <div className="flex items-center gap-2">
+                </Link>
+                <Link href={modulId ? `/modul-guru/tambah/sertifikat?modulId=${modulId}` : '#'} className="flex items-center gap-2 hover:text-[#7054dc] transition-colors">
                   <FiBookOpen size={12} />
                   Capaian Sertifikat
-                </div>
+                </Link>
               </nav>
 
               <button

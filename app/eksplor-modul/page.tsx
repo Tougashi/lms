@@ -19,7 +19,7 @@ type StatusFilter = (typeof statusFilters)[number]['id'];
 
 function getStatusFromEnrolled(item: EnrolledModuleItem): 'belum-mulai' | 'dalam-progress' | 'selesai' {
   if (item.isGraduated || item.status === 'COMPLETED') return 'selesai';
-  const pct = item.completionRate ?? item.progressPercentage ?? item.progress?.completionRate ?? item.progress?.progressPercentage ?? 0;
+  const pct = item.progressPercentage ?? item.progress?.progressPercentage ?? 0;
   if (pct > 0) return 'dalam-progress';
   return 'belum-mulai';
 }
@@ -43,7 +43,7 @@ function getPreTestLabel(item: EnrolledModuleItem): string {
 }
 
 function getProgress(item: EnrolledModuleItem): number {
-  return item.completionRate ?? item.progressPercentage ?? item.progress?.completionRate ?? item.progress?.progressPercentage ?? 0;
+  return item.progressPercentage ?? item.progress?.progressPercentage ?? 0;
 }
 
 function getJenjangKelas(item: ModuleItem): string {

@@ -9,6 +9,7 @@ import { FiBookOpen, FiCheckSquare, FiDollarSign, FiEdit2, FiFileText, FiLayers 
 import GuruHeader from '../../../component/guru/GuruHeader';
 import { guruModulApi } from '../../../lib/api';
 import type { GuruModuleItem } from '../../../lib/types/guru';
+import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
 
 const inputClassName =
   'mt-2 h-[40px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc]';
@@ -17,6 +18,7 @@ const textareaClassName =
   'mt-2 w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2 text-[13px] text-[#232530] outline-none focus:border-[#7054dc]';
 
 function TambahModulProfilPageContent() {
+  const { isAuthorized } = useRoleGuard(['tutor']);
   const searchParams = useSearchParams();
   const router = useRouter();
   const modulId = searchParams.get('modulId');
@@ -122,7 +124,7 @@ function TambahModulProfilPageContent() {
     }
   }, [moduleName, subtitle, description, computedTargetTime, difficulty, level, kelas, accessType, modulId]);
 
-  if (isLoading) {
+  if (isLoading || !isAuthorized) {
     return (
       <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
         <GuruHeader />
