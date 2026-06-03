@@ -74,7 +74,7 @@ import type {
 const API_BASE =
     typeof window !== "undefined"
         ? "/api-backend"
-        : (process.env.NEXT_PUBLIC_API_URL || "");
+        : process.env.NEXT_PUBLIC_API_URL || "";
 
 const apiClient = axios.create({
     baseURL: API_BASE,
@@ -476,7 +476,7 @@ export const guruModulApi = {
         if (params?.limit) query.set("limit", String(params.limit));
         const qs = query.toString();
         return apiFetch<GuruModuleListResponse>(
-            `/tutor/modul${qs ? `?${qs}` : ""}`,
+            `/tutor/modul/my-modules${qs ? `?${qs}` : ""}`,
         );
     },
 
