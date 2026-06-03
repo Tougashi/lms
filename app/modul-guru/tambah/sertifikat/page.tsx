@@ -10,16 +10,35 @@ import {
   FiLayers,
   FiUploadCloud,
 } from 'react-icons/fi';
+import { useSearchParams } from 'next/navigation';
 
 import GuruHeader from '../../../component/guru/GuruHeader';
+import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
 
 export default function SertifikatPage() {
+  const { isAuthorized } = useRoleGuard(['tutor']);
+  const searchParams = useSearchParams();
+  const modulId = searchParams.get('modulId');
   const [judulSertifikat, setJudulSertifikat] = useState('');
   const [namaTutor, setNamaTutor] = useState('');
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [signaturePreview, setSignaturePreview] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
+        <GuruHeader />
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
+            <p className="text-sm text-[#8a8d98]">Memeriksa otorisasi...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleFileSelect = (file: File | null) => {
     if (!file) return;
@@ -50,11 +69,11 @@ export default function SertifikatPage() {
             <div className="flex h-full flex-col">
               <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
               <nav className="mt-4 space-y-3 text-[13px]">
-                <Link href="/modul-guru/tambah/profil" className="flex items-center gap-2 text-[#7a7e8a]">
+                <Link href={modulId ? `/modul-guru/tambah/profil?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors">
                   <FiFileText size={12} />
                   Profil Modul Anda
                 </Link>
-                <Link href="/modul-guru/tambah/harga" className="flex items-center gap-2 text-[#7a7e8a]">
+                <Link href={modulId ? `/modul-guru/tambah/harga?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors">
                   <FiDollarSign size={12} />
                   Penetapan Harga Modul
                 </Link>
@@ -62,11 +81,11 @@ export default function SertifikatPage() {
 
               <p className="mt-8 text-[13px] font-semibold text-[#232530]">Konten Modul Anda</p>
               <nav className="mt-4 space-y-3 text-[13px]">
-                <Link href="/modul-guru/tambah/konten" className="flex items-center gap-2 text-[#7a7e8a]">
+                <Link href={modulId ? `/modul-guru/tambah/konten?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors">
                   <FiLayers size={12} />
                   Konten Modul
                 </Link>
-                <Link href="/modul-guru/tambah/pre-post-test" className="flex items-center gap-2 text-[#7a7e8a]">
+                <Link href={modulId ? `/modul-guru/tambah/pre-post-test?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors">
                   <FiCheckSquare size={12} />
                   Pree - Post Test Modul
                 </Link>

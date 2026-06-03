@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { FiBookOpen, FiCheckSquare, FiChevronDown, FiDollarSign, FiEdit2, FiFileText, FiLayers, FiMoreVertical, FiPlus, FiSettings, FiTrash2, FiX } from 'react-icons/fi';
 import GuruHeader from '../../../component/guru/GuruHeader';
+import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
 
 function MiniEditor({ placeholder }: { placeholder: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -28,7 +29,12 @@ function MiniEditor({ placeholder }: { placeholder: string }) {
 
 type BankSoal = { id: number; name: string; questions: { id: number; title: string; isExpanded: boolean; answers: { id: number; text: string; isCorrect: boolean }[] }[] };
 
+import { useSearchParams } from 'next/navigation';
+
 export default function PrePostTestPage() {
+  const { isAuthorized } = useRoleGuard(['tutor']);
+  const searchParams = useSearchParams();
+  const modulId = searchParams.get('modulId');
   const [banks, setBanks] = useState<BankSoal[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [newBankName, setNewBankName] = useState('');
@@ -66,14 +72,14 @@ export default function PrePostTestPage() {
       <div className="flex h-full flex-col">
         <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
         <nav className="mt-4 space-y-3 text-[13px]">
-          <Link href="/modul-guru/tambah/profil" className="flex items-center gap-2 text-[#7a7e8a]"><FiFileText size={12}/>Profil Modul Anda</Link>
-          <Link href="/modul-guru/tambah/harga" className="flex items-center gap-2 text-[#7a7e8a]"><FiDollarSign size={12}/>Penetapan Harga Modul</Link>
+          <Link href={modulId ? `/modul-guru/tambah/profil?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"><FiFileText size={12}/>Profil Modul Anda</Link>
+          <Link href={modulId ? `/modul-guru/tambah/harga?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"><FiDollarSign size={12}/>Penetapan Harga Modul</Link>
         </nav>
         <p className="mt-8 text-[13px] font-semibold text-[#232530]">Konten Modul Anda</p>
         <nav className="mt-4 space-y-3 text-[13px]">
-          <Link href="/modul-guru/tambah/konten" className="flex items-center gap-2 text-[#7a7e8a]"><FiLayers size={12}/>Konten Modul</Link>
+          <Link href={modulId ? `/modul-guru/tambah/konten?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"><FiLayers size={12}/>Konten Modul</Link>
           <div className="flex items-center gap-2 text-[#7054dc]"><FiCheckSquare size={12}/><span className="font-semibold">Pree - Post Test Modul</span></div>
-          <Link href="/modul-guru/tambah/sertifikat" className="flex items-center gap-2 text-[#7a7e8a]"><FiBookOpen size={12}/>Capaian Sertifikat</Link>
+          <Link href={modulId ? `/modul-guru/tambah/sertifikat?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"><FiBookOpen size={12}/>Capaian Sertifikat</Link>
         </nav>
         <button type="button" className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white">Terbitkan Modul</button>
       </div>
@@ -81,6 +87,20 @@ export default function PrePostTestPage() {
   );
 
   // Detail view for a specific bank soal
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
+        <GuruHeader />
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
+            <p className="text-sm text-[#8a8d98]">Memeriksa otorisasi...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (activeBank) {
     return (
       <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">

@@ -18,6 +18,7 @@ import {
 } from 'react-icons/fi';
 
 import GuruHeader from '../../../component/guru/GuruHeader';
+import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
 
 function RichTextEditor({ placeholder }: { placeholder: string }) {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -183,6 +184,7 @@ function QuizMiniEditor({ placeholder }: { placeholder: string }) {
 }
 
 export default function TambahModulKontenPage() {
+  const { isAuthorized } = useRoleGuard(['tutor']);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isTopicAdded, setIsTopicAdded] = useState(false);
   const [topicTitle, setTopicTitle] = useState('');
@@ -659,6 +661,20 @@ export default function TambahModulKontenPage() {
   const handleDeleteQuiz = (quizId: number) => {
     setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
+        <GuruHeader />
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
+            <p className="text-sm text-[#8a8d98]">Memeriksa otorisasi...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">

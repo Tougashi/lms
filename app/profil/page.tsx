@@ -3,10 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
-import SiswaHeader from "../component/siswa/SiswaHeader";
 import { FaBell, FaEye, FaEyeSlash, FaFileAlt, FaLock, FaRegEdit, FaSignOutAlt, FaUser } from "react-icons/fa";
 import { MdVerified } from "react-icons/md";
 import { useAuth } from "../context/AuthContext";
+import SiswaHeader from "../component/siswa/SiswaHeader";
+import GuruHeader from "../component/guru/GuruHeader";
+import { useRoleGuard } from "../lib/hooks/useRoleGuard";
 import { siswaProfileApi, siswaCertificateApi, authApi } from "../lib/api";
 import type { SiswaProfile, CertificateItem } from "../lib/types/siswa";
 
@@ -33,6 +35,7 @@ const profileMenu = [
 ];
 
 export default function ProfilPage() {
+  const { isAuthorized } = useRoleGuard(["siswa", "tutor"]);
   const { user, logout } = useAuth();
   const [activeMenu, setActiveMenu] = useState("profil");
   const [isNotificationSoundEnabled, setIsNotificationSoundEnabled] = useState(false);
@@ -100,7 +103,7 @@ export default function ProfilPage() {
     setSaveMsg("");
     try {
       await authApi.update({
-        role: "siswa",
+        role: (user?.role as "siswa" | "tutor") || "siswa",
         nama_lengkap: editName,
         jenjang: editJenjang,
         kelas_sekolah: editKelas,
@@ -115,7 +118,7 @@ export default function ProfilPage() {
     } finally {
       setIsSaving(false);
     }
-  }, [editJenjang, editKelas, editName, profile]);
+  }, [editJenjang, editKelas, editName, profile, user]);
 
   const handleChangePassword = useCallback(async () => {
     if (newPassword !== confirmPassword) {
@@ -130,7 +133,7 @@ export default function ProfilPage() {
     setPasswordMsg({ text: "", isError: false });
     try {
       await authApi.update({
-        role: "siswa",
+        role: (user?.role as "siswa" | "tutor") || "siswa",
         nama_lengkap: profile?.nama_lengkap || "",
         email: profile?.email || "",
         password: newPassword,
@@ -146,14 +149,28 @@ export default function ProfilPage() {
     } finally {
       setIsPasswordSaving(false);
     }
-  }, [confirmPassword, newPassword, profile]);
+  }, [confirmPassword, newPassword, profile, user]);
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-[#f7f6fb] text-[#202126]">
+        {user?.role === "tutor" ? <GuruHeader /> : <SiswaHeader />}
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
+            <p className="text-sm text-[#8a8d98]">Memeriksa otorisasi...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const displayName = profile?.nama_lengkap || user?.nama_lengkap || user?.fullName || "User";
   const displayEmail = profile?.email || user?.email || "";
 
   return (
     <div className="min-h-screen bg-[#f7f6fb] text-[#202126]">
-      <SiswaHeader />
+      {user?.role === "tutor" ? <GuruHeader /> : <SiswaHeader />}
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <h1 className="mb-4 text-lg font-bold text-[#202126]">Profil</h1>

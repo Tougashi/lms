@@ -296,7 +296,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
             // Mark completed submateri
             const completedMap: Record<string, boolean> = {};
-            if (prog.status === "COMPLETED" || prog.isGraduated || prog.completionRate === 100) {
+            if (prog.status === "COMPLETED" || prog.isGraduated || prog.progressPercentage === 100) {
               tree.forEach((section) => {
                 section.items.forEach((item) => {
                   if (!item.id.startsWith("summary-")) completedMap[item.id] = true;
@@ -459,7 +459,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   // Use the higher value between backend and local calculation. Force 100% if completed.
   const displayProgressPercent = (progress?.status === "COMPLETED" || progress?.isGraduated)
     ? 100
-    : Math.max(progress?.completionRate ?? progress?.progressPercentage ?? 0, localProgressPercent);
+    : Math.max(progress?.progressPercentage ?? 0, localProgressPercent);
 
   // ─── Cross-boundary unlock map ──────────────────────────────────────────
   // Flatten all items sorted by topik→materi→submateri urutan.

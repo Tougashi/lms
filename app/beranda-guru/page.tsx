@@ -8,6 +8,7 @@ import { FiExternalLink, FiPlus } from 'react-icons/fi';
 import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
 import GuruHeader from '../component/guru/GuruHeader';
 import { useAuth } from '../context/AuthContext';
+import { useRoleGuard } from '../lib/hooks/useRoleGuard';
 import { dashboardApi } from '../lib/api';
 import type { TutorDashboard } from '../lib/types/guru';
 import type { ModuleItem } from '../lib/types/modul';
@@ -46,6 +47,7 @@ function getModuleName(item: ModuleItem): string {
 
 function BerandaGuruPageContent() {
   const { user, isLoading: authLoading } = useAuth();
+  const { isAuthorized } = useRoleGuard(['tutor']);
   const [dashboard, setDashboard] = useState<TutorDashboard | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
@@ -79,7 +81,7 @@ function BerandaGuruPageContent() {
   const draftModules: ModuleItem[] = dashboard?.getDraftModules ?? [];
   const reviews: RatingItem[] = dashboard?.getRatingsFromSiswa ?? [];
 
-  if (authLoading || isLoadingData) {
+  if (authLoading || isLoadingData || !isAuthorized) {
     return (
       <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
         <GuruHeader />

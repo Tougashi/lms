@@ -387,10 +387,10 @@ export default function ModulDetailPage({ params }: { params: { id: string } }) 
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e5e2ec]">
                         <div
                           className="h-full rounded-full bg-[#7054dc]"
-                          style={{ width: `${progress.completionRate ?? progress.progressPercentage ?? 0}%` }}
+                          style={{ width: `${progress.progressPercentage ?? 0}%` }}
                         />
                       </div>
-                      <span className="text-xs font-medium text-[#7054dc]">{Math.round(progress.completionRate ?? progress.progressPercentage ?? 0)}%</span>
+                      <span className="text-xs font-medium text-[#7054dc]">{Math.round(progress.progressPercentage ?? 0)}%</span>
                     </div>
                   </div>
                 )}
