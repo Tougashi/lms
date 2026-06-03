@@ -2,20 +2,77 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { FaBell } from 'react-icons/fa';
 import { FiMenu, FiX } from 'react-icons/fi';
 import { IoPersonCircle } from 'react-icons/io5';
-import { MdLogout, MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowRight, MdPerson } from 'react-icons/md';
+import { MdDone, MdLogout, MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowRight, MdPerson } from 'react-icons/md';
 import { RiCustomerService2Line } from 'react-icons/ri';
 import { useAuth } from '../../context/AuthContext';
+import { notificationApi } from '../../lib/api';
+import type { NotificationItem } from '../../lib/types/umum';
+
+function extractNotifications(res: unknown): NotificationItem[] {
+  if (Array.isArray(res)) return res as NotificationItem[];
+  if (res && typeof res === 'object' && 'items' in res && Array.isArray((res as Record<string, unknown>).items)) {
+    return (res as Record<string, unknown>).items as NotificationItem[];
+  }
+  if (res && typeof res === 'object' && 'data' in res && Array.isArray((res as Record<string, unknown>).data)) {
+    return (res as Record<string, unknown>).data as NotificationItem[];
+  }
+  return [];
+}
 
 export default function GuruHeader() {
   const { user, logout } = useAuth();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const notificationMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+
+  // Fetch unread count on mount
+  useEffect(() => {
+    if (!user) return;
+    notificationApi.getUnreadCount()
+      .then((res) => setUnreadCount(res.unreadCount ?? 0))
+      .catch(() => { /* ignore */ });
+  }, [user]);
+
+  // Fetch notifications when dropdown opens
+  useEffect(() => {
+    if (!isNotificationMenuOpen || !user) return;
+    notificationApi.getAll({ limit: 10 })
+      .then((res) => {
+        setNotifications(extractNotifications(res));
+      })
+      .catch(() => { /* ignore */ });
+  }, [isNotificationMenuOpen, user]);
+
+  const handleMarkAllRead = useCallback(async () => {
+    try {
+      await notificationApi.markAllRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleMarkOneRead = useCallback(async (id: string) => {
+    try {
+      await notificationApi.markRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -23,6 +80,10 @@ export default function GuruHeader() {
 
       if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
         setIsProfileMenuOpen(false);
+      }
+
+      if (notificationMenuRef.current && !notificationMenuRef.current.contains(target)) {
+        setIsNotificationMenuOpen(false);
       }
     };
 
@@ -64,9 +125,63 @@ export default function GuruHeader() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <button type="button" className="rounded-full p-2 hover:bg-[#f7f6ff]" aria-label="Notifikasi">
-            <FaBell size={20} className="text-[#21212b]" />
-          </button>
+          {/* Notification bell */}
+          <div className="relative" ref={notificationMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsNotificationMenuOpen((prev) => !prev)}
+              className="relative rounded-full p-2 hover:bg-[#f7f6ff]"
+              aria-label="Notifikasi"
+            >
+              <FaBell size={20} className="text-[#21212b]" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#e35f5f] px-1 text-[10px] font-bold text-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {isNotificationMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-3 w-[380px] overflow-hidden rounded-[22px] border border-[#d7d9df] bg-white shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+                <div className="flex items-center justify-between border-b border-[#d7d9df] px-4 py-3">
+                  <h3 className="text-[1.05rem] font-bold text-[#202126]">Pemberitahuan</h3>
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    className="flex items-center gap-1.5 text-[0.82rem] font-medium text-[#7054dc] transition-opacity hover:opacity-80"
+                  >
+                    <MdDone size={17} />
+                    Tandai telah dibaca
+                  </button>
+                </div>
+
+                <div className="max-h-[430px] overflow-y-auto">
+                  {notifications.length > 0 ? (
+                    notifications.map((item, index) => (
+                      <div
+                        key={item.id}
+                        className={`cursor-pointer px-4 py-3 transition-colors hover:bg-[#f7f6ff] ${!item.read ? 'bg-[#f1ecff]' : 'bg-white'}`}
+                        onClick={() => { if (!item.read) handleMarkOneRead(item.id); }}
+                      >
+                        <h4 className="text-[0.95rem] font-bold text-[#202126]">{item.title}</h4>
+                        <p className="mt-1.5 text-[0.88rem] leading-6 text-[#202126]">{item.message}</p>
+                        <p className="mt-1.5 text-[0.82rem] text-[#8a8a96]">
+                          {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                        {index !== notifications.length - 1 && (
+                          <div className="mt-3 border-t border-[#eceaf4]" />
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm text-[#8a8a96]">
+                      Belum ada notifikasi
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           <button type="button" className="hidden rounded-full p-2 hover:bg-[#f7f6ff] sm:inline-flex" aria-label="Bantuan">
             <RiCustomerService2Line size={22} className="text-[#21212b]" />

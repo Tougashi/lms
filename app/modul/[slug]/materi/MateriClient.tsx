@@ -293,22 +293,30 @@ export default function MateriClient({ modulId }: { modulId: string }) {
               });
             } else {
               const completedIds = prog.completedSubmateri ?? [];
+              console.log(`[MateriClient] Restoring ${completedIds.length} completedSubmateri from backend:`, completedIds);
               completedIds.forEach((sid) => { completedMap[sid] = true; });
             }
+            
+            console.log(`[MateriClient] Initial completedMap keys:`, Object.keys(completedMap));
             
             // Also mark the first content item if it's not yet completed
             const firstItem = tree[0]?.items[0];
             if (firstItem && !completedMap[firstItem.id] && !firstItem.id.startsWith("summary-")) {
               completedMap[firstItem.id] = true;
+              console.log(`[MateriClient] Marking first item as complete: ${firstItem.id}`);
               // Fire and forget API call to mark first item complete
               siswaProgressApi.completeSubmateri(firstItem.id)
-                .then(() => siswaProgressApi.getByModul(modulId))
+                .then((res) => {
+                  console.log(`[MateriClient] First item complete response:`, res);
+                  return siswaProgressApi.getByModul(modulId);
+                })
                 .then((updatedProg) => {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const p = (updatedProg as any)?.data ?? updatedProg;
+                  console.log(`[MateriClient] Progress after first item: progressPercentage=${p.progressPercentage}, status=${p.status}`);
                   setProgress(p);
                 })
-                .catch((e) => console.error("Failed to mark first item:", e));
+                .catch((e) => console.error("[MateriClient] Failed to mark first item:", e));
             }
             setCompletedContentItemMap(completedMap);
           }
@@ -450,7 +458,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     
     // Use a flag to check if already completed via functional update
     let alreadyCompleted = false;
-    let localNewPercent = 0;
     
     setCompletedContentItemMap((prev) => {
       if (prev[itemId]) {
@@ -459,31 +466,28 @@ export default function MateriClient({ modulId }: { modulId: string }) {
       }
       const newMap = { ...prev, [itemId]: true };
       const newCompletedCount = realContentItems.filter((item) => newMap[item.id]).length;
-      // Include pretest/posttest in total steps calculation
-      const ptDone = isPretestFinished || progress?.pretestScore != null ? 1 : 0;
-      const postDone = isPosttestFinished || progress?.posttestScore != null ? 1 : 0;
-      const total = realContentItems.length + 2; // pretest + submateri + posttest
-      localNewPercent = total > 0
-        ? Math.round(((newCompletedCount + ptDone + postDone) / total) * 100)
-        : 0;
-      console.log(`[MateriClient] markContentItemAsCompleted: item=${itemId}, newCount=${newCompletedCount}, newPercent=${localNewPercent}`);
+      console.log(`[MateriClient] markContentItemAsCompleted: item=${itemId}, completedSubmateri=${newCompletedCount}/${realContentItems.length}`);
       return newMap;
     });
 
     if (alreadyCompleted) {
+      console.log(`[MateriClient] Skipping already-completed item: ${itemId}`);
       return;
     }
 
     try {
-      await siswaProgressApi.completeSubmateri(itemId);
+      console.log(`[MateriClient] POST /siswa/progress/submateri/${itemId}/complete`);
+      const res = await siswaProgressApi.completeSubmateri(itemId);
+      console.log(`[MateriClient] completeSubmateri response:`, res);
       if (modulId) {
         const progRaw = await siswaProgressApi.getByModul(modulId);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const prog: ProgressDetail = (progRaw as any)?.data ?? progRaw;
+        console.log(`[MateriClient] Progress after complete: progressPercentage=${prog.progressPercentage}, status=${prog.status}`);
         setProgress(prog);
       }
     } catch (err) {
-      console.error("Failed to mark submateri complete:", err);
+      console.error(`[MateriClient] Failed to mark submateri complete (${itemId}):`, err);
     }
   }, [modulId, realContentItems, isPretestFinished, isPosttestFinished, progress?.pretestScore, progress?.posttestScore]);
 

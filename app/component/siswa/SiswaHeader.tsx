@@ -60,6 +60,18 @@ export default function SiswaHeader() {
     }
   }, []);
 
+  const handleMarkOneRead = useCallback(async (id: string) => {
+    try {
+      await notificationApi.markRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -153,15 +165,16 @@ export default function SiswaHeader() {
                     notifications.map((item, index) => (
                       <div
                         key={item.id}
-                        className={`px-4 py-3 ${!item.read ? 'bg-[#f1ecff]' : 'bg-white'}`}
+                        className={`cursor-pointer px-4 py-3 transition-colors hover:bg-[#f7f6ff] ${!item.read ? 'bg-[#f1ecff]' : 'bg-white'}`}
+                        onClick={() => { if (!item.read) handleMarkOneRead(item.id); }}
                       >
                         <h4 className="text-[0.95rem] font-bold text-[#202126]">{item.title}</h4>
                         <p className="mt-1.5 text-[0.88rem] leading-6 text-[#202126]">{item.message}</p>
                         <p className="mt-1.5 text-[0.82rem] text-[#8a8a96]">
                           {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
-                        {index !== notifications.length - 1 && item.read && (
-                          <div className="mt-3 border-t border-transparent" />
+                        {index !== notifications.length - 1 && (
+                          <div className="mt-3 border-t border-[#eceaf4]" />
                         )}
                       </div>
                     ))
