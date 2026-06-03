@@ -9,6 +9,8 @@ export interface AdminDashboardStats {
     activeModules: number;
     countAllUsers: number;
     activeClass: number;
+    activeUserPercentage: number;
+    inactiveUserPercentage: number;
 }
 
 // ── Modul ────────────────────────────────────────────────────────────────────
@@ -18,7 +20,7 @@ export interface AdminModulItem {
     moduleName: string;
     isDraft: boolean;
     modulType?: "SISWA" | "UMUM" | string;
-    type?: "SISWA" | "UMUM" | string;  // alias lama, tetap ada
+    type?: "SISWA" | "UMUM" | string; // alias lama, tetap ada
     description?: string;
     tutorId?: string;
     tutor?: { fullName: string };
@@ -158,7 +160,7 @@ export interface AdminSiswaItem {
     email: string;
     jenjang?: string;
     kelas_sekolah?: string;
-    role?: string;          // "siswa" | "umum" — pembeda siswa biasa vs umum
+    role?: string; // "siswa" | "umum" — pembeda siswa biasa vs umum
     studentType?: "SISWA" | "GURU" | string;
     isActive?: boolean;
     createdAt?: string;

@@ -454,25 +454,35 @@ export default function BerandaAdminPage() {
               <div className="rounded-2xl border border-[#f39b39] bg-white p-4">
                 <h3 className="text-center text-2xl font-semibold text-[#202126]">Statistik Penggunaan Sistem</h3>
                 <div className="relative mx-auto mt-4 h-[250px] w-[250px]">
-                  <svg className="h-full w-full" viewBox="0 0 220 220" aria-label="Diagram penggunaan sistem">
-                    <circle cx="110" cy="110" r="74" fill="none" stroke="#f1f0f6" strokeWidth="34" />
-                    <circle cx="110" cy="110" r="74" fill="none" stroke="#f39b39" strokeWidth="34"
-                      strokeDasharray="116.2 464.8" strokeDashoffset="0" transform="rotate(-90 110 110)" />
-                    <circle cx="110" cy="110" r="74" fill="none" stroke="#7054dc" strokeWidth="34"
-                      strokeDasharray="348.6 464.8" strokeDashoffset="-116.2" transform="rotate(-90 110 110)" />
-                  </svg>
+                  {(() => {
+                    const activePercentage = stats?.activeUserPercentage ?? 0;
+                    const inactivePercentage = stats?.inactiveUserPercentage ?? 0;
+                    const circumference = 2 * Math.PI * 74;
+                    const activeDasharray = (activePercentage / 100) * circumference;
+                    const inactiveDasharray = (inactivePercentage / 100) * circumference;
+                    
+                    return (
+                      <svg className="h-full w-full" viewBox="0 0 220 220" aria-label="Diagram penggunaan sistem" suppressHydrationWarning>
+                        <circle cx="110" cy="110" r="74" fill="none" stroke="#f1f0f6" strokeWidth="34" />
+                        <circle cx="110" cy="110" r="74" fill="none" stroke="#7054dc" strokeWidth="34"
+                          strokeDasharray={`${activeDasharray} ${circumference}`} strokeDashoffset="0" transform="rotate(-90 110 110)" />
+                        <circle cx="110" cy="110" r="74" fill="none" stroke="#f39b39" strokeWidth="34"
+                          strokeDasharray={`${inactiveDasharray} ${circumference}`} strokeDashoffset={`-${activeDasharray}`} transform="rotate(-90 110 110)" />
+                      </svg>
+                    );
+                  })()}
                   <div className="absolute -left-3 bottom-14 h-20 w-20">
                     <div className="absolute inset-0 rounded-full bg-white/35 blur-md" />
                     <div className="absolute inset-0 rounded-full bg-white/20" />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#7054dc] shadow-[0_8px_18px_rgba(112,84,220,0.12)]">75%</div>
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#7054dc] shadow-[0_8px_18px_rgba(112,84,220,0.12)]">{(stats?.activeUserPercentage ?? 0).toFixed(1)}%</div>
                     </div>
                   </div>
                   <div className="absolute right-2 top-4 h-20 w-20">
                     <div className="absolute inset-0 rounded-full bg-white/35 blur-md" />
                     <div className="absolute inset-0 rounded-full bg-white/20" />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#f39b39] shadow-[0_8px_18px_rgba(243,155,57,0.12)]">25%</div>
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#f39b39] shadow-[0_8px_18px_rgba(243,155,57,0.12)]">{(stats?.inactiveUserPercentage ?? 0).toFixed(1)}%</div>
                     </div>
                   </div>
                 </div>
