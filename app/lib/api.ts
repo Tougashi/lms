@@ -582,9 +582,15 @@ export const guruMateriApi = {
 
 export const guruTopikApi = {
     getByModul(modulId: string) {
-        return apiFetch<{ id: string; nama: string; modulId: string; createdAt?: string; updatedAt?: string }[]>(
-            `/tutor/topik/${modulId}`,
-        );
+        return apiFetch<
+            {
+                id: string;
+                nama: string;
+                modulId: string;
+                createdAt?: string;
+                updatedAt?: string;
+            }[]
+        >(`/tutor/topik/${modulId}`);
     },
 
     create(payload: { modul_id: string; nama: string }) {
@@ -721,7 +727,9 @@ export const guruPosttestApi = {
     },
 
     getDetail(posttestId: string) {
-        return apiFetch<GuruPosttestItem>(`/tutor/posttest/detail/${posttestId}`);
+        return apiFetch<GuruPosttestItem>(
+            `/tutor/posttest/detail/${posttestId}`,
+        );
     },
 
     create(payload: { modul_id: string }) {
@@ -811,7 +819,7 @@ export const uploadApi = {
     upload(file: File, fileType?: string) {
         const formData = new FormData();
         formData.append("file", file);
-        if (fileType) formData.append("fileType", fileType);
+        if (fileType) formData.append("type", fileType);
         return apiFetch<UploadResponse>("/upload", {
             method: "POST",
             data: formData,
@@ -844,9 +852,7 @@ export const guruProgressApi = {
     },
 
     getByStudent(studentId: string) {
-        return apiFetch<TutorProgressByStudent>(
-            `/tutor/progress/${studentId}`,
-        );
+        return apiFetch<TutorProgressByStudent>(`/tutor/progress/${studentId}`);
     },
 
     analyze(studentId: string) {
@@ -1157,12 +1163,3 @@ export const adminProfileApi = {
 // ---------------------------------------------------------------------------
 // Upload endpoints (image → Cloudinary → URL)
 // ---------------------------------------------------------------------------
-
-export const uploadApi = {
-    content(file: File, type: ModulContentType) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("type", type);
-        return apiUpload<{ url: string }>("/upload", formData);
-    },
-};
