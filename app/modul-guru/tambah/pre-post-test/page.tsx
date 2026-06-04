@@ -6,6 +6,7 @@ import { FiBookOpen, FiCheckSquare, FiChevronDown, FiDollarSign, FiEdit2, FiFile
 import GuruHeader from '../../../component/guru/GuruHeader';
 import { guruModulApi, guruPretestApi, guruPosttestApi } from '../../../lib/api';
 import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
+import { usePopup } from '../../../component/ui/PopupProvider';
 
 function MiniEditor({ placeholder, value, onChange }: { placeholder: string; value?: string; onChange?: (html: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -60,6 +61,7 @@ function PrePostTestPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const modulId = searchParams.get('modulId');
+  const { toast, confirm } = usePopup();
 
   const [banks, setBanks] = useState<BankSoal[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -173,7 +175,7 @@ function PrePostTestPageContent() {
       setIsCreating(false);
     } catch (err: unknown) {
       console.error('Create bank error:', err);
-      alert(err instanceof Error ? err.message : 'Gagal membuat bank soal.');
+      toast(err instanceof Error ? err.message : 'Gagal membuat bank soal.', 'error');
     } finally {
       setIsCreatingBank(false);
     }
@@ -190,7 +192,7 @@ function PrePostTestPageContent() {
         }
       } catch (err: unknown) {
         console.error('Delete bank error:', err);
-        alert(err instanceof Error ? err.message : 'Gagal menghapus bank soal.');
+        toast(err instanceof Error ? err.message : 'Gagal menghapus bank soal.', 'error');
         return;
       }
     }
@@ -230,7 +232,7 @@ function PrePostTestPageContent() {
         }
       } catch (err: unknown) {
         console.error('Delete soal error:', err);
-        alert(err instanceof Error ? err.message : 'Gagal menghapus soal.');
+        toast(err instanceof Error ? err.message : 'Gagal menghapus soal.', 'error');
         return;
       }
     }
@@ -286,21 +288,21 @@ function PrePostTestPageContent() {
   // Save a single question to API
   const handleSaveQuestion = useCallback(async (question: LocalQuestion) => {
     if (!activeBank || !activeBank.apiId) {
-      alert('Bank soal belum tersimpan.');
+      toast('Bank soal belum tersimpan.', 'warning');
       return;
     }
     if (!question.pertanyaan.trim()) {
-      alert('Pertanyaan tidak boleh kosong.');
+      toast('Pertanyaan tidak boleh kosong.', 'warning');
       return;
     }
     const correctAns = question.answers.find(a => a.isCorrect);
     if (!correctAns || !correctAns.text.trim()) {
-      alert('Pilih dan isi jawaban yang benar.');
+      toast('Pilih dan isi jawaban yang benar.', 'warning');
       return;
     }
     const filledAnswers = question.answers.filter(a => a.text.trim());
     if (filledAnswers.length < 2) {
-      alert('Minimal 2 pilihan jawaban harus diisi.');
+      toast('Minimal 2 pilihan jawaban harus diisi.', 'warning');
       return;
     }
 
@@ -335,7 +337,7 @@ function PrePostTestPageContent() {
       }));
     } catch (err: unknown) {
       console.error('Save question error:', err);
-      alert(err instanceof Error ? err.message : 'Gagal menyimpan soal.');
+      toast(err instanceof Error ? err.message : 'Gagal menyimpan soal.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -356,7 +358,7 @@ function PrePostTestPageContent() {
       setIsSettingsOpen(false);
     } catch (err: unknown) {
       console.error('Save settings error:', err);
-      alert(err instanceof Error ? err.message : 'Gagal menyimpan pengaturan.');
+      toast(err instanceof Error ? err.message : 'Gagal menyimpan pengaturan.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -365,12 +367,13 @@ function PrePostTestPageContent() {
   // Publish module
   const handlePublish = useCallback(async () => {
     if (!modulId) return;
-    if (!confirm('Apakah Anda yakin ingin menerbitkan modul ini?')) return;
+    const ok = await confirm({ message: 'Apakah Anda yakin ingin menerbitkan modul ini?', confirmText: 'Terbitkan' });
+    if (!ok) return;
     try {
       await guruModulApi.update(modulId, { isDraft: false });
       router.push('/modul-guru?tab=published');
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Gagal menerbitkan modul.');
+      toast(err instanceof Error ? err.message : 'Gagal menerbitkan modul.', 'error');
     }
   }, [modulId, router]);
 

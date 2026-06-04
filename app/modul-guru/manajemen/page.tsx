@@ -10,11 +10,13 @@ import GuruHeader from '../../component/guru/GuruHeader';
 import { useGuruModules } from '../hooks/useGuruModules';
 import { guruModulApi } from '../../lib/api';
 import { useRoleGuard } from '../../lib/hooks/useRoleGuard';
+import { usePopup } from '../../component/ui/PopupProvider';
 
 export default function ManajemenModulPage() {
   const { isAuthorized } = useRoleGuard(['tutor']);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { toast, confirm } = usePopup();
 
   const {
     modules,
@@ -41,14 +43,15 @@ export default function ManajemenModulPage() {
 
   const handleDelete = async (modulId: string) => {
     if (deletingId) return;
-    if (!confirm('Apakah Anda yakin ingin menghapus modul ini?')) return;
+    const ok = await confirm({ message: 'Apakah Anda yakin ingin menghapus modul ini?', variant: 'danger', confirmText: 'Hapus' });
+    if (!ok) return;
     setDeletingId(modulId);
     try {
       await guruModulApi.delete(modulId);
       loadModules();
     } catch (err) {
       console.error('Delete module error:', err);
-      alert('Gagal menghapus modul.');
+      toast('Gagal menghapus modul.', 'error');
     } finally {
       setDeletingId(null);
     }

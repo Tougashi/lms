@@ -14,6 +14,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import GuruHeader from '../../../component/guru/GuruHeader';
 import { guruModulApi, uploadApi } from '../../../lib/api';
 import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
+import { usePopup } from '../../../component/ui/PopupProvider';
 
 function SertifikatPageContent() {
   const { isAuthorized } = useRoleGuard(['tutor']);
@@ -30,6 +31,7 @@ function SertifikatPageContent() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast, confirm } = usePopup();
 
   if (!isAuthorized) {
     return (
@@ -48,7 +50,7 @@ function SertifikatPageContent() {
   const handleFileSelect = (file: File | null) => {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      alert('Ukuran file melebihi 2MB');
+      toast('Ukuran file melebihi 2MB', 'warning');
       return;
     }
     setSignatureFile(file);
@@ -96,12 +98,13 @@ function SertifikatPageContent() {
 
   const handlePublish = async () => {
     if (!modulId) return;
-    if (!confirm('Apakah Anda yakin ingin menerbitkan modul ini?')) return;
+    const ok = await confirm({ message: 'Apakah Anda yakin ingin menerbitkan modul ini?', confirmText: 'Terbitkan' });
+    if (!ok) return;
     try {
       await guruModulApi.update(modulId, { isDraft: false });
       router.push('/modul-guru?tab=published');
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Gagal menerbitkan modul.');
+      toast(err instanceof Error ? err.message : 'Gagal menerbitkan modul.', 'error');
     }
   };
 

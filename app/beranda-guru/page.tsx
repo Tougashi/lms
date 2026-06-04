@@ -10,6 +10,7 @@ import GuruHeader from '../component/guru/GuruHeader';
 import { useAuth } from '../context/AuthContext';
 import { useRoleGuard } from '../lib/hooks/useRoleGuard';
 import { dashboardApi } from '../lib/api';
+import { usePopup } from '../component/ui/PopupProvider';
 import type { TutorDashboard } from '../lib/types/guru';
 import type { ModuleItem } from '../lib/types/modul';
 import type { RatingItem } from '../lib/types/umum';
@@ -51,6 +52,7 @@ function BerandaGuruPageContent() {
   const [dashboard, setDashboard] = useState<TutorDashboard | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
+  const { toast } = usePopup();
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -247,7 +249,7 @@ function BerandaGuruPageContent() {
             <h2 className="text-lg font-semibold leading-none tracking-[-0.01em] text-[#252834] sm:text-2xl">Penilaian dan Ulasan dari Siswa</h2>
             <button
               type="button"
-              onClick={() => alert('Fitur lihat semua ulasan akan segera hadir.')}
+              onClick={() => toast('Fitur lihat semua ulasan akan segera hadir.', 'info')}
               className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-none text-[#7557ea] sm:text-[16px] hover:bg-[#f0ebff] transition-colors"
             >
               Lihat Semua

@@ -21,6 +21,7 @@ import {
 import GuruHeader from '../../../component/guru/GuruHeader';
 import { guruModulApi, guruTopikApi, guruMateriApi, guruKuisApi } from '../../../lib/api';
 import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
+import { usePopup } from '../../../component/ui/PopupProvider';
 
 function RichTextEditor({ placeholder }: { placeholder: string }) {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -190,6 +191,7 @@ function TambahModulKontenPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const modulId = searchParams.get('modulId');
+  const { toast, confirm } = usePopup();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isTopicAdded, setIsTopicAdded] = useState(false);
@@ -449,7 +451,7 @@ function TambahModulKontenPageContent() {
         setMaterialApiIds(prev => { const next = { ...prev }; delete next[materialId]; return next; });
       } catch (err) {
         console.error('Delete material error:', err);
-        alert('Gagal menghapus materi.');
+        toast('Gagal menghapus materi.', 'error');
         setIsDeletingMaterial(null);
         return;
       } finally {
@@ -526,7 +528,7 @@ function TambahModulKontenPageContent() {
       setMaterialApiIds(prev => ({ ...prev, [nextId]: created.id }));
     } catch (err) {
       console.error('Create material error:', err);
-      alert('Gagal membuat materi. Pastikan topik sudah tersimpan.');
+      toast('Gagal membuat materi. Pastikan topik sudah tersimpan.', 'error');
       return;
     }
 
@@ -573,7 +575,7 @@ function TambahModulKontenPageContent() {
         });
       } catch (err) {
         console.error('Save material error:', err);
-        alert('Gagal menyimpan materi.');
+        toast('Gagal menyimpan materi.', 'error');
         setIsSavingMaterial(null);
         return;
       } finally {
@@ -643,7 +645,7 @@ function TambahModulKontenPageContent() {
     // Find first saved material with an API ID to attach quiz to
     const firstMaterialEntry = Object.entries(materialApiIds)[0];
     if (!firstMaterialEntry) {
-      alert('Simpan minimal satu materi terlebih dahulu sebelum membuat kuis.');
+      toast('Simpan minimal satu materi terlebih dahulu sebelum membuat kuis.', 'warning');
       return;
     }
     const [, materiApiId] = firstMaterialEntry;
@@ -676,7 +678,7 @@ function TambahModulKontenPageContent() {
       setQuizApiIds(prev => ({ ...prev, [nextId]: created.id }));
     } catch (err) {
       console.error('Create quiz error:', err);
-      alert('Gagal membuat kuis.');
+      toast('Gagal membuat kuis.', 'error');
       setIsSavingQuiz(false);
       return;
     } finally {
@@ -839,7 +841,7 @@ function TambahModulKontenPageContent() {
         setQuizApiIds(prev => { const next = { ...prev }; delete next[quizId]; return next; });
       } catch (err) {
         console.error('Delete quiz error:', err);
-        alert('Gagal menghapus kuis.');
+        toast('Gagal menghapus kuis.', 'error');
         return;
       }
     }
@@ -878,14 +880,15 @@ function TambahModulKontenPageContent() {
       setIsEditingTopic(false);
     } catch (err: unknown) {
       console.error('Update topic error:', err);
-      alert(err instanceof Error ? err.message : 'Gagal memperbarui topik.');
+      toast(err instanceof Error ? err.message : 'Gagal memperbarui topik.', 'error');
     }
   }, [topicId, editTopicTitle]);
 
   // Delete topic via API
   const handleDeleteTopic = useCallback(async () => {
     if (!topicId) return;
-    if (!confirm('Apakah Anda yakin ingin menghapus topik ini?')) return;
+    const ok = await confirm({ message: 'Apakah Anda yakin ingin menghapus topik ini?', variant: 'danger', confirmText: 'Hapus' });
+    if (!ok) return;
     try {
       await guruTopikApi.delete(topicId);
       setTopicTitle('');
@@ -895,20 +898,21 @@ function TambahModulKontenPageContent() {
       setQuizzes([]);
     } catch (err: unknown) {
       console.error('Delete topic error:', err);
-      alert(err instanceof Error ? err.message : 'Gagal menghapus topik.');
+      toast(err instanceof Error ? err.message : 'Gagal menghapus topik.', 'error');
     }
   }, [topicId]);
 
   // Publish module
   const handlePublish = useCallback(async () => {
     if (!modulId) return;
-    if (!confirm('Apakah Anda yakin ingin menerbitkan modul ini?')) return;
+    const ok2 = await confirm({ message: 'Apakah Anda yakin ingin menerbitkan modul ini?', confirmText: 'Terbitkan' });
+    if (!ok2) return;
     try {
       await guruModulApi.update(modulId, { isDraft: false });
       router.push('/modul-guru?tab=published');
     } catch (err: unknown) {
       console.error('Publish error:', err);
-      alert(err instanceof Error ? err.message : 'Gagal menerbitkan modul.');
+      toast(err instanceof Error ? err.message : 'Gagal menerbitkan modul.', 'error');
     }
   }, [modulId, router]);
 

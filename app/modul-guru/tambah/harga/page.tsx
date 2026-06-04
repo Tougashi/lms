@@ -8,6 +8,7 @@ import Link from 'next/link';
 import GuruHeader from '../../../component/guru/GuruHeader';
 import { guruModulApi } from '../../../lib/api';
 import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
+import { usePopup } from '../../../component/ui/PopupProvider';
 
 function TambahModulHargaPageContent() {
   const { isAuthorized } = useRoleGuard(['tutor']);
@@ -21,6 +22,7 @@ function TambahModulHargaPageContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const { toast, confirm } = usePopup();
 
   // Load existing module data to pre-fill isPaid & modulPrice
   useEffect(() => {
@@ -78,13 +80,14 @@ function TambahModulHargaPageContent() {
 
   const handlePublish = useCallback(async () => {
     if (!modulId) return;
-    if (!confirm('Apakah Anda yakin ingin menerbitkan modul ini?')) return;
+    const ok = await confirm({ message: 'Apakah Anda yakin ingin menerbitkan modul ini?', confirmText: 'Terbitkan' });
+    if (!ok) return;
     try {
       await guruModulApi.update(modulId, { isDraft: false });
       router.push('/modul-guru?tab=published');
     } catch (err: unknown) {
       console.error('Publish error:', err);
-      alert(err instanceof Error ? err.message : 'Gagal menerbitkan modul.');
+      toast(err instanceof Error ? err.message : 'Gagal menerbitkan modul.', 'error');
     }
   }, [modulId, router]);
 
