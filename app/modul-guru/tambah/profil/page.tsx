@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import {
+    Suspense,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    useRef,
+} from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
     FiBookOpen,
@@ -19,6 +26,8 @@ import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
 import { useUpload } from "../../hooks/useUpload";
 import type { GuruModuleUpdatePayload } from "../../../lib/types/guru";
 import { AxiosError } from "axios";
+
+import { useAuth } from "../../../context/AuthContext";
 
 const inputClassName =
     "mt-2 h-[40px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc]";
@@ -40,6 +49,8 @@ function TambahModulProfilPageContent() {
     const [existingThumbnail, setExistingThumbnail] = useState<string | null>(
         null,
     );
+    const { user } = useAuth();
+
     const [isLoading, setIsLoading] = useState(!!modulId);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState("");
@@ -63,7 +74,6 @@ function TambahModulProfilPageContent() {
         const load = async () => {
             try {
                 const data = await guruModulApi.detail(modulId);
-                console.log(data);
                 setModuleName(data.moduleName || "");
                 setSubtitle(data.subtitle || "");
                 setDescription(data.description || "");
@@ -71,10 +81,6 @@ function TambahModulProfilPageContent() {
                 setKelas(data.class || "");
                 setDifficulty(data.difficulty || "Menengah");
                 setAccessType((data.modulType as "SISWA" | "UMUM") || "SISWA");
-                if (data.moduleImgUrl) {
-                    setCoverPreview(data.moduleImgUrl);
-                    setExistingThumbnail(data.moduleImgUrl);
-                }
                 if (data.targetTime) {
                     if (data.targetTime >= 60) {
                         setTargetTime(Math.round(data.targetTime / 60));
@@ -97,17 +103,42 @@ function TambahModulProfilPageContent() {
 
     useEffect(() => {
         return () => {
-            if (coverPreview && coverPreview.startsWith("blob:")) {
+            if (coverPreview) {
                 URL.revokeObjectURL(coverPreview);
             }
         };
     }, [coverPreview]);
 
+    // Dynamic class options based on selected level (jenjang)
+    const kelasOptions = useMemo(() => {
+        switch (level) {
+            case "SD":
+                return ["1", "2", "3", "4", "5", "6"];
+            case "SMP":
+                return ["7", "8", "9"];
+            case "SMA":
+                return ["10", "11", "12"];
+            default:
+                return [];
+        }
+    }, [level]);
+
+    // Reset kelas when jenjang changes and current kelas is no longer valid
+    const prevLevelRef = useRef(level);
+    useEffect(() => {
+        if (prevLevelRef.current !== level) {
+            prevLevelRef.current = level;
+            if (kelas && !kelasOptions.includes(kelas)) {
+                setKelas("");
+            }
+        }
+    }, [level, kelasOptions, kelas]);
+
     const computedTargetTime = useMemo(() => {
         return targetTimeUnit === "bulan" ? targetTime * 60 : targetTime * 7;
     }, [targetTime, targetTimeUnit]);
 
-    const handleSave = useCallback(async () => {
+    const handleSave = async () => {
         if (!moduleName.trim()) {
             setError("Judul modul wajib diisi.");
             return;
@@ -122,15 +153,7 @@ function TambahModulProfilPageContent() {
         setSuccessMsg("");
 
         try {
-            let thumbnailUrl: string | undefined;
-
-            if (coverFile) {
-                thumbnailUrl = await uploadImage(coverFile, "MATERI_IMAGE");
-            } else {
-                thumbnailUrl = existingThumbnail || undefined;
-            }
-
-            const payload: Record<string, unknown> = {
+            const payload = {
                 moduleName: moduleName.trim(),
                 subtitle: subtitle.trim(),
                 description: description.trim(),
@@ -139,21 +162,30 @@ function TambahModulProfilPageContent() {
                 level: level || undefined,
                 class: kelas || undefined,
                 modulType: accessType,
-                moduleImgUrl: thumbnailUrl,
             };
 
             if (modulId) {
-                await guruModulApi
-                    .update(modulId, payload as GuruModuleUpdatePayload)
-                    .then((res) => {
-                        console.log(res);
-                        setSuccessMsg("Modul berhasil diperbarui!");
-                    })
-                    .catch((err) => {
-                        if (err instanceof AxiosError) {
-                            console.error("API error response:", err.response);
-                        }
-                    });
+                await guruModulApi.update(modulId, payload);
+                setSuccessMsg("Modul berhasil diperbarui!");
+            } else {
+                if (!user?.id) {
+                    setError(
+                        "Gagal mengidentifikasi tutor. Silakan login ulang.",
+                    );
+                    return;
+                }
+                const newModul = await guruModulApi.create({
+                    ...payload,
+                    difficulty: payload.difficulty as
+                        | "Beginner"
+                        | "Intermediate"
+                        | "Advanced",
+                    tutorId: user.id,
+                });
+                setSuccessMsg("Modul berhasil dibuat!");
+                router.replace(
+                    `/modul-guru/tambah/profil?modulId=${newModul.id}`,
+                );
             }
         } catch (err: unknown) {
             console.error("Save module error:", err);
@@ -163,19 +195,7 @@ function TambahModulProfilPageContent() {
         } finally {
             setIsSaving(false);
         }
-    }, [
-        moduleName,
-        subtitle,
-        description,
-        computedTargetTime,
-        difficulty,
-        level,
-        kelas,
-        accessType,
-        modulId,
-        coverFile,
-        existingThumbnail,
-    ]);
+    };
 
     if (isLoading || !isAuthorized) {
         return (
@@ -187,6 +207,160 @@ function TambahModulProfilPageContent() {
                         <p className="text-sm text-[#8a8d98]">
                             Memuat data modul...
                         </p>
+                        <div className="mt-6">
+                            <label className="text-[12px] font-semibold text-[#232530]">
+                                Judul Modul
+                            </label>
+                            <input
+                                type="text"
+                                value={moduleName}
+                                onChange={(e) => setModuleName(e.target.value)}
+                                placeholder="Masukkan judul modul"
+                                className={inputClassName}
+                            />
+                            <p className="mt-1 text-[11px] text-[#7e8290]">
+                                Judul sebaiknya menarik perhatian, informatif,
+                                dan dioptimalkan untuk penelusuran
+                            </p>
+
+                            <label className="mt-4 block text-[12px] font-semibold text-[#232530]">
+                                Subtitle kursus
+                            </label>
+                            <input
+                                type="text"
+                                value={subtitle}
+                                onChange={(e) => setSubtitle(e.target.value)}
+                                placeholder="Masukkan subtitle modul"
+                                className={inputClassName}
+                            />
+                            <p className="mt-1 text-[11px] text-[#7e8290]">
+                                Gunakan 1 atau 2 kata kunci terkait, dan
+                                sebutkan 3-4 area terpenting yang telah Anda
+                                bahas sepanjang kursus Anda.
+                            </p>
+                        </div>
+
+                        <div className="mt-6">
+                            <label className="text-[12px] font-semibold text-[#232530]">
+                                Deskripsi kursus
+                            </label>
+                            <textarea
+                                rows={4}
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Masukkan deskripsi kursus ..."
+                                className={textareaClassName}
+                            />
+                            <div className="mt-1 flex items-center justify-between text-[11px] text-[#7e8290]">
+                                <span>
+                                    Deskripsikan kursus anda secara singkat
+                                </span>
+                                <span>{description.length}/200</span>
+                            </div>
+                        </div>
+
+                        {!isExpanded && (
+                            <div className="mt-5">
+                                <p className="text-[12px] font-semibold text-[#232530]">
+                                    Pilih Akses
+                                </p>
+                                <div className="mt-3 flex items-center gap-6 text-[12px] text-[#6e7280]">
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            name="akses"
+                                            checked={accessType === "SISWA"}
+                                            onChange={() =>
+                                                setAccessType("SISWA")
+                                            }
+                                        />
+                                        Siswa
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            name="akses"
+                                            checked={accessType === "UMUM"}
+                                            onChange={() =>
+                                                setAccessType("UMUM")
+                                            }
+                                        />
+                                        Umum
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+
+                        {isExpanded && (
+                            <div className="mt-6 space-y-4">
+                                {accessType === "SISWA" && (
+                                    <>
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            <div>
+                                                <label className="text-[12px] font-semibold text-[#232530]">
+                                                    Jenjang Sekolah
+                                                </label>
+                                                <select
+                                                    className={inputClassName}
+                                                    value={level}
+                                                    onChange={(e) =>
+                                                        setLevel(e.target.value)
+                                                    }
+                                                >
+                                                    <option value="" disabled>
+                                                        Pilih Jenjang
+                                                    </option>
+                                                    <option value="SD">
+                                                        SD
+                                                    </option>
+                                                    <option value="SMP">
+                                                        SMP
+                                                    </option>
+                                                    <option value="SMA">
+                                                        SMA
+                                                    </option>
+                                                </select>
+                                                <p className="mt-1 text-[11px] text-[#7e8290]">
+                                                    Sebutkan kurikulum modul
+                                                    anda
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="text-[12px] font-semibold text-[#232530]">
+                                                    Kelas
+                                                </label>
+                                                <select
+                                                    className={inputClassName}
+                                                    value={kelas}
+                                                    onChange={(e) =>
+                                                        setKelas(e.target.value)
+                                                    }
+                                                    disabled={!level}
+                                                >
+                                                    <option value="" disabled>
+                                                        {level
+                                                            ? "Pilih Tingkatan Kelas"
+                                                            : "Pilih jenjang terlebih dahulu"}
+                                                    </option>
+                                                    {kelasOptions.map((k) => (
+                                                        <option
+                                                            key={k}
+                                                            value={k}
+                                                        >
+                                                            Kelas {k}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <p className="mt-1 text-[11px] text-[#7e8290]">
+                                                    Tingkatan kelas sesuai
+                                                    jenjang yang dipilih
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

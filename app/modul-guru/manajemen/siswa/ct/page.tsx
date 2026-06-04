@@ -1,25 +1,48 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import GuruHeader from '../../../../component/guru/GuruHeader';
+import { guruProgressApi } from '../../../../lib/api';
+import { useRoleGuard } from '../../../../lib/hooks/useRoleGuard';
 
-const ctData = [
-  { label: 'Memecah Masalah (Decomposition)', score: 80, grade: 'Baik', color: '#5bb3f0', gradeColor: '#2a9d5c' },
-  { label: 'Mengenali Pola (Pattern Recognition)', score: 70, grade: 'Perlu Penguatan', color: '#c565d4', gradeColor: '#e8963a' },
-  { label: 'Menyaring Informasi (Abstraction)', score: 100, grade: 'Sangat Baik', color: '#4b7bf5', gradeColor: '#2a9d5c' },
-  { label: 'Menyusun Langkah (Algorithm)', score: 50, grade: 'Butuh Intervensi', color: '#f5a623', gradeColor: '#d63c3c' },
+type CTDimension = {
+  label: string;
+  score: number;
+  grade: string;
+  color: string;
+  gradeColor: string;
+};
+
+const defaultDimensions: CTDimension[] = [
+  { label: 'Memecah Masalah (Decomposition)', score: 0, grade: '-', color: '#5bb3f0', gradeColor: '#7a7e8a' },
+  { label: 'Mengenali Pola (Pattern Recognition)', score: 0, grade: '-', color: '#c565d4', gradeColor: '#7a7e8a' },
+  { label: 'Menyaring Informasi (Abstraction)', score: 0, grade: '-', color: '#4b7bf5', gradeColor: '#7a7e8a' },
+  { label: 'Menyusun Langkah (Algorithm)', score: 0, grade: '-', color: '#f5a623', gradeColor: '#7a7e8a' },
 ];
 
-const total = ctData.reduce((s, d) => s + d.score, 0);
+function getGrade(score: number): { grade: string; gradeColor: string } {
+  if (score >= 80) return { grade: 'Sangat Baik', gradeColor: '#2a9d5c' };
+  if (score >= 60) return { grade: 'Baik', gradeColor: '#2a9d5c' };
+  if (score >= 40) return { grade: 'Perlu Penguatan', gradeColor: '#e8963a' };
+  return { grade: 'Butuh Intervensi', gradeColor: '#d63c3c' };
+}
 
-function PieChart() {
-  const values = ctData.map((d) => d.score);
+function PieChart({ dimensions }: { dimensions: CTDimension[] }) {
+  const values = dimensions.map((d) => d.score);
   const sum = values.reduce((a, b) => a + b, 0);
+  if (sum === 0) {
+    return (
+      <div className="flex h-[220px] w-[220px] items-center justify-center rounded-full border-4 border-dashed border-[#e5e3ee]">
+        <p className="text-[12px] text-[#8a8d98]">Belum ada data</p>
+      </div>
+    );
+  }
   let cumulative = 0;
 
-  const slices = ctData.map((d, i) => {
+  const slices = dimensions.map((d, i) => {
     const startAngle = (cumulative / sum) * 360;
     cumulative += d.score;
     const endAngle = (cumulative / sum) * 360;
@@ -59,54 +82,117 @@ function PieChart() {
   );
 }
 
-export default function CTDetailPage() {
+function CTDetailPageContent() {
+  const { isAuthorized } = useRoleGuard(['tutor']);
+  const searchParams = useSearchParams();
+  const studentId = searchParams.get('studentId');
+
+  const [dimensions, setDimensions] = useState<CTDimension[]>(defaultDimensions);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [studentName, setStudentName] = useState('Siswa');
+
+  const loadAnalysis = useCallback(async () => {
+    if (!studentId) {
+      setError('Student ID tidak ditemukan.');
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+      // Load student info
+      const studentData = await guruProgressApi.getByStudent(studentId);
+      setStudentName(studentData.siswaName || 'Siswa');
+
+      // Load CT analysis
+      const analysis = await guruProgressApi.analyze(studentId);
+      if (analysis && Array.isArray(analysis) && analysis.length > 0) {
+        // Try to map analysis data to CT dimensions
+        // The API might return objects with various formats
+        const mapped = defaultDimensions.map((dim, index) => {
+          const item = analysis[index] as Record<string, unknown> | undefined;
+          if (item) {
+            const score = typeof item.score === 'number' ? item.score : 
+                          typeof item.nilai === 'number' ? item.nilai : 0;
+            const { grade, gradeColor } = getGrade(score);
+            return { ...dim, score, grade, gradeColor };
+          }
+          return dim;
+        });
+        setDimensions(mapped);
+      }
+    } catch (err: unknown) {
+      console.error('Load CT analysis error:', err);
+      // Don't show error for CT analysis failure as it might not exist yet
+      if (err instanceof Error && err.message.includes('Student')) {
+        setError(err.message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [studentId]);
+
+  useEffect(() => {
+    loadAnalysis();
+  }, [loadAnalysis]);
+
+  const totalScore = dimensions.reduce((s, d) => s + d.score, 0);
+
+  if (!isAuthorized || isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
+        <GuruHeader />
+        <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
+              <p className="text-sm text-[#8a8d98]">Memuat analisis CT...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
       <GuruHeader />
 
       <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
-        <Link href="/modul-guru/manajemen/siswa" className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530]">
+        <Link
+          href={studentId ? `/modul-guru/manajemen/siswa?studentId=${studentId}` : '/modul-guru/manajemen/siswa'}
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530]"
+        >
           <span>←</span> Kembali ke Nilai Siswa
         </Link>
+
+        {error && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
 
         <div className="mt-4 flex flex-col gap-6 sm:mt-6 lg:flex-row lg:gap-8">
           <div className="flex-1">
             <div className="flex items-center gap-4">
-              <div className="h-[50px] w-[50px] shrink-0 overflow-hidden rounded-xl bg-[#d4f0f7]">
-                <Image src="/assets/images/beranda-siswa/matapelajaran.png" alt="Biologi" width={50} height={50} className="h-full w-full object-cover" />
+              <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f0ebff]">
+                <span className="text-xl font-bold text-[#7054dc]">
+                  {studentName.charAt(0).toUpperCase()}
+                </span>
               </div>
               <div>
-                <h1 className="text-[16px] font-bold text-[#232530]">Biologi</h1>
-                <p className="text-[12px] text-[#7a7e8a]">Jenjang SMA | Kelas 11</p>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-stretch gap-3 sm:mt-6 sm:gap-4">
-              <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-[#f8e8f0] to-[#fdf4f8] px-5 py-4">
-                <span className="text-[28px] font-bold text-[#e85d8a]">70</span>
-                <span className="text-[12px] font-medium text-[#7a7e8a]">Nilai Pre-Test</span>
-              </div>
-              <div className="flex items-center gap-3 rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
-                <span className="text-[28px] font-bold text-[#7054dc]">100</span>
-                <span className="text-[12px] font-medium text-[#7a7e8a]">Nilai Post-Test</span>
-              </div>
-              <div className="flex flex-1 flex-col justify-center gap-2 rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-2 flex-1 rounded-full bg-[#e7e2f6]">
-                    <div className="h-full rounded-full bg-[#7054dc]" style={{ width: '100%' }} />
-                  </div>
-                  <span className="text-[12px] font-semibold text-[#232530]">100%</span>
-                </div>
-                <p className="text-[11px] text-[#7a7e8a]">10 dari 10 Materi Selesai</p>
+                <h1 className="text-[16px] font-bold text-[#232530]">{studentName}</h1>
+                <p className="text-[12px] text-[#7a7e8a]">Analisis Computational Thinking</p>
               </div>
             </div>
 
             <div className="mt-8">
               <h2 className="text-[14px] font-semibold text-[#232530]">Analisis Computational Thinking</h2>
               <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-8">
-                <PieChart />
+                <PieChart dimensions={dimensions} />
                 <div className="flex-1 space-y-5 pt-2">
-                  {ctData.map((d, i) => (
+                  {dimensions.map((d, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <span className="mt-1 inline-block h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: d.color }} />
                       <div>
@@ -123,21 +209,33 @@ export default function CTDetailPage() {
 
           <div className="w-full shrink-0 lg:w-[220px]">
             <div className="flex flex-col items-center">
-              <div className="h-[120px] w-[120px] overflow-hidden rounded-full border-4 border-[#e5e3ee] bg-[#f0eff5]">
-                <Image src="/assets/images/beranda-siswa/belum-ada.png" alt="Olivia Rodrigo" width={120} height={120} className="h-full w-full object-cover" />
+              <div className="flex h-[120px] w-[120px] items-center justify-center overflow-hidden rounded-full border-4 border-[#e5e3ee] bg-[#f0eff5]">
+                <span className="text-4xl font-bold text-[#7054dc]">
+                  {studentName.charAt(0).toUpperCase()}
+                </span>
               </div>
-              <h3 className="mt-4 text-[16px] font-bold text-[#232530]">Olivia Rodrigo</h3>
-              <p className="mt-1 text-[12px] text-[#7a7e8a]">oliviolivrgio@gmail.com</p>
+              <h3 className="mt-4 text-[16px] font-bold text-[#232530]">{studentName}</h3>
             </div>
 
             <div className="mt-6 rounded-2xl border border-[#e5e3ee] bg-white px-4 py-5">
               <p className="text-center text-[12px] leading-[1.7] text-[#5a5d6a]">
-                Analisis Computational Thinking pada Kuis Topik Sel Unit Terkecil Kehidupan
+                Total skor CT: <span className="font-bold text-[#7054dc]">{totalScore}/400</span>
+              </p>
+              <p className="mt-2 text-center text-[11px] text-[#7a7e8a]">
+                Analisis berdasarkan jawaban kuis siswa
               </p>
             </div>
           </div>
         </div>
       </main>
     </div>
+  );
+}
+
+export default function CTDetailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f6fb]" />}>
+      <CTDetailPageContent />
+    </Suspense>
   );
 }

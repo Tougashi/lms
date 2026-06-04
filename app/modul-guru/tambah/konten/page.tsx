@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
     FiBookOpen,
@@ -18,10 +18,15 @@ import {
     FiX,
 } from "react-icons/fi";
 
-import GuruHeader from "../../../component/guru/GuruHeader";
-import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
-import { guruModulApi, uploadApi } from "../../../lib/api";
 import { useUpload } from "../../hooks/useUpload";
+import GuruHeader from "../../../component/guru/GuruHeader";
+import {
+    guruModulApi,
+    guruTopikApi,
+    guruMateriApi,
+    guruKuisApi,
+} from "../../../lib/api";
+import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
 
 function RichTextEditor({ placeholder }: { placeholder: string }) {
     const editorRef = useRef<HTMLDivElement>(null);
@@ -59,7 +64,9 @@ function RichTextEditor({ placeholder }: { placeholder: string }) {
         updateEmptyState();
     };
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (
+        e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -261,7 +268,9 @@ function QuizMiniEditor({ placeholder }: { placeholder: string }) {
         document.execCommand(cmd);
         updateEmptyState();
     };
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (
+        e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -309,7 +318,12 @@ function QuizMiniEditor({ placeholder }: { placeholder: string }) {
                     {isUploadingImage ? (
                         <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#7054dc] border-t-transparent" />
                     ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                        >
                             <rect
                                 x="4"
                                 y="6"
@@ -357,29 +371,18 @@ function QuizMiniEditor({ placeholder }: { placeholder: string }) {
 
 function TambahModulKontenPageContent() {
     const { isAuthorized } = useRoleGuard(["tutor"]);
-    const { upload, isUploading, reset: resetUpload } = useUpload();
     const searchParams = useSearchParams();
     const router = useRouter();
     const modulId = searchParams.get("modulId");
-    const [isPublishing, setIsPublishing] = useState(false);
-    const [publishError, setPublishError] = useState("");
 
-    const handlePublish = async () => {
-        if (!modulId) return;
-        setIsPublishing(true);
-        setPublishError("");
-        try {
-            await guruModulApi.update(modulId, { isDraft: false });
-            router.push("/modul-guru");
-        } catch {
-            setPublishError("Gagal menerbitkan modul. Silakan coba lagi.");
-        } finally {
-            setIsPublishing(false);
-        }
-    };
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isTopicAdded, setIsTopicAdded] = useState(false);
     const [topicTitle, setTopicTitle] = useState("");
+    const [topicId, setTopicId] = useState<string | null>(null);
+    const [isCreatingTopic, setIsCreatingTopic] = useState(false);
+    const [topicError, setTopicError] = useState("");
+    const [isEditingTopic, setIsEditingTopic] = useState(false);
+    const [editTopicTitle, setEditTopicTitle] = useState("");
     const [materials, setMaterials] = useState<
         {
             id: number;
@@ -393,12 +396,14 @@ function TambahModulKontenPageContent() {
             linkPreviewThumb: string;
             linkVideoTitle: string;
             linkVideoDuration: string;
+            showUploadSuccess: boolean;
             fileName: string;
             fileSize: string;
+            uploadProgress: number;
+            uploadStatus: "idle" | "uploading" | "done";
             previewUrl: string;
             duration: string;
             articleContent: string;
-            uploadedFileUrl: string;
         }[]
     >([]);
     const [activeMaterialId, setActiveMaterialId] = useState<number | null>(
@@ -445,53 +450,235 @@ function TambahModulKontenPageContent() {
     const [editingQuizId, setEditingQuizId] = useState<number | null>(null);
     const [editQuizTitle, setEditQuizTitle] = useState("");
 
-    const previewUrlsRef = useRef<string[]>([]);
+    // Maps local numeric IDs to server string IDs for materials and quizzes
+    const [materialApiIds, setMaterialApiIds] = useState<
+        Record<number, string>
+    >({});
+    const [quizApiIds, setQuizApiIds] = useState<Record<number, string>>({});
+    const [isSavingMaterial, setIsSavingMaterial] = useState<number | null>(
+        null,
+    );
+    const [isDeletingMaterial, setIsDeletingMaterial] = useState<number | null>(
+        null,
+    );
+    const [isSavingQuiz, setIsSavingQuiz] = useState(false);
+
+    const uploadIntervalsRef = useRef<Record<number, number>>({});
+    const uploadSuccessTimersRef = useRef<Record<number, number>>({});
+    const materialsRef = useRef(materials);
 
     useEffect(() => {
+        materialsRef.current = materials;
+    }, [materials]);
+
+    // Load existing topics from API
+    useEffect(() => {
+        if (!modulId) return;
+        const loadTopics = async () => {
+            try {
+                const topics = await guruTopikApi.getByModul(modulId);
+                if (topics.length > 0) {
+                    const firstTopic = topics[0];
+                    setTopicTitle(firstTopic.nama);
+                    setTopicId(firstTopic.id);
+                    setIsTopicAdded(true);
+                }
+            } catch (err) {
+                console.error("Load topics error:", err);
+            }
+        };
+        loadTopics();
+    }, [modulId]);
+
+    // Load existing materials from API when modulId is available
+    useEffect(() => {
+        if (!modulId) return;
+        const loadMaterials = async () => {
+            try {
+                const items = await guruMateriApi.getByModul(modulId);
+                if (items.length > 0) {
+                    const loaded = items.map((item, idx) => {
+                        const localId = Date.now() + idx;
+                        setMaterialApiIds((prev) => ({
+                            ...prev,
+                            [localId]: item.id,
+                        }));
+                        return {
+                            id: localId,
+                            title: item.article
+                                ? `Materi ${idx + 1}`
+                                : `Video ${idx + 1}`,
+                            type: (item.isVideo ? "video" : "artikel") as
+                                | "video"
+                                | "artikel",
+                            isSaved: true,
+                            isExpanded: false,
+                            videoSource: "link" as const,
+                            linkUrl: item.videoUrl || "",
+                            linkPreviewTitle: "",
+                            linkPreviewThumb: item.videoUrl
+                                ? getYoutubeThumb(item.videoUrl)
+                                : "",
+                            linkVideoTitle: "",
+                            linkVideoDuration: "",
+                            showUploadSuccess: false,
+                            fileName: "",
+                            fileSize: "",
+                            uploadProgress: 100,
+                            uploadStatus: "done" as const,
+                            previewUrl: "",
+                            duration: "00:00",
+                            articleContent: item.article || "",
+                        };
+                    });
+                    setMaterials(loaded);
+                    if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
+                }
+            } catch (err) {
+                console.error("Load materials error:", err);
+            }
+        };
+        loadMaterials();
+    }, [modulId]);
+
+    useEffect(() => {
+        const intervals = uploadIntervalsRef.current;
+        const successTimers = uploadSuccessTimersRef.current;
+
         return () => {
-            previewUrlsRef.current.forEach((url) => {
-                URL.revokeObjectURL(url);
+            Object.values(intervals).forEach((intervalId) => {
+                window.clearInterval(intervalId);
+            });
+            Object.values(successTimers).forEach((timerId) => {
+                window.clearTimeout(timerId);
+            });
+
+            materialsRef.current.forEach((material) => {
+                if (material.previewUrl) {
+                    URL.revokeObjectURL(material.previewUrl);
+                }
             });
         };
     }, []);
 
-    const handleFileChange = async (materialId: number, file: File | null) => {
+    const startFakeUpload = (materialId: number) => {
+        if (uploadIntervalsRef.current[materialId]) {
+            window.clearInterval(uploadIntervalsRef.current[materialId]);
+        }
+
+        const intervalId = window.setInterval(() => {
+            setMaterials((prev) =>
+                prev.map((material) => {
+                    if (
+                        material.id !== materialId ||
+                        material.uploadStatus !== "uploading"
+                    ) {
+                        return material;
+                    }
+
+                    const nextProgress = Math.min(
+                        material.uploadProgress + 12,
+                        100,
+                    );
+                    if (nextProgress >= 100) {
+                        window.clearInterval(intervalId);
+                        delete uploadIntervalsRef.current[materialId];
+                    }
+                    return {
+                        ...material,
+                        uploadProgress: nextProgress,
+                        uploadStatus:
+                            nextProgress >= 100 ? "done" : "uploading",
+                        showUploadSuccess:
+                            nextProgress >= 100
+                                ? true
+                                : material.showUploadSuccess,
+                    };
+                }),
+            );
+        }, 300);
+
+        uploadIntervalsRef.current[materialId] = intervalId;
+    };
+
+    useEffect(() => {
+        materials.forEach((material) => {
+            if (!material.showUploadSuccess) {
+                return;
+            }
+
+            if (uploadSuccessTimersRef.current[material.id]) {
+                return;
+            }
+
+            uploadSuccessTimersRef.current[material.id] = window.setTimeout(
+                () => {
+                    setMaterials((prev) =>
+                        prev.map((item) =>
+                            item.id === material.id
+                                ? {
+                                      ...item,
+                                      showUploadSuccess: false,
+                                  }
+                                : item,
+                        ),
+                    );
+                    delete uploadSuccessTimersRef.current[material.id];
+                },
+                3000,
+            );
+        });
+    }, [materials]);
+
+    const handleFileChange = (materialId: number, file: File | null) => {
         if (!file) {
             return;
         }
-
-        const previewUrl = URL.createObjectURL(file);
-        previewUrlsRef.current.push(previewUrl);
 
         setMaterials((prev) =>
             prev.map((material) => {
                 if (material.id !== materialId) {
                     return material;
                 }
+
+                if (material.previewUrl) {
+                    URL.revokeObjectURL(material.previewUrl);
+                }
+
                 return {
                     ...material,
                     fileName: file.name,
                     fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-                    previewUrl,
+                    uploadProgress: 0,
+                    uploadStatus: "uploading",
+                    previewUrl: URL.createObjectURL(file),
                 };
             }),
         );
 
-        try {
-            const url = await upload(file, "MATERI_VIDEO");
-            setMaterials((prev) =>
-                prev.map((material) =>
-                    material.id === materialId
-                        ? { ...material, uploadedFileUrl: url }
-                        : material,
-                ),
-            );
-        } catch {
-            // error handled by useUpload hook
-        }
+        startFakeUpload(materialId);
     };
 
-    const handleDeleteMaterial = (materialId: number) => {
+    const handleDeleteMaterial = async (materialId: number) => {
+        const apiId = materialApiIds[materialId];
+        if (apiId) {
+            setIsDeletingMaterial(materialId);
+            try {
+                await guruMateriApi.delete(apiId);
+                setMaterialApiIds((prev) => {
+                    const next = { ...prev };
+                    delete next[materialId];
+                    return next;
+                });
+            } catch (err) {
+                console.error("Delete material error:", err);
+                alert("Gagal menghapus materi.");
+                setIsDeletingMaterial(null);
+                return;
+            } finally {
+                setIsDeletingMaterial(null);
+            }
+        }
         setMaterials((prev) => {
             const next = prev.filter((material) => material.id !== materialId);
             setActiveMaterialId((current) =>
@@ -527,7 +714,7 @@ function TambahModulKontenPageContent() {
     const isMaterialFormComplete = (material: {
         type: "video" | "artikel";
         videoSource: "upload" | "link";
-        uploadedFileUrl: string;
+        uploadStatus: "idle" | "uploading" | "done";
         linkUrl: string;
     }) => {
         if (material.type === "artikel") {
@@ -535,7 +722,7 @@ function TambahModulKontenPageContent() {
         }
 
         if (material.videoSource === "upload") {
-            return !!material.uploadedFileUrl;
+            return material.uploadStatus === "done";
         }
 
         return material.linkUrl.trim().length > 0;
@@ -549,13 +736,30 @@ function TambahModulKontenPageContent() {
         return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
     };
 
-    const handleCreateMaterial = () => {
+    const handleCreateMaterial = async () => {
         const trimmedTitle = newMaterialTitle.trim();
-        if (!trimmedTitle) {
+        if (!trimmedTitle || !topicId) {
             return;
         }
 
         const nextId = Date.now();
+        const isVideo = newMaterialType === "video";
+
+        // Create in API first
+        try {
+            const created = await guruMateriApi.create({
+                topik_id: topicId,
+                is_video: isVideo,
+                video_url: null,
+                article: isVideo ? null : "",
+            });
+            setMaterialApiIds((prev) => ({ ...prev, [nextId]: created.id }));
+        } catch (err) {
+            console.error("Create material error:", err);
+            alert("Gagal membuat materi. Pastikan topik sudah tersimpan.");
+            return;
+        }
+
         setMaterials((prev) => [
             ...prev,
             {
@@ -570,12 +774,14 @@ function TambahModulKontenPageContent() {
                 linkPreviewThumb: "",
                 linkVideoTitle: "",
                 linkVideoDuration: "",
+                showUploadSuccess: false,
                 fileName: "",
                 fileSize: "",
+                uploadProgress: 0,
+                uploadStatus: "idle",
                 previewUrl: "",
                 duration: "00:00",
                 articleContent: "",
-                uploadedFileUrl: "",
             },
         ]);
         setActiveMaterialId(nextId);
@@ -584,7 +790,34 @@ function TambahModulKontenPageContent() {
         setNewMaterialType("video");
     };
 
-    const handleSaveMaterialContent = (materialId: number) => {
+    const handleSaveMaterialContent = async (materialId: number) => {
+        const material = materials.find((m) => m.id === materialId);
+        const apiId = materialApiIds[materialId];
+        if (material && apiId) {
+            setIsSavingMaterial(materialId);
+            try {
+                await guruMateriApi.update(apiId, {
+                    is_video: material.type === "video",
+                    video_url:
+                        material.type === "video"
+                            ? material.videoSource === "link"
+                                ? material.linkUrl
+                                : material.previewUrl
+                            : null,
+                    article:
+                        material.type === "artikel"
+                            ? material.articleContent
+                            : null,
+                });
+            } catch (err) {
+                console.error("Save material error:", err);
+                alert("Gagal menyimpan materi.");
+                setIsSavingMaterial(null);
+                return;
+            } finally {
+                setIsSavingMaterial(null);
+            }
+        }
         setMaterials((prev) =>
             prev.map((item) =>
                 item.id === materialId
@@ -644,8 +877,52 @@ function TambahModulKontenPageContent() {
         })),
     });
 
-    const handleCreateQuiz = () => {
+    const handleCreateQuiz = async () => {
+        // Find first saved material with an API ID to attach quiz to
+        const firstMaterialEntry = Object.entries(materialApiIds)[0];
+        if (!firstMaterialEntry) {
+            alert(
+                "Simpan minimal satu materi terlebih dahulu sebelum membuat kuis.",
+            );
+            return;
+        }
+        const [, materiApiId] = firstMaterialEntry;
+
         const nextId = Date.now();
+
+        // Create quiz in API
+        setIsSavingQuiz(true);
+        try {
+            const created = await guruKuisApi.create({
+                quiz: {
+                    materiId: materiApiId,
+                    question: "Soal Kuis 1",
+                    correctAnswer: "A",
+                    skor: 10,
+                },
+                answerOptions: [
+                    { option: "A" },
+                    { option: "B" },
+                    { option: "C" },
+                ],
+                setting: {
+                    timeLimit: 90,
+                    allowMultipleAttempts: false,
+                    isComputationalThinkingEnabled: false,
+                    minScoreTreshold: 0,
+                    standardScorePerQuestion: 100,
+                },
+            });
+            setQuizApiIds((prev) => ({ ...prev, [nextId]: created.id }));
+        } catch (err) {
+            console.error("Create quiz error:", err);
+            alert("Gagal membuat kuis.");
+            setIsSavingQuiz(false);
+            return;
+        } finally {
+            setIsSavingQuiz(false);
+        }
+
         setQuizzes((prev) => [
             ...prev,
             {
@@ -861,23 +1138,115 @@ function TambahModulKontenPageContent() {
         setIsQuizSettingsOpen(false);
     };
 
-    const handleDeleteQuiz = (quizId: number) => {
+    const handleDeleteQuiz = async (quizId: number) => {
+        const apiId = quizApiIds[quizId];
+        if (apiId) {
+            try {
+                await guruKuisApi.delete(apiId);
+                setQuizApiIds((prev) => {
+                    const next = { ...prev };
+                    delete next[quizId];
+                    return next;
+                });
+            } catch (err) {
+                console.error("Delete quiz error:", err);
+                alert("Gagal menghapus kuis.");
+                return;
+            }
+        }
         setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
     };
 
+    // Create topic via API
+    const handleCreateTopic = useCallback(async () => {
+        if (topicTitle.trim().length === 0) return;
+        if (!modulId) {
+            setTopicError("Module ID tidak ditemukan.");
+            return;
+        }
+        setIsCreatingTopic(true);
+        setTopicError("");
+        try {
+            const created = await guruTopikApi.create({
+                modul_id: modulId,
+                nama: topicTitle.trim(),
+            });
+            setTopicId(created.id);
+            setIsTopicAdded(true);
+            setIsFormOpen(false);
+            setActiveMaterialId(null);
+        } catch (err: unknown) {
+            console.error("Create topic error:", err);
+            setTopicError(
+                err instanceof Error ? err.message : "Gagal membuat topik.",
+            );
+        } finally {
+            setIsCreatingTopic(false);
+        }
+    }, [topicTitle, modulId]);
+
+    // Edit topic via API
+    const handleSaveEditTopic = useCallback(async () => {
+        if (!topicId || editTopicTitle.trim().length === 0) return;
+        try {
+            await guruTopikApi.update(topicId, { nama: editTopicTitle.trim() });
+            setTopicTitle(editTopicTitle.trim());
+            setIsEditingTopic(false);
+        } catch (err: unknown) {
+            console.error("Update topic error:", err);
+            alert(
+                err instanceof Error ? err.message : "Gagal memperbarui topik.",
+            );
+        }
+    }, [topicId, editTopicTitle]);
+
+    // Delete topic via API
+    const handleDeleteTopic = useCallback(async () => {
+        if (!topicId) return;
+        if (!confirm("Apakah Anda yakin ingin menghapus topik ini?")) return;
+        try {
+            await guruTopikApi.delete(topicId);
+            setTopicTitle("");
+            setTopicId(null);
+            setIsTopicAdded(false);
+            setMaterials([]);
+            setQuizzes([]);
+        } catch (err: unknown) {
+            console.error("Delete topic error:", err);
+            alert(
+                err instanceof Error ? err.message : "Gagal menghapus topik.",
+            );
+        }
+    }, [topicId]);
+
+    // Publish module
+    const handlePublish = useCallback(async () => {
+        if (!modulId) return;
+        if (!confirm("Apakah Anda yakin ingin menerbitkan modul ini?")) return;
+        try {
+            await guruModulApi.update(modulId, { isDraft: false });
+            router.push("/modul-guru?tab=published");
+        } catch (err: unknown) {
+            console.error("Publish error:", err);
+            alert(
+                err instanceof Error ? err.message : "Gagal menerbitkan modul.",
+            );
+        }
+    }, [modulId, router]);
+
     if (!isAuthorized) {
         return (
-            <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
-                <GuruHeader />
-                <div className="flex items-center justify-center py-20">
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
-                        <p className="text-sm text-[#8a8d98]">
-                            Memeriksa otorisasi...
-                        </p>
+            <Suspense
+                fallback={
+                    <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
+                        <div className="flex items-center justify-center py-20">
+                            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent" />
+                        </div>
                     </div>
-                </div>
-            </div>
+                }
+            >
+                <TambahModulKontenPageContent />
+            </Suspense>
         );
     }
 
@@ -894,15 +1263,23 @@ function TambahModulKontenPageContent() {
                             </p>
                             <nav className="mt-4 space-y-3 text-[13px]">
                                 <Link
-                                    href="/modul-guru/tambah/profil"
-                                    className="flex items-center gap-2 text-[#7a7e8a]"
+                                    href={
+                                        modulId
+                                            ? `/modul-guru/tambah/profil?modulId=${modulId}`
+                                            : "#"
+                                    }
+                                    className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
                                 >
                                     <FiFileText size={12} />
                                     Profil Modul Anda
                                 </Link>
                                 <Link
-                                    href="/modul-guru/tambah/harga"
-                                    className="flex items-center gap-2 text-[#7a7e8a]"
+                                    href={
+                                        modulId
+                                            ? `/modul-guru/tambah/harga?modulId=${modulId}`
+                                            : "#"
+                                    }
+                                    className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
                                 >
                                     <FiDollarSign size={12} />
                                     Penetapan Harga Modul
@@ -920,33 +1297,36 @@ function TambahModulKontenPageContent() {
                                     </span>
                                 </div>
                                 <Link
-                                    href="/modul-guru/tambah/pre-post-test"
-                                    className="flex items-center gap-2 text-[#7a7e8a]"
+                                    href={
+                                        modulId
+                                            ? `/modul-guru/tambah/pre-post-test?modulId=${modulId}`
+                                            : "#"
+                                    }
+                                    className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
                                 >
                                     <FiCheckSquare size={12} />
                                     Pree - Post Test Modul
                                 </Link>
                                 <Link
-                                    href="/modul-guru/tambah/sertifikat"
-                                    className="flex items-center gap-2 text-[#7a7e8a]"
+                                    href={
+                                        modulId
+                                            ? `/modul-guru/tambah/sertifikat?modulId=${modulId}`
+                                            : "#"
+                                    }
+                                    className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
                                 >
                                     <FiBookOpen size={12} />
                                     Capaian Sertifikat
                                 </Link>
                             </nav>
 
-                            {publishError && (
-                                <p className="mt-4 text-center text-[11px] text-red-500">
-                                    {publishError}
-                                </p>
-                            )}
                             <button
                                 type="button"
                                 onClick={handlePublish}
-                                disabled={isPublishing || !modulId}
-                                className="mt-4 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#e08c2e] disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={!modulId}
+                                className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {isPublishing ? "Menerbitkan..." : "Terbitkan Modul"}
+                                Terbitkan Modul
                             </button>
                         </div>
                     </aside>
@@ -969,6 +1349,12 @@ function TambahModulKontenPageContent() {
                             <p className="text-[12px] font-semibold text-[#232530]">
                                 Mulai Buat konten anda
                             </p>
+
+                            {topicError && (
+                                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
+                                    {topicError}
+                                </div>
+                            )}
 
                             {!isTopicAdded && !isFormOpen && (
                                 <button
@@ -996,32 +1382,32 @@ function TambahModulKontenPageContent() {
                                             }
                                             placeholder="Masukkan Judul Topik"
                                             className="h-[36px] flex-1 rounded-lg border border-[#8e7bff] bg-white px-3 text-[12px] text-[#232530] outline-none"
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter")
+                                                    handleCreateTopic();
+                                            }}
                                         />
                                     </div>
                                     <div className="mt-4 flex items-center justify-end gap-4">
                                         <button
                                             type="button"
-                                            onClick={() => setIsFormOpen(false)}
+                                            onClick={() => {
+                                                setIsFormOpen(false);
+                                                setTopicError("");
+                                            }}
                                             className="cursor-pointer text-[12px] font-semibold text-[#7a7e8a]"
                                         >
                                             Batal
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                if (
-                                                    topicTitle.trim().length ===
-                                                    0
-                                                ) {
-                                                    return;
-                                                }
-                                                setIsTopicAdded(true);
-                                                setIsFormOpen(false);
-                                                setActiveMaterialId(null);
-                                            }}
-                                            className="inline-flex h-[36px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-4 text-[12px] font-semibold text-white"
+                                            onClick={handleCreateTopic}
+                                            disabled={isCreatingTopic}
+                                            className="inline-flex h-[36px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-4 text-[12px] font-semibold text-white disabled:opacity-50"
                                         >
-                                            Tambah Topik
+                                            {isCreatingTopic
+                                                ? "Menyimpan..."
+                                                : "Tambah Topik"}
                                         </button>
                                     </div>
                                 </div>
@@ -1035,24 +1421,86 @@ function TambahModulKontenPageContent() {
                                                 <p className="text-[12px] font-semibold text-[#232530]">
                                                     Topik 1:
                                                 </p>
-                                                <p className="text-[12px] font-semibold text-[#232530]">
-                                                    {topicTitle ||
-                                                        "Sel Unit Terkecil Kehidupan"}
-                                                </p>
-                                                <button
-                                                    type="button"
-                                                    className="cursor-pointer text-[#7a7e8a]"
-                                                    aria-label="Edit topik"
-                                                >
-                                                    <FiEdit2 size={14} />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="cursor-pointer text-[#7a7e8a]"
-                                                    aria-label="Hapus topik"
-                                                >
-                                                    <FiTrash2 size={14} />
-                                                </button>
+                                                {isEditingTopic ? (
+                                                    <>
+                                                        <input
+                                                            type="text"
+                                                            value={
+                                                                editTopicTitle
+                                                            }
+                                                            onChange={(e) =>
+                                                                setEditTopicTitle(
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                            className="h-[30px] w-[200px] rounded-md border border-[#d9d7df] bg-white px-2 text-[12px] text-[#232530] outline-none focus:border-[#7054dc]"
+                                                            onKeyDown={(e) => {
+                                                                if (
+                                                                    e.key ===
+                                                                    "Enter"
+                                                                )
+                                                                    handleSaveEditTopic();
+                                                            }}
+                                                            autoFocus
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={
+                                                                handleSaveEditTopic
+                                                            }
+                                                            className="text-[12px] font-semibold text-[#7054dc]"
+                                                        >
+                                                            Simpan
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setIsEditingTopic(
+                                                                    false,
+                                                                )
+                                                            }
+                                                            className="text-[12px] font-semibold text-[#7a7e8a]"
+                                                        >
+                                                            Batal
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <p className="text-[12px] font-semibold text-[#232530]">
+                                                            {topicTitle}
+                                                        </p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setEditTopicTitle(
+                                                                    topicTitle,
+                                                                );
+                                                                setIsEditingTopic(
+                                                                    true,
+                                                                );
+                                                            }}
+                                                            className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"
+                                                            aria-label="Edit topik"
+                                                        >
+                                                            <FiEdit2
+                                                                size={14}
+                                                            />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={
+                                                                handleDeleteTopic
+                                                            }
+                                                            className="cursor-pointer text-[#7a7e8a] hover:text-[#e04e4e]"
+                                                            aria-label="Hapus topik"
+                                                        >
+                                                            <FiTrash2
+                                                                size={14}
+                                                            />
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
 
@@ -1407,15 +1855,13 @@ function TambahModulKontenPageContent() {
                                                                                             ditemukan!
                                                                                         </p>
                                                                                     )}
-                                                                                {material.videoSource ===
-                                                                                    "upload" &&
-                                                                                    material.uploadedFileUrl && (
-                                                                                        <p className="mt-2 text-[10px] text-[#3aa65c]">
-                                                                                            Unggah
-                                                                                            video
-                                                                                            sukses!
-                                                                                        </p>
-                                                                                    )}
+                                                                                {material.showUploadSuccess && (
+                                                                                    <p className="mt-2 text-[10px] text-[#3aa65c]">
+                                                                                        Unggah
+                                                                                        video
+                                                                                        sukses!
+                                                                                    </p>
+                                                                                )}
                                                                             </>
                                                                         ) : (
                                                                             <>
@@ -1450,7 +1896,7 @@ function TambahModulKontenPageContent() {
                                                                                     </p>
                                                                                 </div>
                                                                                 <p className="mt-1 text-[11px] text-[#7a7e8a]">
-                                                                                    Deskripsi
+                                                                                    Deskiprsi
                                                                                     Video
                                                                                     jika
                                                                                     ada
@@ -1532,7 +1978,8 @@ function TambahModulKontenPageContent() {
                                                                         {material.videoSource ===
                                                                         "upload" ? (
                                                                             <div className="mt-4 space-y-3">
-                                                                                {!material.uploadedFileUrl ? (
+                                                                                {material.uploadStatus !==
+                                                                                "done" ? (
                                                                                     <div className="rounded-xl border border-[#ede9ff] bg-white px-3 py-3">
                                                                                         {!material.fileName ? (
                                                                                             <div className="flex items-center justify-between gap-3">
@@ -1565,50 +2012,72 @@ function TambahModulKontenPageContent() {
                                                                                                 </label>
                                                                                             </div>
                                                                                         ) : (
-                                                                                            <div className="flex items-center gap-3 rounded-lg border border-[#ece7ff] bg-[#fbf9ff] px-3 py-2">
-                                                                                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#7054dc] border-t-transparent" />
-                                                                                                <p className="flex-1 text-[12px] font-semibold text-[#232530]">
-                                                                                                    {
-                                                                                                        material.fileName
-                                                                                                    }
-                                                                                                </p>
-                                                                                                <span className="text-[11px] font-semibold text-[#7a7e8a]">
-                                                                                                    {
-                                                                                                        material.fileSize
-                                                                                                    }
-                                                                                                </span>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    onClick={() =>
-                                                                                                        setMaterials(
-                                                                                                            (
-                                                                                                                prev,
-                                                                                                            ) =>
-                                                                                                                prev.map(
+                                                                                            <>
+                                                                                                <div className="flex items-center gap-3 rounded-lg border border-[#ece7ff] bg-[#fbf9ff] px-3 py-2">
+                                                                                                    <p className="flex-1 text-[12px] font-semibold text-[#232530]">
+                                                                                                        {
+                                                                                                            material.fileName
+                                                                                                        }
+                                                                                                    </p>
+                                                                                                    <div className="flex items-center gap-3">
+                                                                                                        <div className="h-2 w-[140px] rounded-full bg-[#e7e2f6]">
+                                                                                                            <div
+                                                                                                                className="h-full rounded-full bg-[#7054dc] transition-all"
+                                                                                                                style={{
+                                                                                                                    width: `${material.uploadProgress}%`,
+                                                                                                                }}
+                                                                                                            />
+                                                                                                        </div>
+                                                                                                        <span className="text-[11px] font-semibold text-[#7a7e8a]">
+                                                                                                            {
+                                                                                                                material.uploadProgress
+                                                                                                            }
+
+                                                                                                            %
+                                                                                                        </span>
+                                                                                                        <button
+                                                                                                            type="button"
+                                                                                                            onClick={() =>
+                                                                                                                setMaterials(
                                                                                                                     (
-                                                                                                                        item,
+                                                                                                                        prev,
                                                                                                                     ) =>
-                                                                                                                        item.id ===
-                                                                                                                        material.id
-                                                                                                                            ? {
-                                                                                                                                  ...item,
-                                                                                                                                  fileName:
-                                                                                                                                      "",
-                                                                                                                                  fileSize:
-                                                                                                                                      "",
-                                                                                                                                  previewUrl:
-                                                                                                                                      "",
-                                                                                                                              }
-                                                                                                                            : item,
-                                                                                                                ),
-                                                                                                        )
-                                                                                                    }
-                                                                                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#d9d7df] text-[12px] text-[#7a7e8a]"
-                                                                                                    aria-label="Batalkan"
-                                                                                                >
-                                                                                                    x
-                                                                                                </button>
-                                                                                            </div>
+                                                                                                                        prev.map(
+                                                                                                                            (
+                                                                                                                                item,
+                                                                                                                            ) =>
+                                                                                                                                item.id ===
+                                                                                                                                material.id
+                                                                                                                                    ? {
+                                                                                                                                          ...item,
+                                                                                                                                          fileName:
+                                                                                                                                              "",
+                                                                                                                                          fileSize:
+                                                                                                                                              "",
+                                                                                                                                          uploadProgress: 0,
+                                                                                                                                          uploadStatus:
+                                                                                                                                              "idle",
+                                                                                                                                          previewUrl:
+                                                                                                                                              "",
+                                                                                                                                      }
+                                                                                                                                    : item,
+                                                                                                                        ),
+                                                                                                                )
+                                                                                                            }
+                                                                                                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#d9d7df] text-[12px] text-[#7a7e8a]"
+                                                                                                            aria-label="Batalkan unggahan"
+                                                                                                        >
+                                                                                                            x
+                                                                                                        </button>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <p className="mt-2 text-[11px] text-[#7a7e8a]">
+                                                                                                    Menyiapkan
+                                                                                                    file
+                                                                                                    untuk
+                                                                                                    diproses...
+                                                                                                </p>
+                                                                                            </>
                                                                                         )}
                                                                                     </div>
                                                                                 ) : (
@@ -1647,11 +2116,13 @@ function TambahModulKontenPageContent() {
                                                                                                 Video
                                                                                             </button>
                                                                                         </div>
-                                                                                        <p className="mt-2 text-[10px] text-[#3aa65c]">
-                                                                                            Unggah
-                                                                                            video
-                                                                                            sukses!
-                                                                                        </p>
+                                                                                        {material.showUploadSuccess && (
+                                                                                            <p className="mt-2 text-[10px] text-[#3aa65c]">
+                                                                                                Unggah
+                                                                                                video
+                                                                                                sukses!
+                                                                                            </p>
+                                                                                        )}
                                                                                     </div>
                                                                                 )}
                                                                                 <p className="text-[10px] text-[#7a7e8a]">
@@ -2625,15 +3096,7 @@ function TambahModulKontenPageContent() {
 
 export default function TambahModulKontenPage() {
     return (
-        <Suspense
-            fallback={
-                <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
-                    <div className="flex items-center justify-center py-20">
-                        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent" />
-                    </div>
-                </div>
-            }
-        >
+        <Suspense fallback={<div className="min-h-screen bg-[#f7f6fb]" />}>
             <TambahModulKontenPageContent />
         </Suspense>
     );
