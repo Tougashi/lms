@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig } from "axios";
 import { ApiError } from "./types/umum";
+import type { ModulContentType } from "./types/guru";
 
 import type {
     CursorPagination,
@@ -99,6 +100,11 @@ const apiClient = axios.create({
     withCredentials: true,
 });
 
+const uploadClient = axios.create({
+    baseURL: API_BASE,
+    withCredentials: true,
+});
+
 let refreshPromise: Promise<void> | null = null;
 
 async function refreshAccessToken() {
@@ -114,38 +120,44 @@ async function refreshAccessToken() {
     return refreshPromise;
 }
 
-apiClient.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config as AxiosRequestConfig & {
-            _retry?: boolean;
-        };
+function createResponseInterceptor(client: typeof apiClient) {
+    client.interceptors.response.use(
+        (response) => response,
+        async (error) => {
+            const originalRequest = error.config as AxiosRequestConfig & {
+                _retry?: boolean;
+            };
 
-        if (
-            error.response?.status === 401 &&
-            !originalRequest._retry &&
-            !originalRequest.url?.includes("/auth/login") &&
-            !originalRequest.url?.includes("/auth/refresh")
-        ) {
-            originalRequest._retry = true;
-            try {
-                await refreshAccessToken();
-                return apiClient(originalRequest);
-            } catch {
-                // fall through to the original 401 error
+            if (
+                error.response?.status === 401 &&
+                !originalRequest._retry &&
+                !originalRequest.url?.includes("/auth/login") &&
+                !originalRequest.url?.includes("/auth/refresh")
+            ) {
+                originalRequest._retry = true;
+                try {
+                    await refreshAccessToken();
+                    return client(originalRequest);
+                } catch {
+                    // fall through to the original 401 error
+                }
             }
-        }
 
-        const msg =
-            error.response?.data?.message ?? "Terjadi kesalahan pada server";
+            const msg =
+                error.response?.data?.message ??
+                "Terjadi kesalahan pada server";
 
-        throw new ApiError(
-            String(msg),
-            error.response?.status ?? 500,
-            error.response?.data,
-        );
-    },
-);
+            throw new ApiError(
+                String(msg),
+                error.response?.status ?? 500,
+                error.response?.data,
+            );
+        },
+    );
+}
+
+createResponseInterceptor(apiClient);
+createResponseInterceptor(uploadClient);
 
 export async function apiFetch<T = unknown>(
     path: string,
@@ -156,6 +168,18 @@ export async function apiFetch<T = unknown>(
         method: options.method,
         data: options.data,
         headers: options.headers,
+    });
+    return response.data as T;
+}
+
+export async function apiUpload<T = unknown>(
+    path: string,
+    formData: FormData,
+): Promise<T> {
+    const response = await uploadClient({
+        url: path,
+        method: "POST",
+        data: formData,
     });
     return response.data as T;
 }
@@ -558,9 +582,15 @@ export const guruMateriApi = {
 
 export const guruTopikApi = {
     getByModul(modulId: string) {
-        return apiFetch<{ id: string; nama: string; modulId: string; createdAt?: string; updatedAt?: string }[]>(
-            `/tutor/topik/${modulId}`,
-        );
+        return apiFetch<
+            {
+                id: string;
+                nama: string;
+                modulId: string;
+                createdAt?: string;
+                updatedAt?: string;
+            }[]
+        >(`/tutor/topik/${modulId}`);
     },
 
     create(payload: { modul_id: string; nama: string }) {
@@ -697,7 +727,9 @@ export const guruPosttestApi = {
     },
 
     getDetail(posttestId: string) {
-        return apiFetch<GuruPosttestItem>(`/tutor/posttest/detail/${posttestId}`);
+        return apiFetch<GuruPosttestItem>(
+            `/tutor/posttest/detail/${posttestId}`,
+        );
     },
 
     create(payload: { modul_id: string }) {
@@ -787,7 +819,7 @@ export const uploadApi = {
     upload(file: File, fileType?: string) {
         const formData = new FormData();
         formData.append("file", file);
-        if (fileType) formData.append("fileType", fileType);
+        if (fileType) formData.append("type", fileType);
         return apiFetch<UploadResponse>("/upload", {
             method: "POST",
             data: formData,
@@ -820,9 +852,7 @@ export const guruProgressApi = {
     },
 
     getByStudent(studentId: string) {
-        return apiFetch<TutorProgressByStudent>(
-            `/tutor/progress/${studentId}`,
-        );
+        return apiFetch<TutorProgressByStudent>(`/tutor/progress/${studentId}`);
     },
 
     analyze(studentId: string) {
@@ -1129,3 +1159,7 @@ export const adminProfileApi = {
         return apiFetch<AdminProfile>("/admin/profile/profile");
     },
 };
+
+// ---------------------------------------------------------------------------
+// Upload endpoints (image → Cloudinary → URL)
+// ---------------------------------------------------------------------------

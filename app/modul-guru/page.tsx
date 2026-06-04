@@ -175,7 +175,7 @@ function ModulGuruPageContent() {
                   <div className="flex items-center gap-4">
                     <div className="hidden h-[72px] w-[72px] overflow-hidden rounded-2xl bg-[#f3f4f8] sm:block sm:w-[92px]">
                       <Image
-                        src={modul.thumbnail || '/assets/images/beranda-siswa/matapelajaran.png'}
+                        src={modul.moduleImgUrl || '/assets/images/beranda-siswa/matapelajaran.png'}
                         alt={modul.moduleName}
                         width={92}
                         height={72}
