@@ -2,7 +2,8 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   FiBookOpen,
   FiCheckSquare,
@@ -18,6 +19,7 @@ import {
 } from 'react-icons/fi';
 
 import GuruHeader from '../../../component/guru/GuruHeader';
+import { guruModulApi, guruTopikApi, guruMateriApi, guruKuisApi } from '../../../lib/api';
 import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
 
 function RichTextEditor({ placeholder }: { placeholder: string }) {
@@ -183,11 +185,20 @@ function QuizMiniEditor({ placeholder }: { placeholder: string }) {
   );
 }
 
-export default function TambahModulKontenPage() {
+function TambahModulKontenPageContent() {
   const { isAuthorized } = useRoleGuard(['tutor']);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const modulId = searchParams.get('modulId');
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isTopicAdded, setIsTopicAdded] = useState(false);
   const [topicTitle, setTopicTitle] = useState('');
+  const [topicId, setTopicId] = useState<string | null>(null);
+  const [isCreatingTopic, setIsCreatingTopic] = useState(false);
+  const [topicError, setTopicError] = useState('');
+  const [isEditingTopic, setIsEditingTopic] = useState(false);
+  const [editTopicTitle, setEditTopicTitle] = useState('');
   const [materials, setMaterials] = useState<
     {
       id: number;
@@ -247,6 +258,13 @@ export default function TambahModulKontenPage() {
   const [editingQuizId, setEditingQuizId] = useState<number | null>(null);
   const [editQuizTitle, setEditQuizTitle] = useState('');
 
+  // Maps local numeric IDs to server string IDs for materials and quizzes
+  const [materialApiIds, setMaterialApiIds] = useState<Record<number, string>>({});
+  const [quizApiIds, setQuizApiIds] = useState<Record<number, string>>({});
+  const [isSavingMaterial, setIsSavingMaterial] = useState<number | null>(null);
+  const [isDeletingMaterial, setIsDeletingMaterial] = useState<number | null>(null);
+  const [isSavingQuiz, setIsSavingQuiz] = useState(false);
+
   const uploadIntervalsRef = useRef<Record<number, number>>({});
   const uploadSuccessTimersRef = useRef<Record<number, number>>({});
   const materialsRef = useRef(materials);
@@ -254,6 +272,68 @@ export default function TambahModulKontenPage() {
   useEffect(() => {
     materialsRef.current = materials;
   }, [materials]);
+
+  // Load existing topics from API
+  useEffect(() => {
+    if (!modulId) return;
+    const loadTopics = async () => {
+      try {
+        const topics = await guruTopikApi.getByModul(modulId);
+        if (topics.length > 0) {
+          const firstTopic = topics[0];
+          setTopicTitle(firstTopic.nama);
+          setTopicId(firstTopic.id);
+          setIsTopicAdded(true);
+        }
+      } catch (err) {
+        console.error('Load topics error:', err);
+      }
+    };
+    loadTopics();
+  }, [modulId]);
+
+  // Load existing materials from API when modulId is available
+  useEffect(() => {
+    if (!modulId) return;
+    const loadMaterials = async () => {
+      try {
+        const items = await guruMateriApi.getByModul(modulId);
+        if (items.length > 0) {
+          const loaded = items.map((item, idx) => {
+            const localId = Date.now() + idx;
+            setMaterialApiIds(prev => ({ ...prev, [localId]: item.id }));
+            return {
+              id: localId,
+              title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
+              type: (item.isVideo ? 'video' : 'artikel') as 'video' | 'artikel',
+              isSaved: true,
+              isExpanded: false,
+              videoSource: 'link' as const,
+              linkUrl: item.videoUrl || '',
+              linkPreviewTitle: '',
+              linkPreviewThumb: item.videoUrl ? getYoutubeThumb(item.videoUrl) : '',
+              linkVideoTitle: '',
+              linkVideoDuration: '',
+              showUploadSuccess: false,
+              fileName: '',
+              fileSize: '',
+              uploadProgress: 100,
+              uploadStatus: 'done' as const,
+              previewUrl: '',
+              duration: '00:00',
+              articleContent: item.article || '',
+            };
+          });
+          setMaterials(loaded);
+          if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
+        }
+      } catch (err) {
+        console.error('Load materials error:', err);
+      }
+    };
+    loadMaterials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modulId]);
 
   useEffect(() => {
     const intervals = uploadIntervalsRef.current;
@@ -360,7 +440,22 @@ export default function TambahModulKontenPage() {
     startFakeUpload(materialId);
   };
 
-  const handleDeleteMaterial = (materialId: number) => {
+  const handleDeleteMaterial = async (materialId: number) => {
+    const apiId = materialApiIds[materialId];
+    if (apiId) {
+      setIsDeletingMaterial(materialId);
+      try {
+        await guruMateriApi.delete(apiId);
+        setMaterialApiIds(prev => { const next = { ...prev }; delete next[materialId]; return next; });
+      } catch (err) {
+        console.error('Delete material error:', err);
+        alert('Gagal menghapus materi.');
+        setIsDeletingMaterial(null);
+        return;
+      } finally {
+        setIsDeletingMaterial(null);
+      }
+    }
     setMaterials((prev) => {
       const next = prev.filter((material) => material.id !== materialId);
       setActiveMaterialId((current) => (current === materialId ? next[0]?.id ?? 0 : current));
@@ -411,13 +506,30 @@ export default function TambahModulKontenPage() {
     return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
   };
 
-  const handleCreateMaterial = () => {
+  const handleCreateMaterial = async () => {
     const trimmedTitle = newMaterialTitle.trim();
-    if (!trimmedTitle) {
+    if (!trimmedTitle || !topicId) {
       return;
     }
 
     const nextId = Date.now();
+    const isVideo = newMaterialType === 'video';
+
+    // Create in API first
+    try {
+      const created = await guruMateriApi.create({
+        topik_id: topicId,
+        is_video: isVideo,
+        video_url: null,
+        article: isVideo ? null : '',
+      });
+      setMaterialApiIds(prev => ({ ...prev, [nextId]: created.id }));
+    } catch (err) {
+      console.error('Create material error:', err);
+      alert('Gagal membuat materi. Pastikan topik sudah tersimpan.');
+      return;
+    }
+
     setMaterials((prev) => [
       ...prev,
       {
@@ -448,7 +560,26 @@ export default function TambahModulKontenPage() {
     setNewMaterialType('video');
   };
 
-  const handleSaveMaterialContent = (materialId: number) => {
+  const handleSaveMaterialContent = async (materialId: number) => {
+    const material = materials.find(m => m.id === materialId);
+    const apiId = materialApiIds[materialId];
+    if (material && apiId) {
+      setIsSavingMaterial(materialId);
+      try {
+        await guruMateriApi.update(apiId, {
+          is_video: material.type === 'video',
+          video_url: material.type === 'video' ? (material.videoSource === 'link' ? material.linkUrl : material.previewUrl) : null,
+          article: material.type === 'artikel' ? material.articleContent : null,
+        });
+      } catch (err) {
+        console.error('Save material error:', err);
+        alert('Gagal menyimpan materi.');
+        setIsSavingMaterial(null);
+        return;
+      } finally {
+        setIsSavingMaterial(null);
+      }
+    }
     setMaterials((prev) =>
       prev.map((item) =>
         item.id === materialId
@@ -508,8 +639,50 @@ export default function TambahModulKontenPage() {
     })),
   });
 
-  const handleCreateQuiz = () => {
+  const handleCreateQuiz = async () => {
+    // Find first saved material with an API ID to attach quiz to
+    const firstMaterialEntry = Object.entries(materialApiIds)[0];
+    if (!firstMaterialEntry) {
+      alert('Simpan minimal satu materi terlebih dahulu sebelum membuat kuis.');
+      return;
+    }
+    const [, materiApiId] = firstMaterialEntry;
+
     const nextId = Date.now();
+
+    // Create quiz in API
+    setIsSavingQuiz(true);
+    try {
+      const created = await guruKuisApi.create({
+        quiz: {
+          materiId: materiApiId,
+          question: 'Soal Kuis 1',
+          correctAnswer: 'A',
+          skor: 10,
+        },
+        answerOptions: [
+          { option: 'A' },
+          { option: 'B' },
+          { option: 'C' },
+        ],
+        setting: {
+          timeLimit: 90,
+          allowMultipleAttempts: false,
+          isComputationalThinkingEnabled: false,
+          minScoreTreshold: 0,
+          standardScorePerQuestion: 100,
+        },
+      });
+      setQuizApiIds(prev => ({ ...prev, [nextId]: created.id }));
+    } catch (err) {
+      console.error('Create quiz error:', err);
+      alert('Gagal membuat kuis.');
+      setIsSavingQuiz(false);
+      return;
+    } finally {
+      setIsSavingQuiz(false);
+    }
+
     setQuizzes((prev) => [
       ...prev,
       {
@@ -658,9 +831,86 @@ export default function TambahModulKontenPage() {
     setIsQuizSettingsOpen(false);
   };
 
-  const handleDeleteQuiz = (quizId: number) => {
+  const handleDeleteQuiz = async (quizId: number) => {
+    const apiId = quizApiIds[quizId];
+    if (apiId) {
+      try {
+        await guruKuisApi.delete(apiId);
+        setQuizApiIds(prev => { const next = { ...prev }; delete next[quizId]; return next; });
+      } catch (err) {
+        console.error('Delete quiz error:', err);
+        alert('Gagal menghapus kuis.');
+        return;
+      }
+    }
     setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
   };
+
+  // Create topic via API
+  const handleCreateTopic = useCallback(async () => {
+    if (topicTitle.trim().length === 0) return;
+    if (!modulId) {
+      setTopicError('Module ID tidak ditemukan.');
+      return;
+    }
+    setIsCreatingTopic(true);
+    setTopicError('');
+    try {
+      const created = await guruTopikApi.create({ modul_id: modulId, nama: topicTitle.trim() });
+      setTopicId(created.id);
+      setIsTopicAdded(true);
+      setIsFormOpen(false);
+      setActiveMaterialId(null);
+    } catch (err: unknown) {
+      console.error('Create topic error:', err);
+      setTopicError(err instanceof Error ? err.message : 'Gagal membuat topik.');
+    } finally {
+      setIsCreatingTopic(false);
+    }
+  }, [topicTitle, modulId]);
+
+  // Edit topic via API
+  const handleSaveEditTopic = useCallback(async () => {
+    if (!topicId || editTopicTitle.trim().length === 0) return;
+    try {
+      await guruTopikApi.update(topicId, { nama: editTopicTitle.trim() });
+      setTopicTitle(editTopicTitle.trim());
+      setIsEditingTopic(false);
+    } catch (err: unknown) {
+      console.error('Update topic error:', err);
+      alert(err instanceof Error ? err.message : 'Gagal memperbarui topik.');
+    }
+  }, [topicId, editTopicTitle]);
+
+  // Delete topic via API
+  const handleDeleteTopic = useCallback(async () => {
+    if (!topicId) return;
+    if (!confirm('Apakah Anda yakin ingin menghapus topik ini?')) return;
+    try {
+      await guruTopikApi.delete(topicId);
+      setTopicTitle('');
+      setTopicId(null);
+      setIsTopicAdded(false);
+      setMaterials([]);
+      setQuizzes([]);
+    } catch (err: unknown) {
+      console.error('Delete topic error:', err);
+      alert(err instanceof Error ? err.message : 'Gagal menghapus topik.');
+    }
+  }, [topicId]);
+
+  // Publish module
+  const handlePublish = useCallback(async () => {
+    if (!modulId) return;
+    if (!confirm('Apakah Anda yakin ingin menerbitkan modul ini?')) return;
+    try {
+      await guruModulApi.update(modulId, { isDraft: false });
+      router.push('/modul-guru?tab=published');
+    } catch (err: unknown) {
+      console.error('Publish error:', err);
+      alert(err instanceof Error ? err.message : 'Gagal menerbitkan modul.');
+    }
+  }, [modulId, router]);
 
   if (!isAuthorized) {
     return (
@@ -686,11 +936,11 @@ export default function TambahModulKontenPage() {
             <div className="flex h-full flex-col">
               <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
               <nav className="mt-4 space-y-3 text-[13px]">
-                <Link href="/modul-guru/tambah/profil" className="flex items-center gap-2 text-[#7a7e8a]">
+                <Link href={modulId ? `/modul-guru/tambah/profil?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors">
                   <FiFileText size={12} />
                   Profil Modul Anda
                 </Link>
-                <Link href="/modul-guru/tambah/harga" className="flex items-center gap-2 text-[#7a7e8a]">
+                <Link href={modulId ? `/modul-guru/tambah/harga?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors">
                   <FiDollarSign size={12} />
                   Penetapan Harga Modul
                 </Link>
@@ -702,11 +952,11 @@ export default function TambahModulKontenPage() {
                   <FiLayers size={12} />
                   <span className="font-semibold">Konten Modul</span>
                 </div>
-                <Link href="/modul-guru/tambah/pre-post-test" className="flex items-center gap-2 text-[#7a7e8a]">
+                <Link href={modulId ? `/modul-guru/tambah/pre-post-test?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors">
                   <FiCheckSquare size={12} />
                   Pree - Post Test Modul
                 </Link>
-                <Link href="/modul-guru/tambah/sertifikat" className="flex items-center gap-2 text-[#7a7e8a]">
+                <Link href={modulId ? `/modul-guru/tambah/sertifikat?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors">
                   <FiBookOpen size={12} />
                   Capaian Sertifikat
                 </Link>
@@ -714,7 +964,9 @@ export default function TambahModulKontenPage() {
 
               <button
                 type="button"
-                className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white"
+                onClick={handlePublish}
+                disabled={!modulId}
+                className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Terbitkan Modul
               </button>
@@ -732,6 +984,12 @@ export default function TambahModulKontenPage() {
 
             <div className="mt-6">
               <p className="text-[12px] font-semibold text-[#232530]">Mulai Buat konten anda</p>
+
+              {topicError && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
+                  {topicError}
+                </div>
+              )}
 
               {!isTopicAdded && !isFormOpen && (
                 <button
@@ -753,29 +1011,24 @@ export default function TambahModulKontenPage() {
                       onChange={(event) => setTopicTitle(event.target.value)}
                       placeholder="Masukkan Judul Topik"
                       className="h-[36px] flex-1 rounded-lg border border-[#8e7bff] bg-white px-3 text-[12px] text-[#232530] outline-none"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleCreateTopic(); }}
                     />
                   </div>
                   <div className="mt-4 flex items-center justify-end gap-4">
                     <button
                       type="button"
-                      onClick={() => setIsFormOpen(false)}
+                      onClick={() => { setIsFormOpen(false); setTopicError(''); }}
                       className="cursor-pointer text-[12px] font-semibold text-[#7a7e8a]"
                     >
                       Batal
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (topicTitle.trim().length === 0) {
-                          return;
-                        }
-                        setIsTopicAdded(true);
-                        setIsFormOpen(false);
-                        setActiveMaterialId(null);
-                      }}
-                      className="inline-flex h-[36px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-4 text-[12px] font-semibold text-white"
+                      onClick={handleCreateTopic}
+                      disabled={isCreatingTopic}
+                      className="inline-flex h-[36px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-4 text-[12px] font-semibold text-white disabled:opacity-50"
                     >
-                      Tambah Topik
+                      {isCreatingTopic ? 'Menyimpan...' : 'Tambah Topik'}
                     </button>
                   </div>
                 </div>
@@ -787,15 +1040,32 @@ export default function TambahModulKontenPage() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <p className="text-[12px] font-semibold text-[#232530]">Topik 1:</p>
-                        <p className="text-[12px] font-semibold text-[#232530]">
-                          {topicTitle || 'Sel Unit Terkecil Kehidupan'}
-                        </p>
-                        <button type="button" className="cursor-pointer text-[#7a7e8a]" aria-label="Edit topik">
-                          <FiEdit2 size={14} />
-                        </button>
-                        <button type="button" className="cursor-pointer text-[#7a7e8a]" aria-label="Hapus topik">
-                          <FiTrash2 size={14} />
-                        </button>
+                        {isEditingTopic ? (
+                          <>
+                            <input
+                              type="text"
+                              value={editTopicTitle}
+                              onChange={(e) => setEditTopicTitle(e.target.value)}
+                              className="h-[30px] w-[200px] rounded-md border border-[#d9d7df] bg-white px-2 text-[12px] text-[#232530] outline-none focus:border-[#7054dc]"
+                              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEditTopic(); }}
+                              autoFocus
+                            />
+                            <button type="button" onClick={handleSaveEditTopic} className="text-[12px] font-semibold text-[#7054dc]">Simpan</button>
+                            <button type="button" onClick={() => setIsEditingTopic(false)} className="text-[12px] font-semibold text-[#7a7e8a]">Batal</button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-[12px] font-semibold text-[#232530]">
+                              {topicTitle}
+                            </p>
+                            <button type="button" onClick={() => { setEditTopicTitle(topicTitle); setIsEditingTopic(true); }} className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]" aria-label="Edit topik">
+                              <FiEdit2 size={14} />
+                            </button>
+                            <button type="button" onClick={handleDeleteTopic} className="cursor-pointer text-[#7a7e8a] hover:text-[#e04e4e]" aria-label="Hapus topik">
+                              <FiTrash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -1449,5 +1719,13 @@ export default function TambahModulKontenPage() {
         );
       })()}
     </div>
+  );
+}
+
+export default function TambahModulKontenPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f6fb]" />}>
+      <TambahModulKontenPageContent />
+    </Suspense>
   );
 }

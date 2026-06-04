@@ -37,6 +37,23 @@ import type {
     GuruMateriItem,
     GuruMateriCreatePayload,
     GuruMateriUpdatePayload,
+    GuruSubmateriItem,
+    GuruSubmateriCreatePayload,
+    GuruSubmateriUpdatePayload,
+    GuruPretestItem,
+    GuruPretestSoalPayload,
+    GuruPretestSoalUpdatePayload,
+    GuruPretestSettingsPayload,
+    GuruPosttestItem,
+    GuruPosttestSoalPayload,
+    GuruPosttestSoalUpdatePayload,
+    GuruKuisItem,
+    GuruKuisCreatePayload,
+    GuruKuisUpdatePayload,
+    UploadResponse,
+    TutorProfile,
+    TutorProgressByStudent,
+    TutorProgressPaginatedResponse,
 } from "./types/guru";
 import type {
     MateriItem,
@@ -532,6 +549,286 @@ export const guruMateriApi = {
         return apiFetch<{ message: string }>(`/tutor/materi/${id}`, {
             method: "DELETE",
         });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Topik endpoints
+// ---------------------------------------------------------------------------
+
+export const guruTopikApi = {
+    getByModul(modulId: string) {
+        return apiFetch<{ id: string; nama: string; modulId: string; createdAt?: string; updatedAt?: string }[]>(
+            `/tutor/topik/${modulId}`,
+        );
+    },
+
+    create(payload: { modul_id: string; nama: string }) {
+        return apiFetch<{ id: string; nama: string; modulId: string }>(
+            "/tutor/topik",
+            {
+                method: "POST",
+                data: payload,
+            },
+        );
+    },
+
+    update(id: string, payload: { nama: string }) {
+        return apiFetch<{ id: string; nama: string; modulId: string }>(
+            `/tutor/topik/${id}`,
+            {
+                method: "PUT",
+                data: payload,
+            },
+        );
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/tutor/topik/${id}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Submateri endpoints
+// ---------------------------------------------------------------------------
+
+export const guruSubmateriApi = {
+    getByMateri(materiId: string) {
+        return apiFetch<GuruSubmateriItem[]>(
+            `/tutor/submateri/materi/${materiId}`,
+        );
+    },
+
+    getById(id: string) {
+        return apiFetch<GuruSubmateriItem>(`/tutor/submateri/${id}`);
+    },
+
+    create(payload: GuruSubmateriCreatePayload) {
+        return apiFetch<GuruSubmateriItem>("/tutor/submateri", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: GuruSubmateriUpdatePayload) {
+        return apiFetch<GuruSubmateriItem>(`/tutor/submateri/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/tutor/submateri/${id}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Pretest endpoints
+// ---------------------------------------------------------------------------
+
+export const guruPretestApi = {
+    getByModul(modulId: string) {
+        return apiFetch<GuruPretestItem>(`/tutor/pretest/${modulId}`);
+    },
+
+    getDetail(pretestId: string) {
+        return apiFetch<GuruPretestItem>(`/tutor/pretest/detail/${pretestId}`);
+    },
+
+    create(payload: { modul_id: string }) {
+        return apiFetch<GuruPretestItem>("/tutor/pretest", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: Record<string, unknown>) {
+        return apiFetch<GuruPretestItem>(`/tutor/pretest/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/tutor/pretest/${id}`, {
+            method: "DELETE",
+        });
+    },
+
+    addSoal(payload: GuruPretestSoalPayload) {
+        return apiFetch<unknown>("/tutor/pretest/soal", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    updateSoal(soalId: string, payload: GuruPretestSoalUpdatePayload) {
+        return apiFetch<unknown>(`/tutor/pretest/soal/${soalId}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    deleteSoal(soalId: string) {
+        return apiFetch<{ message: string }>(`/tutor/pretest/soal/${soalId}`, {
+            method: "DELETE",
+        });
+    },
+
+    updateSettings(pretestId: string, payload: GuruPretestSettingsPayload) {
+        return apiFetch<unknown>(`/tutor/pretest/settings/${pretestId}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Posttest endpoints
+// ---------------------------------------------------------------------------
+
+export const guruPosttestApi = {
+    getByModul(modulId: string) {
+        return apiFetch<GuruPosttestItem>(`/tutor/posttest/${modulId}`);
+    },
+
+    getDetail(posttestId: string) {
+        return apiFetch<GuruPosttestItem>(`/tutor/posttest/detail/${posttestId}`);
+    },
+
+    create(payload: { modul_id: string }) {
+        return apiFetch<GuruPosttestItem>("/tutor/posttest", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: Record<string, unknown>) {
+        return apiFetch<GuruPosttestItem>(`/tutor/posttest/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/tutor/posttest/${id}`, {
+            method: "DELETE",
+        });
+    },
+
+    addSoal(payload: GuruPosttestSoalPayload) {
+        return apiFetch<unknown>("/tutor/posttest/soal", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    updateSoal(soalId: string, payload: GuruPosttestSoalUpdatePayload) {
+        return apiFetch<unknown>(`/tutor/posttest/soal/${soalId}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    deleteSoal(soalId: string) {
+        return apiFetch<{ message: string }>(`/tutor/posttest/soal/${soalId}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Kuis endpoints
+// ---------------------------------------------------------------------------
+
+export const guruKuisApi = {
+    create(payload: GuruKuisCreatePayload) {
+        return apiFetch<GuruKuisItem>("/tutor/kuis", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    getAll(limit = 10, cursor?: string | null) {
+        const params = new URLSearchParams({ limit: String(limit) });
+        if (cursor) params.set("cursor", cursor);
+        return apiFetch<{ items: GuruKuisItem[]; next_cursor: string | null }>(
+            `/tutor/kuis?${params.toString()}`,
+        );
+    },
+
+    getById(id: string) {
+        return apiFetch<GuruKuisItem>(`/tutor/kuis/${id}`);
+    },
+
+    update(id: string, payload: GuruKuisUpdatePayload) {
+        return apiFetch<GuruKuisItem>(`/tutor/kuis/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/tutor/kuis/${id}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Upload endpoint
+// ---------------------------------------------------------------------------
+
+export const uploadApi = {
+    upload(file: File, fileType?: string) {
+        const formData = new FormData();
+        formData.append("file", file);
+        if (fileType) formData.append("fileType", fileType);
+        return apiFetch<UploadResponse>("/upload", {
+            method: "POST",
+            data: formData,
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Profile endpoint
+// ---------------------------------------------------------------------------
+
+export const guruProfileApi = {
+    get() {
+        return apiFetch<TutorProfile>("/tutor/profile");
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Progress endpoints
+// ---------------------------------------------------------------------------
+
+export const guruProgressApi = {
+    getAll(limit = 10, cursor?: string | null) {
+        const params = new URLSearchParams({ limit: String(limit) });
+        if (cursor) params.set("cursor", cursor);
+        return apiFetch<TutorProgressPaginatedResponse>(
+            `/tutor/progress?${params.toString()}`,
+        );
+    },
+
+    getByStudent(studentId: string) {
+        return apiFetch<TutorProgressByStudent>(
+            `/tutor/progress/${studentId}`,
+        );
+    },
+
+    analyze(studentId: string) {
+        return apiFetch<Record<string, unknown>[]>(
+            `/tutor/progress/${studentId}/analyze`,
+        );
     },
 };
 

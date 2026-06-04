@@ -247,7 +247,8 @@ function BerandaGuruPageContent() {
             <h2 className="text-lg font-semibold leading-none tracking-[-0.01em] text-[#252834] sm:text-2xl">Penilaian dan Ulasan dari Siswa</h2>
             <button
               type="button"
-              className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-none text-[#7557ea] sm:text-[16px]"
+              onClick={() => alert('Fitur lihat semua ulasan akan segera hadir.')}
+              className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-none text-[#7557ea] sm:text-[16px] hover:bg-[#f0ebff] transition-colors"
             >
               Lihat Semua
             </button>
@@ -305,9 +306,9 @@ function BerandaGuruPageContent() {
                     <p className="mb-1 text-[13px] text-[#7e8290]">
                       {review.createdAt ? new Date(review.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
                     </p>
-                    <button type="button" className="text-[#505461] transition-colors hover:text-[#252834]">
+                    <span className="text-[#9ca0ad]">
                       <FiExternalLink size={18} />
-                    </button>
+                    </span>
                   </div>
                 </div>
               ))}

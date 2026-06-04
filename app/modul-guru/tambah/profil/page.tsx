@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FiBookOpen, FiCheckSquare, FiDollarSign, FiEdit2, FiFileText, FiLayers } from 'react-icons/fi';
 
@@ -10,6 +10,8 @@ import GuruHeader from '../../../component/guru/GuruHeader';
 import { guruModulApi } from '../../../lib/api';
 import type { GuruModuleItem } from '../../../lib/types/guru';
 import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
+
+import { useAuth } from '../../../context/AuthContext';
 
 const inputClassName =
   'mt-2 h-[40px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc]';
@@ -19,6 +21,7 @@ const textareaClassName =
 
 function TambahModulProfilPageContent() {
   const { isAuthorized } = useRoleGuard(['tutor']);
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const modulId = searchParams.get('modulId');
@@ -82,6 +85,27 @@ function TambahModulProfilPageContent() {
     };
   }, [coverPreview]);
 
+  // Dynamic class options based on selected level (jenjang)
+  const kelasOptions = useMemo(() => {
+    switch (level) {
+      case 'SD': return ['1','2','3','4','5','6'];
+      case 'SMP': return ['7','8','9'];
+      case 'SMA': return ['10','11','12'];
+      default: return [];
+    }
+  }, [level]);
+
+  // Reset kelas when jenjang changes and current kelas is no longer valid
+  const prevLevelRef = useRef(level);
+  useEffect(() => {
+    if (prevLevelRef.current !== level) {
+      prevLevelRef.current = level;
+      if (kelas && !kelasOptions.includes(kelas)) {
+        setKelas('');
+      }
+    }
+  }, [level, kelasOptions, kelas]);
+
   const computedTargetTime = useMemo(() => {
     return targetTimeUnit === 'bulan' ? targetTime * 60 : targetTime * 7;
   }, [targetTime, targetTimeUnit]);
@@ -115,6 +139,18 @@ function TambahModulProfilPageContent() {
       if (modulId) {
         await guruModulApi.update(modulId, payload);
         setSuccessMsg('Modul berhasil diperbarui!');
+      } else {
+        if (!user?.id) {
+          setError('Gagal mengidentifikasi tutor. Silakan login ulang.');
+          return;
+        }
+        const newModul = await guruModulApi.create({
+          ...payload,
+          difficulty: payload.difficulty as 'Beginner' | 'Intermediate' | 'Advanced',
+          tutorId: user.id
+        });
+        setSuccessMsg('Modul berhasil dibuat!');
+        router.replace(`/modul-guru/tambah/profil?modulId=${newModul.id}`);
       }
     } catch (err: unknown) {
       console.error('Save module error:', err);
@@ -122,7 +158,7 @@ function TambahModulProfilPageContent() {
     } finally {
       setIsSaving(false);
     }
-  }, [moduleName, subtitle, description, computedTargetTime, difficulty, level, kelas, accessType, modulId]);
+  }, [moduleName, subtitle, description, computedTargetTime, difficulty, level, kelas, accessType, modulId, router, user?.id]);
 
   if (isLoading || !isAuthorized) {
     return (
@@ -325,18 +361,15 @@ function TambahModulProfilPageContent() {
                       </div>
                       <div>
                         <label className="text-[12px] font-semibold text-[#232530]">Kelas</label>
-                        <select className={inputClassName} value={kelas} onChange={(e) => setKelas(e.target.value)}>
+                        <select className={inputClassName} value={kelas} onChange={(e) => setKelas(e.target.value)} disabled={!level}>
                           <option value="" disabled>
-                            Pilih Tingkatan Kelas
+                            {level ? 'Pilih Tingkatan Kelas' : 'Pilih jenjang terlebih dahulu'}
                           </option>
-                          <option value="4">Kelas 4</option>
-                          <option value="5">Kelas 5</option>
-                          <option value="6">Kelas 6</option>
-                          <option value="10">Kelas 10</option>
-                          <option value="11">Kelas 11</option>
-                          <option value="12">Kelas 12</option>
+                          {kelasOptions.map((k) => (
+                            <option key={k} value={k}>Kelas {k}</option>
+                          ))}
                         </select>
-                        <p className="mt-1 text-[11px] text-[#7e8290]">Berapa lama pengerjaan modul ini bagi siswa</p>
+                        <p className="mt-1 text-[11px] text-[#7e8290]">Tingkatan kelas sesuai jenjang yang dipilih</p>
                       </div>
                     </div>
                   </>

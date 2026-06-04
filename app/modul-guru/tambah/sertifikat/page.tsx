@@ -1,29 +1,34 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { Suspense, useCallback, useRef, useState } from 'react';
 import {
   FiBookOpen,
   FiCheckSquare,
   FiDollarSign,
   FiFileText,
   FiLayers,
-  FiUploadCloud,
 } from 'react-icons/fi';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 import GuruHeader from '../../../component/guru/GuruHeader';
+import { guruModulApi, uploadApi } from '../../../lib/api';
 import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
 
-export default function SertifikatPage() {
+function SertifikatPageContent() {
   const { isAuthorized } = useRoleGuard(['tutor']);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const modulId = searchParams.get('modulId');
   const [judulSertifikat, setJudulSertifikat] = useState('');
   const [namaTutor, setNamaTutor] = useState('');
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [signaturePreview, setSignaturePreview] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState('');
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isAuthorized) {
@@ -47,6 +52,7 @@ export default function SertifikatPage() {
       return;
     }
     setSignatureFile(file);
+    setUploadedUrl('');
     const reader = new FileReader();
     reader.onload = (e) => setSignaturePreview(e.target?.result as string);
     reader.readAsDataURL(file);
@@ -57,6 +63,46 @@ export default function SertifikatPage() {
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0] ?? null;
     handleFileSelect(file);
+  };
+
+  const handleSave = async () => {
+    setError('');
+    setSuccessMsg('');
+
+    if (!signatureFile && !uploadedUrl) {
+      setError('Pilih file tanda tangan terlebih dahulu.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      let finalUrl = uploadedUrl;
+
+      // Upload file if not yet uploaded
+      if (signatureFile && !uploadedUrl) {
+        const result = await uploadApi.upload(signatureFile, 'signature');
+        finalUrl = result.url;
+        setUploadedUrl(finalUrl);
+      }
+
+      setSuccessMsg('Tanda tangan berhasil diunggah! URL: ' + finalUrl);
+    } catch (err: unknown) {
+      console.error('Upload error:', err);
+      setError(err instanceof Error ? err.message : 'Gagal mengunggah tanda tangan.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!modulId) return;
+    if (!confirm('Apakah Anda yakin ingin menerbitkan modul ini?')) return;
+    try {
+      await guruModulApi.update(modulId, { isDraft: false });
+      router.push('/modul-guru?tab=published');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Gagal menerbitkan modul.');
+    }
   };
 
   return (
@@ -97,7 +143,9 @@ export default function SertifikatPage() {
 
               <button
                 type="button"
-                className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white"
+                onClick={handlePublish}
+                disabled={!modulId}
+                className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Terbitkan Modul
               </button>
@@ -105,6 +153,17 @@ export default function SertifikatPage() {
           </aside>
 
           <section className="px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
+            {error && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+            {successMsg && (
+              <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">
+                {successMsg}
+              </div>
+            )}
+
             <h1 className="text-[18px] font-semibold text-[#232530]">Konfigurasi Sertifikat Modul</h1>
             <p className="mt-2 max-w-[620px] text-[12px] leading-[1.6] text-[#7e8290]">
               Data yang Anda masukkan di bawah ini akan tercantum secara otomatis pada sertifikat yang diterbitkan untuk siswa. Pastikan
@@ -153,7 +212,12 @@ export default function SertifikatPage() {
                   }`}
                 >
                   {signaturePreview ? (
-                    <img src={signaturePreview} alt="Tanda tangan" className="max-h-[80px] object-contain" />
+                    <div className="flex flex-col items-center gap-2">
+                      <img src={signaturePreview} alt="Tanda tangan" className="max-h-[80px] object-contain" />
+                      {uploadedUrl && (
+                        <span className="text-[11px] font-semibold text-green-600">✓ Berhasil diunggah</span>
+                      )}
+                    </div>
                   ) : (
                     <>
                       <svg width="40" height="40" viewBox="0 0 48 48" fill="none" className="text-[#7054dc]">
@@ -184,14 +248,24 @@ export default function SertifikatPage() {
 
               <button
                 type="button"
-                className="mt-8 inline-flex h-[40px] w-full cursor-pointer items-center justify-center rounded-xl bg-[#7054dc] text-[13px] font-semibold text-white hover:bg-[#5f46cc] sm:w-[340px]"
+                onClick={handleSave}
+                disabled={isUploading || (!signatureFile && !uploadedUrl)}
+                className="mt-8 inline-flex h-[40px] w-full cursor-pointer items-center justify-center rounded-xl bg-[#7054dc] text-[13px] font-semibold text-white hover:bg-[#5f46cc] sm:w-[340px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Simpan
+                {isUploading ? 'Mengunggah...' : 'Simpan'}
               </button>
             </div>
           </section>
         </div>
       </main>
     </div>
+  );
+}
+
+export default function SertifikatPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f6fb]" />}>
+      <SertifikatPageContent />
+    </Suspense>
   );
 }
