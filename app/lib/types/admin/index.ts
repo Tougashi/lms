@@ -89,6 +89,24 @@ export interface AdminEnrollmentItem {
     createdAt?: string;
 }
 
+export interface AdminModulSiswaItem {
+  id: string;
+  siswaId: string;
+  nama_lengkap: string;
+  email: string;
+  jenjang: string;
+  kelas_sekolah: string;
+  profileImage?: string | null;
+  isActive: boolean;
+  progressPercentage: number;
+  status: string;
+  isGraduated: boolean;
+  pretestScore?: number | null;
+  posttestScore?: number | null;
+  finalScore?: number | null;
+  createdAt: string;
+}
+
 // ── Topik ────────────────────────────────────────────────────────────────────
 
 export interface AdminTopikItem {

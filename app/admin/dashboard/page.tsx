@@ -674,60 +674,107 @@ export default function BerandaAdminPage() {
                                 <FaEllipsisV size={12} />
                               </button>
                               {openActionMenuId === row.id && (
-                                <div className="absolute right-0 top-5 z-20 w-36 rounded-xl border border-[#e4e2ec] bg-white p-1.5 shadow-lg">
-                                  {/* Edit */}
-                                  <Link
-                                    href={getEditHref(row.id)}
-                                    onClick={() => setOpenActionMenuId(null)}
-                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#7054dc] hover:bg-[#f5f1ff]"
-                                  >
-                                    <FaRegEdit size={12} />
-                                    Edit
-                                  </Link>
-                                  {/* Lihat Nilai (siswa only) */}
-                                  {activeTab === "siswa" && (
-                                    <Link
-                                      href="/admin/nilai-siswa"
-                                      onClick={() => setOpenActionMenuId(null)}
-                                      className="mt-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
-                                    >
-                                      <FaChartBar size={12} />
-                                      Lihat Nilai
-                                    </Link>
+                                <div className={`absolute right-0 top-5 z-20 ${activeTab === "modul" ? "w-48 p-2" : "w-36 p-1.5"} rounded-xl border border-[#e4e2ec] bg-white shadow-lg`}>
+                                  {activeTab === "modul" ? (
+                                    <>
+                                      <Link
+                                        href={getEditHref(row.id)}
+                                        onClick={() => setOpenActionMenuId(null)}
+                                        className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-[15px] text-[#7054dc] hover:bg-[#f5f1ff]"
+                                      >
+                                        <FaRegEdit size={16} />
+                                        Edit
+                                      </Link>
+                                      <Link
+                                        href={`/admin/tambah-modul/siswa?id=${row.id}`}
+                                        onClick={() => setOpenActionMenuId(null)}
+                                        className="mt-1 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-[15px] text-[#6d7280] hover:bg-[#f5f5f8]"
+                                      >
+                                        <MdPersonAddAlt1 size={18} />
+                                        Tambahkan Siswa
+                                      </Link>
+                                      <button
+                                        onClick={() => {
+                                          setOpenActionMenuId(null);
+                                          // Arsipkan placeholder
+                                        }}
+                                        className="mt-1 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-[15px] text-[#6d7280] hover:bg-[#f5f5f8]"
+                                      >
+                                        <FaDatabase size={16} />
+                                        Arsipkan
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setOpenActionMenuId(null);
+                                          setConfirmAction({
+                                            id: row.id,
+                                            type: "delete",
+                                            tab: activeTab,
+                                          });
+                                        }}
+                                        className="mt-1 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-[15px] text-[#6d7280] hover:bg-[#f5f5f8]"
+                                      >
+                                        <FaTrash size={16} />
+                                        Hapus
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {/* Edit */}
+                                      <Link
+                                        href={getEditHref(row.id)}
+                                        onClick={() => setOpenActionMenuId(null)}
+                                        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#7054dc] hover:bg-[#f5f1ff]"
+                                      >
+                                        <FaRegEdit size={12} />
+                                        Edit
+                                      </Link>
+                                      {/* Lihat Nilai (siswa only) */}
+                                      {activeTab === "siswa" && (
+                                        <Link
+                                          href="/admin/nilai-siswa"
+                                          onClick={() => setOpenActionMenuId(null)}
+                                          className="mt-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
+                                        >
+                                          <FaChartBar size={12} />
+                                          Lihat Nilai
+                                        </Link>
+                                      )}
+                                      {/* Nonaktifkan (guru & siswa only) */}
+                                      {(activeTab === "guru" ||
+                                        activeTab === "siswa") && (
+                                        <button
+                                          onClick={() => {
+                                            setOpenActionMenuId(null);
+                                            setConfirmAction({
+                                              id: row.id,
+                                              type: "deactivate",
+                                              tab: activeTab,
+                                            });
+                                          }}
+                                          className="mt-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#5f6472] hover:bg-[#f5f5f8]"
+                                        >
+                                          <FaDatabase size={12} />
+                                          Nonaktifkan
+                                        </button>
+                                      )}
+                                      {/* Hapus */}
+                                      <button
+                                        onClick={() => {
+                                          setOpenActionMenuId(null);
+                                          setConfirmAction({
+                                            id: row.id,
+                                            type: "delete",
+                                            tab: activeTab,
+                                          });
+                                        }}
+                                        className="mt-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]"
+                                      >
+                                        <FaTrash size={12} />
+                                        Hapus
+                                      </button>
+                                    </>
                                   )}
-                                  {/* Nonaktifkan (guru & siswa only) */}
-                                  {(activeTab === "guru" ||
-                                    activeTab === "siswa") && (
-                                    <button
-                                      onClick={() => {
-                                        setOpenActionMenuId(null);
-                                        setConfirmAction({
-                                          id: row.id,
-                                          type: "deactivate",
-                                          tab: activeTab,
-                                        });
-                                      }}
-                                      className="mt-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#5f6472] hover:bg-[#f5f5f8]"
-                                    >
-                                      <FaDatabase size={12} />
-                                      Nonaktifkan
-                                    </button>
-                                  )}
-                                  {/* Hapus */}
-                                  <button
-                                    onClick={() => {
-                                      setOpenActionMenuId(null);
-                                      setConfirmAction({
-                                        id: row.id,
-                                        type: "delete",
-                                        tab: activeTab,
-                                      });
-                                    }}
-                                    className="mt-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]"
-                                  >
-                                    <FaTrash size={12} />
-                                    Hapus
-                                  </button>
                                 </div>
                               )}
                             </div>
