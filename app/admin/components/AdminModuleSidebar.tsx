@@ -1,86 +1,77 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { RiHome5Fill } from 'react-icons/ri';
-import { FiArrowLeft, FiFileText, FiDollarSign, FiLayers, FiCheckSquare, FiUsers } from 'react-icons/fi';
+import {
+  FiArrowLeft,
+  FiFileText,
+  FiDollarSign,
+  FiLayers,
+  FiCheckSquare,
+  FiUsers,
+} from 'react-icons/fi';
 
-export type ModulSidebarActiveSection =
-  | 'profil'
-  | 'harga'
-  | 'konten'
-  | 'prepost'
-  | 'siswa';
-
-type AdminModuleSidebarProps = {
-  /** 'Tambah Modul' | 'Edit Modul' */
-  title: string;
-  /** active section to highlight */
-  activeSection?: ModulSidebarActiveSection;
-  /** link for Management Siswa (pass modul id after creation, or undefined to disable) */
-  managementSiswaHref?: string;
-  /** primary CTA label */
-  primaryLabel: string;
-  onPrimaryAction: () => void;
-  isPrimaryLoading?: boolean;
-  /** optional second CTA (e.g. 'Aktifkan Modul' / 'Jadikan Draft') */
-  secondaryLabel?: string;
-  onSecondaryAction?: () => void;
+type Props = {
+  /** Root path for this modul flow, e.g. '/admin/tambah-modul' or '/admin/manajemen-modul/edit' */
+  basePath: string;
+  /** Module ID — when provided, appended as ?id=xxx to every link (used on edit modul) */
+  modulId?: string;
+  title?: string;
 };
 
-type NavItem = {
-  label: string;
-  icon: ReactNode;
-  section: ModulSidebarActiveSection;
-  href?: string;
-};
-
-const sections: { title: string; items: NavItem[] }[] = [
+const NAV_SECTIONS = [
   {
-    title: 'Rencanakan Modul',
+    group: 'Rencanakan Modul',
     items: [
-      { label: 'Profil Modul', icon: <FiFileText size={13} />, section: 'profil' },
-      { label: 'Penetapan Harga', icon: <FiDollarSign size={13} />, section: 'harga' },
+      { label: 'Profil Modul', Icon: FiFileText, sub: '' },
+      { label: 'Penetapan Harga', Icon: FiDollarSign, sub: '/harga' },
     ],
   },
   {
-    title: 'Konten Modul',
+    group: 'Konten Modul',
     items: [
-      { label: 'Konten Modul', icon: <FiLayers size={13} />, section: 'konten' },
-      { label: 'Pre - Post Test', icon: <FiCheckSquare size={13} />, section: 'prepost' },
+      { label: 'Konten Modul', Icon: FiLayers, sub: '/konten' },
+      { label: 'Pre - Post Test', Icon: FiCheckSquare, sub: '/prepost' },
     ],
   },
   {
-    title: 'Management Pengguna',
+    group: 'Management Pengguna',
     items: [
-      { label: 'Management Siswa', icon: <FiUsers size={13} />, section: 'siswa' },
+      { label: 'Management Siswa', Icon: FiUsers, sub: '/siswa' },
     ],
   },
 ];
 
 export default function AdminModuleSidebar({
-  title,
-  activeSection = 'profil',
-  managementSiswaHref,
-  primaryLabel,
-  onPrimaryAction,
-  isPrimaryLoading = false,
-  secondaryLabel,
-  onSecondaryAction,
-}: AdminModuleSidebarProps) {
-  return (
-    <aside className="hidden border-r border-[#e5e3ee] bg-white px-5 py-5 lg:flex lg:min-h-[calc(100vh-74px)] lg:flex-col lg:w-[240px]">
-      {/* Top nav */}
-      <Link
-        href="/admin/dashboard"
-        className="mb-1 inline-flex w-fit items-center gap-2 rounded-xl border border-[#f39b39] bg-[#fff8ef] px-3 py-1.5 text-[11px] font-semibold text-[#f39b39] transition-colors hover:bg-[#fff3e0]"
-      >
-        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#f39b39] text-white">
-          <RiHome5Fill size={11} />
-        </span>
-        Dashboard Admin
-      </Link>
+  basePath,
+  modulId,
+  title = 'Tambah Modul',
+}: Props) {
+  const pathname = usePathname();
+  const qs = modulId ? `?id=${modulId}` : '';
 
+  const isActive = (sub: string) => {
+    if (sub === '') {
+      return pathname === basePath;
+    }
+    return pathname.startsWith(basePath + sub);
+  };
+
+  const buildHref = (sub: string) => basePath + sub + qs;
+
+  return (
+    <aside
+      className="
+        sticky top-[74px]
+        hidden h-[calc(100vh-74px)] w-[240px] shrink-0
+        flex-col overflow-y-auto
+        border-r border-[#e5e3ee] bg-white
+        px-5 py-5
+        lg:flex
+      "
+    >
+      {/* Back link */}
       <Link
         href="/admin/manajemen-modul"
         className="mt-2 mb-4 inline-flex w-fit items-center gap-1.5 text-[11px] font-medium text-[#6e7280] transition-colors hover:text-[#7054dc]"
@@ -89,66 +80,37 @@ export default function AdminModuleSidebar({
         Manajemen Modul
       </Link>
 
+      {/* Section title */}
       <p className="text-[12px] font-bold text-[#232530]">{title}</p>
 
-      <div className="mt-3 space-y-5">
-        {sections.map((sec) => (
-          <div key={sec.title}>
+      {/* Nav */}
+      <div className="mt-4 flex flex-col gap-5">
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.group}>
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#a0a3b0]">
-              {sec.title}
+              {section.group}
             </p>
-            <nav className="space-y-1">
-              {sec.items.map((item) => {
-                const isActive = item.section === activeSection;
-                const isSiswa = item.section === 'siswa';
-                const cls = `flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors ${
-                  isActive
-                    ? 'bg-[#ece7ff] font-semibold text-[#7054dc]'
-                    : isSiswa && !managementSiswaHref
-                    ? 'cursor-not-allowed text-[#c0c3cc]'
-                    : 'text-[#7a7e8a] hover:bg-[#f5f2ff] hover:text-[#7054dc]'
-                }`;
-
-                if (isSiswa && managementSiswaHref) {
-                  return (
-                    <Link key={item.label} href={managementSiswaHref} className={cls}>
-                      {item.icon}
-                      {item.label}
-                    </Link>
-                  );
-                }
-
+            <nav className="flex flex-col gap-0.5">
+              {section.items.map(({ label, Icon, sub }) => {
+                const active = isActive(sub);
                 return (
-                  <button key={item.label} type="button" disabled={isSiswa && !managementSiswaHref} className={cls}>
-                    {item.icon}
-                    {item.label}
-                  </button>
+                  <Link
+                    key={label}
+                    href={buildHref(sub)}
+                    className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] transition-colors ${
+                      active
+                        ? 'bg-[#ece7ff] font-semibold text-[#7054dc]'
+                        : 'text-[#7a7e8a] hover:bg-[#f5f2ff] hover:text-[#7054dc]'
+                    }`}
+                  >
+                    <Icon size={13} />
+                    {label}
+                  </Link>
                 );
               })}
             </nav>
           </div>
         ))}
-      </div>
-
-      {/* Bottom actions */}
-      <div className="mt-auto space-y-2 pt-6">
-        <button
-          type="button"
-          onClick={onPrimaryAction}
-          disabled={isPrimaryLoading}
-          className="w-full rounded-full bg-[#7054dc] px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_4px_12px_rgba(112,84,220,0.3)] transition-colors hover:bg-[#5f46cc] disabled:opacity-60"
-        >
-          {isPrimaryLoading ? 'Menyimpan...' : primaryLabel}
-        </button>
-        {secondaryLabel && onSecondaryAction && (
-          <button
-            type="button"
-            onClick={onSecondaryAction}
-            className="w-full rounded-full border border-[#d8d3f0] bg-white px-4 py-2.5 text-[12px] font-semibold text-[#7054dc] transition-colors hover:bg-[#f5f2ff]"
-          >
-            {secondaryLabel}
-          </button>
-        )}
       </div>
     </aside>
   );

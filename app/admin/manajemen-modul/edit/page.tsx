@@ -2,133 +2,130 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FiArrowLeft, FiEdit2 } from 'react-icons/fi';
+import { FiArrowLeft, FiBookOpen, FiEdit2 } from 'react-icons/fi';
 import AdminHeader from '../../../component/admin/AdminHeader';
 import AdminModuleSidebar from '../../components/AdminModuleSidebar';
 import { AdminToastContainer, useAdminToast } from '../../components/AdminToast';
 import { adminModulApi, adminTutorApi, uploadApi } from '../../../lib/api';
 import type { AdminTutorItem } from '../../../lib/types/admin';
 
+/* ─── shared class names (same as tambah-modul) ─── */
 const inputCls =
-  'mt-2 h-[42px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc] transition-colors';
-const selectCls =
-  'mt-2 h-[42px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc] appearance-none transition-colors';
+  'mt-2 h-[40px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc] transition-colors';
 const textareaCls =
-  'mt-2 w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc] resize-none transition-colors';
-const labelCls = 'text-[13px] font-bold text-[#232530]';
-const hintCls = 'mt-1 text-[11px] text-[#7e8290]';
+  'mt-2 w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2 text-[13px] text-[#232530] outline-none focus:border-[#7054dc] resize-none transition-colors';
 
-type ModuleFormState = {
-  moduleName: string;
-  subtitle: string;
-  description: string;
-  targetTime: string;
-  difficulty: string;
-  isPaid: boolean;
-  modulPrice: string;
-  level: string;
-  moduleClass: string;
-  accessType: 'siswa' | 'umum';
-  isDraft: boolean;
-  tutorId: string;
-  pretestPostTestEnabled: boolean;
-  hasStudyGroup: boolean;
-  hasCertificate: boolean;
-};
-
-const initialFormState: ModuleFormState = {
-  moduleName: '',
-  subtitle: '',
-  description: '',
-  targetTime: '',
-  difficulty: '',
-  isPaid: false,
-  modulPrice: '',
-  level: '',
-  moduleClass: '',
-  accessType: 'siswa',
-  isDraft: true,
-  tutorId: '',
-  pretestPostTestEnabled: true,
-  hasStudyGroup: false,
-  hasCertificate: false,
-};
-
-function normalizeStoredImageUrl(url?: string | null) {
+function normalizeStoredImageUrl(url?: string | null): string {
   if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) {
-    return url;
-  }
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) return url;
   return `/api-backend/storage/${url.replace(/^\/+/, '')}`;
 }
 
-export default function EditModulPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f7f6fb]" />}>
-      <EditModulContent />
-    </Suspense>
-  );
-}
-
+/* ─── inner component ─── */
 function EditModulContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get('id') ?? '';
   const { toasts, showToast, dismissToast } = useAdminToast();
 
-  const [form, setForm] = useState<ModuleFormState>(initialFormState);
-  const [coverPreview, setCoverPreview] = useState('');
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [tutorList, setTutorList] = useState<AdminTutorItem[]>([]);
+  /* loading/error state */
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  /* cover */
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const coverObjectUrlRef = useRef<string | null>(null);
 
-  const setField = <K extends keyof ModuleFormState>(key: K, value: ModuleFormState[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  /* tutor list */
+  const [tutorList, setTutorList] = useState<AdminTutorItem[]>([]);
 
-  const fetchData = useCallback(async () => {
-    if (!id) {
-      setNotFound(true);
-      setIsLoading(false);
-      return;
+  /* form fields */
+  const [moduleName, setModuleName] = useState('');
+  const [subtitle, setSubtitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [tutorId, setTutorId] = useState('');
+  const [accessType, setAccessType] = useState<'siswa' | 'umum'>('siswa');
+  const [isDraft, setIsDraft] = useState(true);
+  const [level, setLevel] = useState('');
+  const [kelas, setKelas] = useState('');
+  const [difficulty, setDifficulty] = useState('Menengah');
+  const [targetTime, setTargetTime] = useState(1);
+  const [targetTimeUnit, setTargetTimeUnit] = useState<'bulan' | 'minggu'>('bulan');
+  const [isPaid, setIsPaid] = useState(false);
+  const [modulPrice, setModulPrice] = useState('');
+  const [pretestPostTestEnabled, setPretestPostTestEnabled] = useState(true);
+  const [hasCertificate, setHasCertificate] = useState(false);
+  const [hasStudyGroup, setHasStudyGroup] = useState(false);
+
+  /* derived kelas options */
+  const kelasOptions = useMemo(() => {
+    switch (level) {
+      case 'SD': return ['1', '2', '3', '4', '5', '6'];
+      case 'SMP': return ['7', '8', '9'];
+      case 'SMA': return ['10', '11', '12'];
+      default: return [];
     }
+  }, [level]);
 
+  const prevLevelRef = useRef(level);
+  useEffect(() => {
+    if (prevLevelRef.current !== level) {
+      prevLevelRef.current = level;
+      if (kelas && !kelasOptions.includes(kelas)) setKelas('');
+    }
+  }, [level, kelasOptions, kelas]);
+
+  /* computed target time in minutes */
+  const computedTargetTime = useMemo(
+    () => (targetTimeUnit === 'bulan' ? targetTime * 60 : targetTime * 7),
+    [targetTime, targetTimeUnit],
+  );
+
+  /* load existing module data */
+  const fetchData = useCallback(async () => {
+    if (!id) { setNotFound(true); setIsLoading(false); return; }
     try {
-      const [modulData, tutorData] = await Promise.allSettled([
+      const [modulResult, tutorResult] = await Promise.allSettled([
         adminModulApi.getById(id),
         adminTutorApi.getAll(),
       ]);
 
-      if (tutorData.status === 'fulfilled') {
-        setTutorList(tutorData.value);
-      }
+      if (tutorResult.status === 'fulfilled') setTutorList(tutorResult.value);
 
-      if (modulData.status === 'fulfilled') {
-        const modul = modulData.value;
-        setForm({
-          moduleName: modul.moduleName ?? '',
-          subtitle: modul.subtitle ?? '',
-          description: modul.description ?? '',
-          targetTime: modul.targetTime ? String(modul.targetTime) : '',
-          difficulty: modul.difficulty ?? '',
-          isPaid: Boolean(modul.isPaid),
-          modulPrice: modul.modulPrice !== undefined && modul.modulPrice !== null ? String(modul.modulPrice) : '',
-          level: modul.level ?? '',
-          moduleClass: modul.class ?? '',
-          accessType: (modul.modulType ?? modul.type ?? 'SISWA') === 'UMUM' ? 'umum' : 'siswa',
-          isDraft: modul.isDraft ?? true,
-          tutorId: modul.tutorId ?? '',
-          pretestPostTestEnabled: modul.pretestPostTestEnabled ?? true,
-          hasStudyGroup: modul.hasStudyGroup ?? false,
-          hasCertificate: modul.hasCertificate ?? false,
-        });
-        setCoverPreview(normalizeStoredImageUrl(modul.moduleImgUrl));
+      if (modulResult.status === 'fulfilled') {
+        const m = modulResult.value;
+        setModuleName(m.moduleName ?? '');
+        setSubtitle(m.subtitle ?? '');
+        setDescription(m.description ?? '');
+        setTutorId(m.tutorId ?? '');
+        setAccessType((m.modulType ?? m.type ?? 'SISWA') === 'UMUM' ? 'umum' : 'siswa');
+        setIsDraft(m.isDraft ?? true);
+        setLevel(m.level ?? '');
+        setKelas(m.class ?? '');
+        setDifficulty(m.difficulty ?? 'Menengah');
+        setIsPaid(Boolean(m.isPaid));
+        setModulPrice(m.modulPrice != null ? String(m.modulPrice) : '');
+        setPretestPostTestEnabled(m.pretestPostTestEnabled ?? true);
+        setHasCertificate(m.hasCertificate ?? false);
+        setHasStudyGroup(m.hasStudyGroup ?? false);
+        setCoverPreview(normalizeStoredImageUrl(m.moduleImgUrl) || null);
+
+        /* parse existing targetTime back to unit */
+        if (m.targetTime) {
+          if (m.targetTime >= 60) {
+            setTargetTime(Math.round(m.targetTime / 60));
+            setTargetTimeUnit('bulan');
+          } else {
+            setTargetTime(m.targetTime);
+            setTargetTimeUnit('minggu');
+          }
+        }
       } else {
         setNotFound(true);
       }
@@ -139,441 +136,423 @@ function EditModulContent() {
     }
   }, [id]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
+  /* cleanup object URL */
   useEffect(() => {
     return () => {
-      if (coverObjectUrlRef.current) {
-        URL.revokeObjectURL(coverObjectUrlRef.current);
-      }
+      if (coverObjectUrlRef.current) URL.revokeObjectURL(coverObjectUrlRef.current);
     };
   }, []);
 
+  /* cover change */
   const handleCoverChange = (file: File | null) => {
     setCoverFile(file);
-    if (coverObjectUrlRef.current) {
-      URL.revokeObjectURL(coverObjectUrlRef.current);
-      coverObjectUrlRef.current = null;
-    }
-    if (!file) {
-      setCoverPreview('');
-      return;
-    }
-    const nextUrl = URL.createObjectURL(file);
-    coverObjectUrlRef.current = nextUrl;
-    setCoverPreview(nextUrl);
+    if (coverObjectUrlRef.current) { URL.revokeObjectURL(coverObjectUrlRef.current); coverObjectUrlRef.current = null; }
+    if (!file) { setCoverPreview(null); return; }
+    const url = URL.createObjectURL(file);
+    coverObjectUrlRef.current = url;
+    setCoverPreview(url);
   };
 
-  const handleToggleDraft = () => {
-    setField('isDraft', !form.isDraft);
-  };
-
-  const handleSimpan = async () => {
-    if (!form.moduleName.trim()) {
-      setSaveError('Judul modul wajib diisi.');
-      return;
-    }
-    if (!form.subtitle.trim()) {
-      setSaveError('Subtitle modul wajib diisi.');
-      return;
-    }
-    if (!form.description.trim()) {
-      setSaveError('Deskripsi modul wajib diisi.');
-      return;
-    }
-    if (!form.targetTime.trim() || !Number.isFinite(Number(form.targetTime))) {
-      setSaveError('Durasi pembelajaran wajib diisi dengan angka.');
-      return;
-    }
-    if (!form.difficulty.trim()) {
-      setSaveError('Level kesulitan wajib dipilih.');
-      return;
-    }
-    if (!form.tutorId.trim()) {
-      setSaveError('Guru modul wajib dipilih.');
-      return;
-    }
+  /* save */
+  const handleSave = async () => {
+    if (!moduleName.trim()) { setError('Judul modul wajib diisi.'); return; }
+    if (!subtitle.trim()) { setError('Subtitle modul wajib diisi.'); return; }
+    if (!tutorId.trim()) { setError('Guru modul wajib dipilih.'); return; }
 
     setIsSaving(true);
-    setSaveError('');
+    setError('');
+    setSuccessMsg('');
 
     try {
-      let moduleImgUrl = coverPreview;
+      let moduleImgUrl: string | null = coverPreview;
       if (coverFile) {
-        const uploadResult = await uploadApi.upload(coverFile);
-        moduleImgUrl = normalizeStoredImageUrl(uploadResult.url);
+        const res = await uploadApi.upload(coverFile);
+        moduleImgUrl = normalizeStoredImageUrl(res.url);
       }
 
       await adminModulApi.update(id, {
-        moduleName: form.moduleName.trim(),
-        subtitle: form.subtitle.trim(),
-        description: form.description.trim(),
-        targetTime: Number(form.targetTime),
-        difficulty: form.difficulty,
-        isPaid: form.isPaid,
-        modulPrice: form.isPaid ? Number(form.modulPrice || 0) : 0,
-        level: form.level || null,
-        class: form.moduleClass || null,
-        modulType: form.accessType === 'siswa' ? 'SISWA' : 'UMUM',
-        isDraft: form.isDraft,
-        tutorId: form.tutorId,
-        moduleImgUrl: moduleImgUrl || null,
-        pretestPostTestEnabled: form.pretestPostTestEnabled,
-        hasStudyGroup: form.hasStudyGroup,
-        hasCertificate: form.hasCertificate,
+        moduleName: moduleName.trim(),
+        subtitle: subtitle.trim(),
+        description: description.trim(),
+        targetTime: computedTargetTime,
+        difficulty,
+        isPaid,
+        modulPrice: isPaid ? Number(modulPrice || 0) : 0,
+        level: level || null,
+        class: kelas || null,
+        modulType: accessType === 'siswa' ? 'SISWA' : 'UMUM',
+        isDraft,
+        tutorId,
+        moduleImgUrl,
+        pretestPostTestEnabled,
+        hasStudyGroup,
+        hasCertificate,
       });
 
+      setSuccessMsg('Modul berhasil diperbarui!');
       showToast('success', 'Modul berhasil diperbarui.');
       setTimeout(() => router.push('/admin/manajemen-modul'), 900);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal memperbarui modul.';
-      setSaveError(msg);
+      setError(msg);
       showToast('error', msg);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const primaryLabel = isSaving ? 'Menyimpan...' : 'Simpan Perubahan';
+  /* ─── not found / loading ─── */
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f7f6fb]">
+        <AdminHeader />
+        <div className="flex min-h-[calc(100vh-74px)] items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent" />
+            <p className="text-[13px] text-[#8a8d98]">Memuat data modul...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
+  if (notFound) {
+    return (
+      <div className="min-h-screen bg-[#f7f6fb]">
+        <AdminHeader />
+        <div className="flex min-h-[calc(100vh-74px)] flex-col items-center justify-center gap-4">
+          <p className="text-[14px] text-[#f36e65]">Modul tidak ditemukan.</p>
+          <Link
+            href="/admin/manajemen-modul"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#7054dc] px-5 py-2.5 text-[13px] font-semibold text-white hover:bg-[#5f46cc] transition-colors"
+          >
+            <FiArrowLeft size={14} />
+            Kembali ke Manajemen Modul
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  /* ─── main ─── */
   return (
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
       <AdminToastContainer toasts={toasts} onDismiss={dismissToast} />
       <AdminHeader />
 
-      <main className="w-full">
-        <div className="grid w-full lg:grid-cols-[240px_1fr]">
-          <AdminModuleSidebar
-            title="Edit Modul"
-            backHref="/admin/manajemen-modul"
-            backLabel="Manajemen Modul"
-            primaryLabel={primaryLabel}
-            onPrimaryAction={handleSimpan}
-            secondaryLabel={form.isDraft ? 'Aktifkan Modul' : 'Arsipkan Modul'}
-            onSecondaryAction={handleToggleDraft}
-          />
+      <main className="flex w-full">
+        <AdminModuleSidebar
+          basePath="/admin/manajemen-modul/edit"
+          modulId={id}
+          title="Edit Modul"
+        />
 
-          <section className="px-4 pb-10 pt-6 sm:px-8 lg:px-10">
-            {isLoading ? (
-              <div className="flex min-h-[400px] items-center justify-center text-sm text-[#9396a3]">
-                Memuat data modul...
-              </div>
-            ) : notFound ? (
-              <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
-                <p className="text-sm text-[#f36e65]">Modul tidak ditemukan.</p>
-                <Link
-                  href="/admin/manajemen-modul"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#7054dc] px-5 py-2 text-[13px] font-semibold text-white hover:bg-[#5f46cc]"
+        <section className="flex-1 px-4 pb-12 pt-6 sm:px-6 lg:pr-8">
+          {/* Banners */}
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-600">
+              {error}
+            </div>
+          )}
+          {successMsg && (
+            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-[13px] text-green-700">
+              {successMsg}
+            </div>
+          )}
+
+          {/* Cover */}
+          <div className="flex flex-col items-center">
+            <div className="rounded-[26px] border border-[#f0eff6] bg-white p-3 shadow-[0_10px_24px_rgba(20,20,30,0.06)]">
+              <div className="relative h-[180px] w-[300px] overflow-hidden rounded-[20px] border border-[#e5e3ee] bg-[#f4f3ff]">
+                {coverPreview ? (
+                  <Image src={coverPreview} alt="Preview cover modul" fill unoptimized className="object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <FiBookOpen size={34} className="text-[#7054dc]" />
+                  </div>
+                )}
+                <label
+                  htmlFor="admin-edit-cover-upload"
+                  className="absolute right-2 top-2 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-[#d9d7df] bg-white text-[#7054dc] shadow-sm hover:bg-[#f5f2ff] transition-colors"
+                  aria-label="Edit cover"
                 >
-                  <FiArrowLeft size={14} />
-                  Kembali
-                </Link>
+                  <FiEdit2 size={12} />
+                </label>
+                <input
+                  id="admin-edit-cover-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleCoverChange(e.target.files?.[0] ?? null)}
+                />
               </div>
-            ) : (
-              <>
-                <div className="flex flex-col items-center">
-                  <div className="rounded-[22px] border border-[#f0eff6] bg-white p-3 shadow-[0_8px_20px_rgba(20,20,30,0.06)]">
-                    <div className="relative h-[160px] w-[280px] overflow-hidden rounded-[18px] border border-[#e5e3ee] bg-[#f4f3ff] sm:h-[180px] sm:w-[320px]">
-                      {coverPreview ? (
-                        <Image src={coverPreview} alt="Preview cover modul" fill unoptimized className="object-cover" />
-                      ) : (
-                        <Image src="/assets/images/beranda-siswa/matapelajaran.png" alt="Cover modul" fill unoptimized className="object-cover" />
-                      )}
-                      <label
-                        htmlFor="admin-edit-cover-upload"
-                        className="absolute right-2 top-2 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-[#d9d7df] bg-white text-[#7054dc] shadow-sm transition-colors hover:bg-[#f5f2ff]"
-                        aria-label="Edit cover"
-                      >
-                        <FiEdit2 size={13} />
-                      </label>
-                      <input
-                        id="admin-edit-cover-upload"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(event) => handleCoverChange(event.target.files?.[0] ?? null)}
-                      />
-                    </div>
-                  </div>
+            </div>
+          </div>
+
+          {/* Basic fields */}
+          <div className="mt-6">
+            <label className="text-[12px] font-semibold text-[#232530]">Judul Modul</label>
+            <input
+              type="text"
+              value={moduleName}
+              onChange={(e) => setModuleName(e.target.value)}
+              placeholder="Masukkan judul modul"
+              className={inputCls}
+            />
+            <p className="mt-1 text-[11px] text-[#7e8290]">
+              Judul sebaiknya menarik perhatian, informatif, dan dioptimalkan untuk penelusuran
+            </p>
+
+            <label className="mt-4 block text-[12px] font-semibold text-[#232530]">Subtitle Modul</label>
+            <input
+              type="text"
+              value={subtitle}
+              onChange={(e) => setSubtitle(e.target.value)}
+              placeholder="Masukkan subtitle modul"
+              className={inputCls}
+            />
+            <p className="mt-1 text-[11px] text-[#7e8290]">
+              Gunakan 1 atau 2 kata kunci terkait, sebutkan area terpenting yang dibahas.
+            </p>
+          </div>
+
+          <div className="mt-6">
+            <label className="text-[12px] font-semibold text-[#232530]">Deskripsi Modul</label>
+            <textarea
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Masukkan deskripsi modul ..."
+              className={textareaCls}
+              maxLength={500}
+            />
+            <div className="mt-1 flex items-center justify-between text-[11px] text-[#7e8290]">
+              <span>Deskripsikan modul anda secara singkat</span>
+              <span>{description.length}/500</span>
+            </div>
+          </div>
+
+          {/* Guru */}
+          <div className="mt-6">
+            <label className="text-[12px] font-semibold text-[#232530]">Guru Modul</label>
+            <select
+              className={inputCls}
+              value={tutorId}
+              onChange={(e) => setTutorId(e.target.value)}
+            >
+              <option value="">Pilih Guru</option>
+              {tutorList.map((t) => (
+                <option key={t.id} value={t.id}>{t.fullName}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-[#7e8290]">Pilih Guru yang bertanggung jawab atas modul ini.</p>
+          </div>
+
+          {/* Access type */}
+          <div className="mt-6">
+            <p className="text-[12px] font-semibold text-[#232530]">Tipe Akses</p>
+            <div className="mt-3 flex items-center gap-6 text-[12px] text-[#6e7280]">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="aksesEdit"
+                  checked={accessType === 'siswa'}
+                  onChange={() => setAccessType('siswa')}
+                  className="h-4 w-4 accent-[#7054dc]"
+                />
+                Siswa
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="aksesEdit"
+                  checked={accessType === 'umum'}
+                  onChange={() => setAccessType('umum')}
+                  className="h-4 w-4 accent-[#7054dc]"
+                />
+                Umum
+              </label>
+            </div>
+          </div>
+
+          {/* Extended fields — always shown on edit */}
+          <div className="mt-6 space-y-6">
+
+            {/* Jenjang + Kelas */}
+            {accessType === 'siswa' && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-[12px] font-semibold text-[#232530]">Jenjang Sekolah</label>
+                  <select
+                    className={inputCls}
+                    value={level}
+                    onChange={(e) => setLevel(e.target.value)}
+                  >
+                    <option value="" disabled>Pilih Jenjang</option>
+                    <option value="SD">SD</option>
+                    <option value="SMP">SMP</option>
+                    <option value="SMA">SMA</option>
+                  </select>
+                  <p className="mt-1 text-[11px] text-[#7e8290]">Sebutkan kurikulum modul anda</p>
                 </div>
-
-                <div className="mx-auto mt-8 max-w-[760px]">
-                  {saveError && (
-                    <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
-                      {saveError}
-                    </div>
-                  )}
-
-                  <div>
-                    <label className={labelCls}>Judul Modul</label>
-                    <input
-                      type="text"
-                      value={form.moduleName}
-                      onChange={(e) => setField('moduleName', e.target.value)}
-                      placeholder="Masukkan judul modul"
-                      className={inputCls}
-                    />
-                    <p className={hintCls}>Judul sebaiknya menarik perhatian, informatif, dan dioptimalkan untuk penelusuran</p>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className={labelCls}>Subtitle Modul</label>
-                      <input
-                        type="text"
-                        value={form.subtitle}
-                        onChange={(e) => setField('subtitle', e.target.value)}
-                        placeholder="Masukkan subtitle"
-                        className={inputCls}
-                      />
-                      <p className={hintCls}>Gunakan kata kunci singkat yang mewakili isi modul.</p>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Guru Modul</label>
-                      <select
-                        className={selectCls}
-                        value={form.tutorId}
-                        onChange={(e) => setField('tutorId', e.target.value)}
-                      >
-                        <option value="">Pilih Guru</option>
-                        {tutorList.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.fullName}
-                          </option>
-                        ))}
-                      </select>
-                      <p className={hintCls}>Pilih Guru untuk Modul ini</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5">
-                    <label className={labelCls}>Deskripsi Modul</label>
-                    <textarea
-                      rows={5}
-                      value={form.description}
-                      placeholder="Masukkan deskripsi modul ..."
-                      className={textareaCls}
-                      maxLength={500}
-                      onChange={(e) => setField('description', e.target.value)}
-                    />
-                    <div className="mt-1 flex items-center justify-between text-[11px] text-[#7e8290]">
-                      <span>Deskripsikan modul anda secara singkat</span>
-                      <span>{form.description.length}/500</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className={labelCls}>Tipe Akses</label>
-                      <div className="mt-3 flex items-center gap-6 text-[13px] text-[#6e7280]">
-                        <label className="flex cursor-pointer items-center gap-2">
-                          <input
-                            type="radio"
-                            name="aksesEdit"
-                            checked={form.accessType === 'siswa'}
-                            onChange={() => setField('accessType', 'siswa')}
-                            className="h-4 w-4 accent-[#7054dc]"
-                          />
-                          Siswa
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-2">
-                          <input
-                            type="radio"
-                            name="aksesEdit"
-                            checked={form.accessType === 'umum'}
-                            onChange={() => setField('accessType', 'umum')}
-                            className="h-4 w-4 accent-[#7054dc]"
-                          />
-                          Umum
-                        </label>
-                      </div>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Status Modul</label>
-                      <div className="mt-3 flex items-center gap-6 text-[13px] text-[#6e7280]">
-                        <label className="flex cursor-pointer items-center gap-2">
-                          <input
-                            type="radio"
-                            name="statusEdit"
-                            checked={!form.isDraft}
-                            onChange={() => setField('isDraft', false)}
-                            className="h-4 w-4 accent-[#7054dc]"
-                          />
-                          Aktif
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-2">
-                          <input
-                            type="radio"
-                            name="statusEdit"
-                            checked={form.isDraft}
-                            onChange={() => setField('isDraft', true)}
-                            className="h-4 w-4 accent-[#7054dc]"
-                          />
-                          Draft
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {form.accessType === 'siswa' && (
-                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <label className={labelCls}>Jenjang Sekolah</label>
-                        <select
-                          className={selectCls}
-                          value={form.level}
-                          onChange={(e) => setField('level', e.target.value)}
-                        >
-                          <option value="">Pilih Jenjang</option>
-                          <option value="SD">SD</option>
-                          <option value="SMP">SMP</option>
-                          <option value="SMA">SMA</option>
-                        </select>
-                        <p className={hintCls}>Sebutkan kurikulum modul anda</p>
-                      </div>
-                      <div>
-                        <label className={labelCls}>Kelas</label>
-                        <select
-                          className={selectCls}
-                          value={form.moduleClass}
-                          onChange={(e) => setField('moduleClass', e.target.value)}
-                        >
-                          <option value="">Pilih Tingkatan Kelas</option>
-                          <option value="Kelas 4">Kelas 4</option>
-                          <option value="Kelas 5">Kelas 5</option>
-                          <option value="Kelas 6">Kelas 6</option>
-                          <option value="Kelas 10">Kelas 10</option>
-                          <option value="Kelas 11">Kelas 11</option>
-                          <option value="Kelas 12">Kelas 12</option>
-                        </select>
-                        <p className={hintCls}>Sesuaikan dengan target siswa</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className={labelCls}>Level Kesulitan</label>
-                      <select
-                        className={selectCls}
-                        value={form.difficulty}
-                        onChange={(e) => setField('difficulty', e.target.value)}
-                      >
-                        <option value="">Pilih level kesulitan</option>
-                        <option value="Mudah">Mudah</option>
-                        <option value="Menengah">Menengah</option>
-                        <option value="Sulit">Sulit</option>
-                      </select>
-                      <p className={hintCls}>Level kesulitan yang sesuai dengan isi modul</p>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Durasi Pembelajaran</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={form.targetTime}
-                        onChange={(e) => setField('targetTime', e.target.value)}
-                        placeholder="Masukkan durasi pembelajaran"
-                        className={inputCls}
-                      />
-                      <p className={hintCls}>Durasi pembelajaran dalam menit.</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className={labelCls}>Harga Modul</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={form.modulPrice}
-                        onChange={(e) => setField('modulPrice', e.target.value)}
-                        placeholder="Masukkan harga modul"
-                        className={inputCls}
-                        disabled={!form.isPaid}
-                      />
-                      <p className={hintCls}>Aktifkan jika modul ini berbayar.</p>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Tipe Modul</label>
-                      <select
-                        className={selectCls}
-                        value={form.accessType}
-                        onChange={(e) => setField('accessType', e.target.value as 'siswa' | 'umum')}
-                      >
-                        <option value="siswa">Siswa</option>
-                        <option value="umum">Umum</option>
-                      </select>
-                      <p className={hintCls}>Pilih target akses modul.</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#e5e3ee] bg-white px-4 py-3 text-[13px] text-[#232530]">
-                      <input
-                        type="checkbox"
-                        checked={form.isPaid}
-                        onChange={(e) => setField('isPaid', e.target.checked)}
-                        className="h-4 w-4 accent-[#7054dc]"
-                      />
-                      Berbayar
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#e5e3ee] bg-white px-4 py-3 text-[13px] text-[#232530]">
-                      <input
-                        type="checkbox"
-                        checked={form.pretestPostTestEnabled}
-                        onChange={(e) => setField('pretestPostTestEnabled', e.target.checked)}
-                        className="h-4 w-4 accent-[#7054dc]"
-                      />
-                      Pre/Post Test
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#e5e3ee] bg-white px-4 py-3 text-[13px] text-[#232530]">
-                      <input
-                        type="checkbox"
-                        checked={form.hasCertificate}
-                        onChange={(e) => setField('hasCertificate', e.target.checked)}
-                        className="h-4 w-4 accent-[#7054dc]"
-                      />
-                      Sertifikat
-                    </label>
-                  </div>
-
-                  <div className="mt-4">
-                    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#e5e3ee] bg-white px-4 py-3 text-[13px] text-[#232530]">
-                      <input
-                        type="checkbox"
-                        checked={form.hasStudyGroup}
-                        onChange={(e) => setField('hasStudyGroup', e.target.checked)}
-                        className="h-4 w-4 accent-[#7054dc]"
-                      />
-                      Grup Belajar
-                    </label>
-                  </div>
-
-                  <div className="mt-8 flex items-center justify-end gap-3">
-                    <Link
-                      href="/admin/manajemen-modul"
-                      className="rounded-xl border border-[#d8d3f0] px-6 py-2.5 text-[13px] font-semibold text-[#7054dc] transition-colors hover:bg-[#f5f2ff]"
-                    >
-                      Batal
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={handleSimpan}
-                      disabled={isSaving}
-                      className="h-[44px] w-[200px] rounded-xl bg-[#7054dc] text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(112,84,220,0.3)] transition-colors hover:bg-[#5f46cc] disabled:opacity-60"
-                    >
-                      {primaryLabel}
-                    </button>
-                  </div>
+                <div>
+                  <label className="text-[12px] font-semibold text-[#232530]">Kelas</label>
+                  <select
+                    className={inputCls}
+                    value={kelas}
+                    onChange={(e) => setKelas(e.target.value)}
+                    disabled={!level}
+                  >
+                    <option value="" disabled>
+                      {level ? 'Pilih Tingkatan Kelas' : 'Pilih jenjang terlebih dahulu'}
+                    </option>
+                    {kelasOptions.map((k) => (
+                      <option key={k} value={k}>Kelas {k}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-[#7e8290]">Tingkatan kelas sesuai jenjang</p>
                 </div>
-              </>
+              </div>
             )}
-          </section>
-        </div>
+
+            {/* Difficulty + Duration */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-[12px] font-semibold text-[#232530]">Level Kesulitan</label>
+                <select
+                  className={inputCls}
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                >
+                  <option value="Mudah">Mudah</option>
+                  <option value="Menengah">Menengah</option>
+                  <option value="Sulit">Sulit</option>
+                </select>
+                <p className="mt-1 text-[11px] text-[#7e8290]">Level kesulitan yang sesuai isi modul</p>
+              </div>
+              <div>
+                <label className="text-[12px] font-semibold text-[#232530]">Durasi Pembelajaran</label>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="number"
+                    value={targetTime}
+                    onChange={(e) => setTargetTime(Number(e.target.value) || 1)}
+                    min={1}
+                    className="h-[40px] w-[90px] rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc] transition-colors"
+                  />
+                  <select
+                    className="h-[40px] w-[120px] rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc] transition-colors"
+                    value={targetTimeUnit}
+                    onChange={(e) => setTargetTimeUnit(e.target.value as 'bulan' | 'minggu')}
+                  >
+                    <option value="bulan">Bulan</option>
+                    <option value="minggu">Minggu</option>
+                  </select>
+                </div>
+                <p className="mt-1 text-[11px] text-[#7e8290]">Estimasi waktu belajar siswa</p>
+              </div>
+            </div>
+
+            {/* Status */}
+            <div>
+              <p className="text-[12px] font-semibold text-[#232530]">Status Modul</p>
+              <div className="mt-3 flex items-center gap-6 text-[12px] text-[#6e7280]">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="statusEdit"
+                    checked={!isDraft}
+                    onChange={() => setIsDraft(false)}
+                    className="h-4 w-4 accent-[#7054dc]"
+                  />
+                  Aktif
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="statusEdit"
+                    checked={isDraft}
+                    onChange={() => setIsDraft(true)}
+                    className="h-4 w-4 accent-[#7054dc]"
+                  />
+                  Draft
+                </label>
+              </div>
+            </div>
+
+            {/* Harga */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-[12px] font-semibold text-[#232530]">Harga Modul (Rp)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={modulPrice}
+                  onChange={(e) => setModulPrice(e.target.value)}
+                  placeholder="0"
+                  disabled={!isPaid}
+                  className={`${inputCls} disabled:bg-[#f5f5f5] disabled:text-[#adadad]`}
+                />
+                <p className="mt-1 text-[11px] text-[#7e8290]">Aktifkan opsi berbayar di bawah jika perlu harga.</p>
+              </div>
+            </div>
+
+            {/* Toggles */}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                { label: 'Berbayar', checked: isPaid, setter: setIsPaid },
+                { label: 'Pre / Post Test', checked: pretestPostTestEnabled, setter: setPretestPostTestEnabled },
+                { label: 'Sertifikat', checked: hasCertificate, setter: setHasCertificate },
+              ].map(({ label, checked, setter }) => (
+                <label
+                  key={label}
+                  className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#e5e3ee] bg-white px-4 py-3 text-[12px] text-[#232530] hover:border-[#7054dc] transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => setter(e.target.checked)}
+                    className="h-4 w-4 accent-[#7054dc]"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+
+            <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#e5e3ee] bg-white px-4 py-3 text-[12px] text-[#232530] hover:border-[#7054dc] transition-colors">
+              <input
+                type="checkbox"
+                checked={hasStudyGroup}
+                onChange={(e) => setHasStudyGroup(e.target.checked)}
+                className="h-4 w-4 accent-[#7054dc]"
+              />
+              Grup Belajar
+            </label>
+
+            {/* Submit */}
+            <div className="pb-4">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="inline-flex h-[40px] w-[260px] cursor-pointer items-center justify-center rounded-xl bg-[#7054dc] text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(112,84,220,0.3)] transition-colors hover:bg-[#5f46cc] disabled:opacity-50"
+              >
+                {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </button>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
+  );
+}
+
+export default function EditModulPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f6fb]" />}>
+      <EditModulContent />
+    </Suspense>
   );
 }

@@ -3,22 +3,16 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
-import { RiHome5Fill } from 'react-icons/ri';
 import {
   MdMoreVert,
   MdKeyboardArrowLeft,
   MdKeyboardArrowRight,
   MdPersonAddAlt1,
 } from 'react-icons/md';
-import AdminHeader from '../../../component/admin/AdminHeader';
-import {
-  FiFileText,
-  FiDollarSign,
-  FiLayers,
-  FiCheckSquare,
-  FiUsers,
-} from 'react-icons/fi';
+import { FiCheckSquare, FiUsers } from 'react-icons/fi';
 import { FaFilter, FaTrash, FaCheckSquare as FaCheckSq, FaRegSquare, FaSearch } from 'react-icons/fa';
+import AdminHeader from '../../../component/admin/AdminHeader';
+import AdminModuleSidebar from '../../components/AdminModuleSidebar';
 
 /* ───────────────── types ───────────────── */
 
@@ -30,6 +24,14 @@ type SiswaRow = {
   email: string;
 };
 
+type TambahSiswaRow = {
+  id: string;
+  name: string;
+  kelas: string;
+  email: string;
+  added: boolean;
+};
+
 /* ───────────────── static data ───────────────── */
 
 const siswaRows: SiswaRow[] = Array.from({ length: 10 }, (_, i) => ({
@@ -39,14 +41,6 @@ const siswaRows: SiswaRow[] = Array.from({ length: 10 }, (_, i) => ({
   phone: '0823 1234 1234',
   email: 'Yosida@gmail.com',
 }));
-
-type TambahSiswaRow = {
-  id: string;
-  name: string;
-  kelas: string;
-  email: string;
-  added: boolean;
-};
 
 const tambahSiswaData: TambahSiswaRow[] = [
   { id: 't1', name: 'Yosida', kelas: 'XI', email: 'Yosida@gmail.com', added: false },
@@ -65,36 +59,6 @@ const filterOptions = [
   'Urutkan dengan Tingkat Kelas',
   'Urutkan dengan Sudah Dimasukan',
   'Urutkan dengan Belum Dimasukan',
-];
-
-/* ───────────────── sidebar nav items ───────────────── */
-
-type SidebarSection = {
-  title: string;
-  items: { label: string; icon: React.ReactNode; active?: boolean }[];
-};
-
-const sidebarSections: SidebarSection[] = [
-  {
-    title: 'Rencanakan Modul anda',
-    items: [
-      { label: 'Profil Modul Anda', icon: <FiFileText size={13} /> },
-      { label: 'Penetapan Harga Modul', icon: <FiDollarSign size={13} /> },
-    ],
-  },
-  {
-    title: 'Konten Modul Anda',
-    items: [
-      { label: 'Konten Modul', icon: <FiLayers size={13} /> },
-      { label: 'Pre - Post Test Modul', icon: <FiCheckSquare size={13} /> },
-    ],
-  },
-  {
-    title: 'Management Penguna',
-    items: [
-      { label: 'Management Siswa', icon: <FiUsers size={13} />, active: true },
-    ],
-  },
 ];
 
 /* ───────────────── action menu ───────────────── */
@@ -162,58 +126,11 @@ export default function ManagementSiswaModulPage() {
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
       <AdminHeader />
 
-      <main className="w-full">
-        <div className="grid w-full lg:grid-cols-[240px_1fr]">
-          {/* ── LEFT SIDEBAR ── */}
-          <aside className="hidden border-r border-[#e5e3ee] bg-white px-5 py-6 lg:flex lg:min-h-[calc(100vh-74px)] lg:flex-col">
-            {/* Nav sections */}
-            {sidebarSections.map((section, sIdx) => (
-              <div key={sIdx} className={sIdx > 0 ? 'mt-7' : ''}>
-                <p className="text-[13px] font-bold text-[#232530]">{section.title}</p>
-                <nav className="mt-3 space-y-3 text-[13px]">
-                  {section.items.map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      className={`flex w-full items-center gap-2 text-left transition-colors ${
-                        item.active
-                          ? 'font-semibold text-[#7054dc]'
-                          : 'text-[#7a7e8a] hover:text-[#7054dc]'
-                      }`}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </button>
-                  ))}
-                </nav>
-              </div>
-            ))}
+      <main className="flex w-full">
+        <AdminModuleSidebar basePath="/admin/tambah-modul" title="Tambah Modul" />
 
-            {/* Bottom action buttons */}
-            <div className="mt-auto space-y-2.5 pt-8">
-              <button
-                type="button"
-                className="w-full rounded-full bg-[#7054dc] px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_6px_16px_rgba(112,84,220,0.3)] transition-colors hover:bg-[#5f46cc]"
-              >
-                Simpan
-              </button>
-              <button
-                type="button"
-                className="w-full rounded-full border border-[#d8d3f0] bg-white px-4 py-2.5 text-[12px] font-semibold text-[#7054dc] transition-colors hover:bg-[#f5f2ff]"
-              >
-                Arsipkan Modul
-              </button>
-              <button
-                type="button"
-                className="w-full rounded-full border border-[#f5c2be] bg-white px-4 py-2.5 text-[12px] font-semibold text-[#f36e65] transition-colors hover:bg-[#fff3f2]"
-              >
-                Hapus Modul
-              </button>
-            </div>
-          </aside>
-
-          {/* ── MAIN CONTENT ── */}
-          <section className="px-4 pb-10 pt-6 sm:px-8 lg:px-10">
+        {/* ── MAIN CONTENT ── */}
+        <section className="flex-1 px-4 pb-10 pt-6 sm:px-8 lg:px-10">
             {/* Title + Counter row */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="max-w-[520px]">
@@ -409,7 +326,6 @@ export default function ManagementSiswaModulPage() {
               </button>
             </div>
           </section>
-        </div>
       </main>
 
       {/* ═══ MODAL: Tambahkan Siswa ke Modul ═══ */}

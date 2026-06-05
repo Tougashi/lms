@@ -345,14 +345,20 @@ export default function ManajemenModulPage() {
                                 <FaEdit size={12} />
                                 Edit
                               </Link>
-                              <button className="inline-flex items-center gap-1 text-[#7054dc]">
+                              <Link
+                                href={`/admin/manajemen-modul/siswa?id=${row.id}`}
+                                className="inline-flex items-center gap-1 text-[#7054dc]"
+                              >
                                 <MdSupervisorAccount size={13} />
                                 Management Siswa
-                              </button>
-                              <button className="inline-flex items-center gap-1 text-[#7054dc]">
+                              </Link>
+                              <Link
+                                href={`/admin/manajemen-modul/siswa?id=${row.id}`}
+                                className="inline-flex items-center gap-1 text-[#7054dc]"
+                              >
                                 <MdGroupAdd size={13} />
                                 Tambah Siswa
-                              </button>
+                              </Link>
                               <button
                                 onClick={() => handleDelete(row.id)}
                                 className="inline-flex items-center gap-1 text-[#f36e65]"
@@ -380,14 +386,20 @@ export default function ManajemenModulPage() {
                                     <FaEdit size={13} />
                                     Edit
                                   </Link>
-                                  <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]">
+                                  <Link
+                                    href={`/admin/manajemen-modul/siswa?id=${row.id}`}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]"
+                                  >
                                     <MdSupervisorAccount size={14} />
                                     Management Siswa
-                                  </button>
-                                  <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]">
+                                  </Link>
+                                  <Link
+                                    href={`/admin/manajemen-modul/siswa?id=${row.id}`}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]"
+                                  >
                                     <MdGroupAdd size={14} />
                                     Tambah Siswa
-                                  </button>
+                                  </Link>
                                   <button
                                     onClick={() => handleDelete(row.id)}
                                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]"
