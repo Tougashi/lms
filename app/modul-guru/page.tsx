@@ -12,6 +12,7 @@ import GuruHeader from '../component/guru/GuruHeader';
 import { useGuruModules } from './hooks/useGuruModules';
 import { guruModulApi } from '../lib/api';
 import { useRoleGuard } from '../lib/hooks/useRoleGuard';
+import { usePopup } from '../component/ui/PopupProvider';
 
 function ModulGuruPageContent() {
   const { isAuthorized } = useRoleGuard(['tutor']);
@@ -21,6 +22,7 @@ function ModulGuruPageContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { toast, confirm } = usePopup();
 
   const isDraftTab = tabParam === 'draft';
 
@@ -66,7 +68,8 @@ function ModulGuruPageContent() {
 
   const handleDelete = async (modulId: string) => {
     if (deletingId) return;
-    if (!confirm('Apakah Anda yakin ingin menghapus modul ini?')) return;
+    const ok = await confirm({ message: 'Apakah Anda yakin ingin menghapus modul ini?', variant: 'danger', confirmText: 'Hapus' });
+    if (!ok) return;
     setDeletingId(modulId);
     try {
       await guruModulApi.delete(modulId);
@@ -74,7 +77,7 @@ function ModulGuruPageContent() {
       loadModules();
     } catch (err) {
       console.error('Delete module error:', err);
-      alert('Gagal menghapus modul.');
+      toast('Gagal menghapus modul.', 'error');
     } finally {
       setDeletingId(null);
     }
@@ -186,7 +189,7 @@ function ModulGuruPageContent() {
                       </p>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <Link
-                          href={`/modul/${modul.id}`}
+                          href={`/modul-guru/tambah/konten?modulId=${modul.id}`}
                           className="rounded-full border border-[#bdaef4] px-4 py-1.5 text-[12px] font-semibold text-[#7557ea] transition-colors hover:bg-[#f5f2ff]"
                         >
                           Lihat Kelas
