@@ -196,10 +196,10 @@ export default function TambahModulAdminPage() {
         <div className="grid w-full lg:grid-cols-[240px_1fr]">
           <AdminModuleSidebar
             title="Tambah Modul"
-            backHref="/admin/manajemen-modul"
-            backLabel="Manajemen Modul"
+            activeSection="profil"
             primaryLabel={primaryLabel}
             onPrimaryAction={handleSimpan}
+            isPrimaryLoading={isSaving}
             secondaryLabel={form.isDraft ? 'Aktifkan Modul' : 'Jadikan Draft'}
             onSecondaryAction={handleToggleDraft}
           />
