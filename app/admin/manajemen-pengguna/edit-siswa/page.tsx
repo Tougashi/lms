@@ -42,7 +42,7 @@ function EditSiswaContent() {
     adminSiswaApi
       .getAll()
       .then((list) => {
-        const siswa = list.find((s) => s.id === id);
+        const siswa = list.items.find((s) => s.id === id);
         if (!siswa) {
           setNotFound(true);
         } else {

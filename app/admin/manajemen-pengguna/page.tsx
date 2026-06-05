@@ -111,7 +111,7 @@ export default function ManajemenPenggunaPage() {
         setSiswaCount(dashRes.value.activeStudents);
       }
       if (tutorRes.status === 'fulfilled') setGuruList(tutorRes.value);
-      if (siswaRes.status === 'fulfilled') setSiswaList(siswaRes.value);
+      if (siswaRes.status === 'fulfilled') setSiswaList(siswaRes.value.items ?? []);
     } finally {
       setIsLoading(false);
     }
