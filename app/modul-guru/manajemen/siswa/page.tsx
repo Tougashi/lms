@@ -14,6 +14,7 @@ function SiswaDetailPageContent() {
   const { isAuthorized } = useRoleGuard(['tutor']);
   const searchParams = useSearchParams();
   const studentId = searchParams.get('studentId');
+  const modulId = searchParams.get('modulId');
 
   const [studentData, setStudentData] = useState<TutorProgressByStudent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,7 +86,7 @@ function SiswaDetailPageContent() {
       <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
         <GuruHeader />
         <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
-          <Link href="/modul-guru/manajemen" className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530]">
+          <Link href={modulId ? `/modul-guru/manajemen?modulId=${modulId}` : '/modul-guru/manajemen'} className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530]">
             <span>←</span> Kembali ke Manajemen Modul
           </Link>
           <div className="mt-8 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -104,8 +105,8 @@ function SiswaDetailPageContent() {
       <GuruHeader />
 
       <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
-        <Link href="/modul-guru/manajemen" className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530]">
-          <span>←</span> Kembali ke Manajemen Modul
+        <Link href={modulId ? `/modul-guru/manajemen?modulId=${modulId}` : '/modul-guru/manajemen'} className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530]">
+          <span>←</span> Kembali ke Halaman Modul
         </Link>
 
         <div className="mt-4 flex flex-col gap-6 sm:mt-6 lg:flex-row lg:gap-8">

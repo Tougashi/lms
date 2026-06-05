@@ -86,6 +86,7 @@ function CTDetailPageContent() {
   const { isAuthorized } = useRoleGuard(['tutor']);
   const searchParams = useSearchParams();
   const studentId = searchParams.get('studentId');
+  const modulId = searchParams.get('modulId');
 
   const [dimensions, setDimensions] = useState<CTDimension[]>(defaultDimensions);
   const [isLoading, setIsLoading] = useState(true);
@@ -161,7 +162,7 @@ function CTDetailPageContent() {
 
       <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
         <Link
-          href={studentId ? `/modul-guru/manajemen/siswa?studentId=${studentId}` : '/modul-guru/manajemen/siswa'}
+          href={studentId ? `/modul-guru/manajemen/siswa?studentId=${studentId}${modulId ? `&modulId=${modulId}` : ''}` : '/modul-guru/manajemen/siswa'}
           className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530]"
         >
           <span>←</span> Kembali ke Nilai Siswa

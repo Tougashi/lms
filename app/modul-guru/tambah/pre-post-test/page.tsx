@@ -72,6 +72,7 @@ function PrePostTestPageContent() {
   const [editingSoalId, setEditingSoalId] = useState<number | null>(null);
   const [editSoalTitle, setEditSoalTitle] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTargetBankId, setSettingsTargetBankId] = useState<number | null>(null);
   const [settingsDuration, setSettingsDuration] = useState(90);
   const [settingsSoalTampil, setSettingsSoalTampil] = useState(30);
   const [aksesRules, setAksesRules] = useState<{ id: number; minScore: number; topik: string }[]>([{ id: 1, minScore: 30, topik: '' }]);
@@ -81,6 +82,20 @@ function PrePostTestPageContent() {
   const [isCreatingBank, setIsCreatingBank] = useState(false);
 
   const activeBank = banks.find((b) => b.id === activeBankId) ?? null;
+  const settingsTargetBank = banks.find((b) => b.id === settingsTargetBankId) ?? null;
+
+  // Helper to open settings modal for a specific bank
+  const openSettings = (bankId: number) => {
+    const bank = banks.find(b => b.id === bankId);
+    if (!bank || bank.type !== 'pretest') {
+      toast('Pengaturan hanya tersedia untuk Pre Test.', 'warning');
+      return;
+    }
+    setSettingsTargetBankId(bankId);
+    // Load existing settings values if available from the API data
+    // These are stored as pretestSettings on the bank's API response
+    setIsSettingsOpen(true);
+  };
 
   // Load existing pretest and posttest from API
   useEffect(() => {
@@ -110,6 +125,12 @@ function PrePostTestPageContent() {
               apiId: pretest.id,
               questions,
             });
+            // Load existing pretest settings into state
+            const existingSettings = pretest.pretestSettings;
+            if (existingSettings && existingSettings.length > 0) {
+              setSettingsDuration(existingSettings[0].duration ?? 90);
+              setSettingsSoalTampil(existingSettings[0].countShownQuestions ?? 30);
+            }
           }
         } catch { /* no pretest yet */ }
 
@@ -345,24 +366,28 @@ function PrePostTestPageContent() {
 
   // Save settings to API (pretest only, as only pretest has settings endpoint)
   const handleSaveSettings = useCallback(async () => {
-    if (!activeBank?.apiId || activeBank.type !== 'pretest') {
+    const targetBank = settingsTargetBank;
+    if (!targetBank?.apiId || targetBank.type !== 'pretest') {
+      toast('Pengaturan hanya tersedia untuk Pre Test.', 'warning');
       setIsSettingsOpen(false);
       return;
     }
     setIsSaving(true);
     try {
-      await guruPretestApi.updateSettings(activeBank.apiId, {
+      await guruPretestApi.updateSettings(targetBank.apiId, {
         duration: settingsDuration,
         countShownQuestions: settingsSoalTampil,
       });
+      toast('Pengaturan berhasil disimpan!', 'success');
       setIsSettingsOpen(false);
+      setSettingsTargetBankId(null);
     } catch (err: unknown) {
       console.error('Save settings error:', err);
       toast(err instanceof Error ? err.message : 'Gagal menyimpan pengaturan.', 'error');
     } finally {
       setIsSaving(false);
     }
-  }, [activeBank, settingsDuration, settingsSoalTampil]);
+  }, [settingsTargetBank, settingsDuration, settingsSoalTampil]);
 
   // Publish module
   const handlePublish = useCallback(async () => {
@@ -429,7 +454,7 @@ function PrePostTestPageContent() {
                   <span className={`inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold ${activeBank.type === 'pretest' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
                     {activeBank.type === 'pretest' ? 'Pre Test' : 'Post Test'}
                   </span>
-                  <button type="button" onClick={() => setIsSettingsOpen(true)} className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"><FiSettings size={14}/></button>
+                  {activeBank.type === 'pretest' && <button type="button" onClick={() => openSettings(activeBank.id)} className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"><FiSettings size={14}/></button>}
                   <button type="button" onClick={() => { handleDeleteBank(activeBank.id); setActiveBankId(null); }} className="cursor-pointer text-[#7a7e8a] hover:text-[#e04e4e]"><FiTrash2 size={14}/></button>
                 </div>
               </div>
@@ -537,7 +562,7 @@ function PrePostTestPageContent() {
         <section className="px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
           <div className="flex items-center gap-3">
             <h1 className="text-[18px] font-semibold text-[#232530]">Bank Soal Pree Test dan Post Test Modul</h1>
-            {banks.length > 0 && <button type="button" onClick={() => setIsSettingsOpen(true)} className="text-[#7a7e8a] hover:text-[#7054dc]"><FiSettings size={18}/></button>}
+            {banks.filter(b => b.type === 'pretest').length > 0 && <button type="button" onClick={() => { const pretestBank = banks.find(b => b.type === 'pretest'); if (pretestBank) openSettings(pretestBank.id); }} className="text-[#7a7e8a] hover:text-[#7054dc]" title="Pengaturan Pre Test"><FiSettings size={18}/></button>}
           </div>
           <p className="mt-2 max-w-[620px] text-[12px] leading-[1.6] text-[#7e8290]">Buatlah Pree test dan Post Test Modul anda. anda bisa menggunakan setiap Quis dari Topik yang anda buat di konten modul atau bisa membuat yang baru untuk soal ini.</p>
 

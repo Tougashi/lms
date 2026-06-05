@@ -14,7 +14,7 @@ export function useUpload() {
             setError(null);
 
             try {
-                const res = await uploadApi.content(file, type);
+                const res = await uploadApi.upload(file, type);
                 return res.url;
             } catch (err: unknown) {
                 const message =
