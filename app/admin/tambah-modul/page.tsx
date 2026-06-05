@@ -30,6 +30,8 @@ function TambahModulContent() {
   /* cover */
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
   const coverObjectUrlRef = useRef<string | null>(null);
 
   /* form fields */
@@ -90,17 +92,32 @@ function TambahModulContent() {
     };
   }, []);
 
-  /* cover change */
-  const handleCoverChange = (file: File | null) => {
+  /* cover change — upload langsung saat file dipilih */
+  const handleCoverChange = async (file: File | null) => {
     setCoverFile(file);
+    setCoverUrl(null);
     if (coverObjectUrlRef.current) {
       URL.revokeObjectURL(coverObjectUrlRef.current);
       coverObjectUrlRef.current = null;
     }
     if (!file) { setCoverPreview(null); return; }
-    const url = URL.createObjectURL(file);
-    coverObjectUrlRef.current = url;
-    setCoverPreview(url);
+    /* tampilkan preview lokal instan */
+    const localUrl = URL.createObjectURL(file);
+    coverObjectUrlRef.current = localUrl;
+    setCoverPreview(localUrl);
+    /* upload ke server */
+    setCoverUploading(true);
+    try {
+      const res = await uploadApi.upload(file, 'MODULE_IMAGE');
+      setCoverUrl(res.url);
+      setCoverPreview(res.url);
+      URL.revokeObjectURL(localUrl);
+      coverObjectUrlRef.current = null;
+    } catch {
+      showToast('error', 'Gagal mengupload gambar cover. Preview lokal tetap digunakan.');
+    } finally {
+      setCoverUploading(false);
+    }
   };
 
   /* save */
@@ -114,9 +131,10 @@ function TambahModulContent() {
     setSuccessMsg('');
 
     try {
-      let moduleImgUrl: string | null = null;
-      if (coverFile) {
-        const res = await uploadApi.upload(coverFile);
+      /* pakai coverUrl dari hasil upload sebelumnya, atau upload ulang jika belum sempat */
+      let moduleImgUrl = coverUrl;
+      if (!moduleImgUrl && coverFile) {
+        const res = await uploadApi.upload(coverFile, 'MODULE_IMAGE');
         moduleImgUrl = res.url ?? null;
       }
 
@@ -176,6 +194,17 @@ function TambahModulContent() {
           <div className="flex flex-col items-center">
             <div className="rounded-[26px] border border-[#f0eff6] bg-white p-3 shadow-[0_10px_24px_rgba(20,20,30,0.06)]">
               <div className="relative h-[180px] w-[300px] overflow-hidden rounded-[20px] border border-[#e5e3ee] bg-[#f4f3ff]">
+                {coverUploading && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 rounded-[20px]">
+                    <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-medium text-[#7054dc] shadow-md">
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Mengunggah...
+                    </div>
+                  </div>
+                )}
                 {coverPreview ? (
                   <Image src={coverPreview} alt="Preview cover modul" fill unoptimized className="object-cover" />
                 ) : (

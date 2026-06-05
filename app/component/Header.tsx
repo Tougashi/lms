@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { FaBell } from "react-icons/fa";
-import { IoPersonCircle } from "react-icons/io5";
-import { MdClose, MdLogout, MdMenu, MdOutlineKeyboardArrowDown } from "react-icons/md";
+import { MdClose, MdMenu } from "react-icons/md";
 import { useAuth } from "../context/AuthContext";
 import SiswaHeader from "./siswa/SiswaHeader";
+import GuruHeader from "./guru/GuruHeader";
+import AdminHeader from "./admin/AdminHeader";
 
 const guestMenuItems = [
   { label: "Beranda", href: "/" },
@@ -16,22 +16,15 @@ const guestMenuItems = [
 ];
 
 export default function Header() {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const isLoggedIn = Boolean(user);
+  const router = useRouter();
   const [isVisible, setIsVisible] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const lastScrollY = useRef(0);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
-  const menuItems = isLoggedIn
-    ? [
-        { label: "Beranda", href: "/beranda-siswa" },
-        { label: "Eksplor Modul", href: "/eksplor-modul" },
-        { label: "Tentang Kami", href: "/tentang-kami" },
-      ]
-    : guestMenuItems;
+  const menuItems = guestMenuItems;
 
   const isActiveMenu = (href: string) => {
     if (href === "/beranda-siswa") {
@@ -72,19 +65,9 @@ export default function Header() {
     };
   }, [isSidebarOpen]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
-        setIsProfileMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   if (!isLoading && isLoggedIn) {
+    if (user?.role === 'admin') return <AdminHeader />;
+    if (user?.role === 'tutor') return <GuruHeader />;
     return <SiswaHeader />;
   }
 
@@ -118,69 +101,24 @@ export default function Header() {
           </nav>
 
           <div className="hidden items-center gap-3 lg:flex">
-            {!isLoading &&
-              (isLoggedIn ? (
-                <>
-                  <button type="button" className="rounded-full p-2 hover:bg-[#f7f6ff]" aria-label="Notifikasi">
-                    <FaBell size={20} className="text-[#21212b]" />
-                  </button>
-
-                  <div className="relative" ref={profileMenuRef}>
-                    <button
-                      type="button"
-                      onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                      className="flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white px-1.5 py-1 shadow-sm transition-colors hover:bg-[#f7f6ff]"
-                    >
-                      <IoPersonCircle size={28} className="text-[#7054dc]" />
-                      <MdOutlineKeyboardArrowDown size={18} className="text-[#8a8a96]" />
-                    </button>
-
-                    {isProfileMenuOpen && (
-                      <div className="absolute right-0 top-full z-50 mt-3 w-[220px] overflow-hidden rounded-[18px] border border-[#d7d9df] bg-white shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
-                        <div className="px-3 py-3">
-                          <p className="text-xs font-semibold text-[#6f7482]">{user?.nama_lengkap || user?.fullName || "User"}</p>
-                          <p className="mt-1 text-[11px] text-[#8a8a96]">{user?.email || ""}</p>
-                        </div>
-
-                        <div className="border-t border-[#eceaf4] p-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsProfileMenuOpen(false);
-                              void logout();
-                            }}
-                            className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-medium text-[#ff7268] transition-colors hover:bg-[#fff6f5]"
-                          >
-                            <MdLogout size={16} />
-                            Logout
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href="/daftar-tutor"
-                    className="rounded-xl px-4 py-2 text-sm font-medium text-[#21212b] transition-colors hover:bg-[#f7f6ff] hover:text-[#7054dc]"
-                  >
-                    Daftar Tutor
-                  </Link>
-                  <Link
-                    href="/login"
-                    className="rounded-xl border border-[#d8d2ef] px-4 py-2 text-sm font-semibold text-[#7054dc] transition-colors hover:bg-[#f7f6ff]"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    href="/daftar"
-                    className="rounded-xl bg-[#7054dc] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                  >
-                    Register
-                  </Link>
-                </>
-              ))}
+            <Link
+              href="/daftar-tutor"
+              className="rounded-xl px-4 py-2 text-sm font-medium text-[#21212b] transition-colors hover:bg-[#f7f6ff] hover:text-[#7054dc]"
+            >
+              Daftar Tutor
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-xl border border-[#d8d2ef] px-4 py-2 text-sm font-semibold text-[#7054dc] transition-colors hover:bg-[#f7f6ff]"
+            >
+              Login
+            </Link>
+            <Link
+              href="/daftar"
+              className="rounded-xl bg-[#7054dc] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Register
+            </Link>
           </div>
 
           <button
@@ -238,43 +176,27 @@ export default function Header() {
 
         <div className="mt-6 border-t border-[#eceaf4] pt-6">
           <div className="space-y-3">
-            {!isLoading &&
-              (isLoggedIn ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSidebarOpen(false);
-                    void logout();
-                  }}
-                  className="block w-full rounded-xl bg-[#7054dc] px-3 py-3 text-center text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                >
-                  Logout
-                </button>
-              ) : (
-                <>
-                  <Link
-                    href="/daftar-tutor"
-                    onClick={() => setIsSidebarOpen(false)}
-                    className="block rounded-xl px-3 py-3 text-sm font-medium text-[#21212b] transition-colors hover:bg-[#f7f6ff] hover:text-[#7054dc]"
-                  >
-                    Daftar Tutor
-                  </Link>
-                  <Link
-                    href="/login"
-                    onClick={() => setIsSidebarOpen(false)}
-                    className="block rounded-xl border border-[#d8d2ef] px-3 py-3 text-center text-sm font-semibold text-[#7054dc] transition-colors hover:bg-[#f7f6ff]"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    href="/daftar"
-                    onClick={() => setIsSidebarOpen(false)}
-                    className="block rounded-xl bg-[#7054dc] px-3 py-3 text-center text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                  >
-                    Register
-                  </Link>
-                </>
-              ))}
+            <Link
+              href="/daftar-tutor"
+              onClick={() => setIsSidebarOpen(false)}
+              className="block rounded-xl px-3 py-3 text-sm font-medium text-[#21212b] transition-colors hover:bg-[#f7f6ff] hover:text-[#7054dc]"
+            >
+              Daftar Tutor
+            </Link>
+            <Link
+              href="/login"
+              onClick={() => setIsSidebarOpen(false)}
+              className="block rounded-xl border border-[#d8d2ef] px-3 py-3 text-center text-sm font-semibold text-[#7054dc] transition-colors hover:bg-[#f7f6ff]"
+            >
+              Login
+            </Link>
+            <Link
+              href="/daftar"
+              onClick={() => setIsSidebarOpen(false)}
+              className="block rounded-xl bg-[#7054dc] px-3 py-3 text-center text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Register
+            </Link>
           </div>
         </div>
       </aside>
