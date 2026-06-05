@@ -4,13 +4,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { FaBell } from 'react-icons/fa';
-import { RiCustomerService2Line, RiHome5Fill } from 'react-icons/ri';
-import { IoPersonCircle } from 'react-icons/io5';
-import { MdOutlineKeyboardArrowDown } from 'react-icons/md';
+import { RiHome5Fill } from 'react-icons/ri';
 import { FiArrowLeft } from 'react-icons/fi';
 import { FaHandsClapping } from 'react-icons/fa6';
 import { HiExclamationCircle, HiCheckCircle } from 'react-icons/hi2';
+import AdminHeader from '../../component/admin/AdminHeader';
 
 /* ───────────────── data types ───────────────── */
 
@@ -121,47 +119,6 @@ const PIE_SEGMENTS = [
 const PIE_TOTAL = PIE_SEGMENTS.reduce((a, s) => a + s.value, 0);
 
 /* ───────────────── sub-components ───────────────── */
-
-function AdminHeader() {
-  return (
-    <header className="sticky top-0 z-50 border-b border-[#eceaf4] bg-white shadow-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="text-xl font-bold text-[#21212b]">
-          NAMA WEB
-        </Link>
-
-        <nav className="hidden gap-10 sm:flex">
-          <Link href="/beranda-siswa" className="text-sm text-[#21212b] hover:text-[#7054dc]">
-            Beranda
-          </Link>
-          <Link href="/eksplor-modul" className="text-sm text-[#21212b] hover:text-[#7054dc]">
-            Modul Saya
-          </Link>
-          <Link href="/tentang-kami" className="text-sm text-[#21212b] hover:text-[#7054dc]">
-            Tentang Kami
-          </Link>
-        </nav>
-
-        <div className="flex items-center gap-3">
-          <button type="button" className="rounded-full p-2 hover:bg-[#f7f6ff]" aria-label="Notifikasi">
-            <FaBell size={20} className="text-[#21212b]" />
-          </button>
-          <button type="button" className="hidden rounded-full p-2 hover:bg-[#f7f6ff] sm:inline-flex" aria-label="Bantuan">
-            <RiCustomerService2Line size={22} className="text-[#21212b]" />
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white px-1.5 py-1 shadow-sm transition-colors hover:bg-[#f7f6ff]"
-            aria-label="Buka menu profil"
-          >
-            <IoPersonCircle size={28} className="text-[#7054dc]" />
-            <MdOutlineKeyboardArrowDown size={18} className="text-[#8a8a96]" />
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}
 
 function PieChart() {
   const size = 260;
@@ -291,17 +248,6 @@ function NilaiSiswaContent() {
       <AdminHeader />
 
       <main className="mx-auto w-full max-w-[1260px] px-4 pb-10 pt-6 sm:px-6">
-        {/* Dashboard Admin badge — own line */}
-        <div>
-          <Link
-            href="/admin/dashboard"
-            className="inline-flex items-center gap-2 rounded-xl border-2 border-[#f39b39] bg-[#fff8ef] px-4 py-2 text-[13px] font-semibold text-[#f39b39] transition-colors hover:bg-[#fff3e0]"
-          >
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#f39b39] text-white"><RiHome5Fill size={14} /></span>
-            Dashboard Admin
-          </Link>
-        </div>
-
         {/* Back link — own line below badge */}
         <div className="mt-2">
           <Link

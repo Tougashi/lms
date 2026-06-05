@@ -1,0 +1,209 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { FiMenu, FiX } from 'react-icons/fi';
+import { IoPersonCircle } from 'react-icons/io5';
+import {
+  MdDashboard,
+  MdLogout,
+  MdOutlineKeyboardArrowDown,
+  MdOutlineKeyboardArrowRight,
+  MdPerson,
+} from 'react-icons/md';
+import { FaBook, FaUsers, FaChartBar, FaCog } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
+
+export default function AdminHeader() {
+  const { user, logout } = useAuth();
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+
+  // Close mobile nav on route change
+  useEffect(() => {
+    setIsMobileNavOpen(false);
+  }, [pathname]);
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const isDashboardActive = pathname === '/admin/dashboard' || pathname === '/admin';
+  const isPenggunaActive = pathname.startsWith('/admin/manajemen-pengguna');
+  const isModulActive =
+    pathname.startsWith('/admin/manajemen-modul') || pathname.startsWith('/admin/tambah-modul');
+  const isNilaiActive = pathname.startsWith('/admin/nilai-siswa');
+  const isSettingActive = pathname.startsWith('/admin/setting') || pathname.startsWith('/admin/pengaturan');
+
+  const navItems = [
+    {
+      label: 'Dashboard',
+      href: '/admin/dashboard',
+      icon: MdDashboard,
+      active: isDashboardActive,
+    },
+    {
+      label: 'Manejemen Pengguna',
+      href: '/admin/manajemen-pengguna',
+      icon: FaUsers,
+      active: isPenggunaActive,
+    },
+    {
+      label: 'Manajemen Modul',
+      href: '/admin/manajemen-modul',
+      icon: FaBook,
+      active: isModulActive,
+    },
+
+  ];
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-[#eceaf4] bg-white shadow-sm">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+        {/* Logo */}
+        <Link href="/admin/dashboard" className="text-xl font-bold text-[#21212b]">
+          NAMA WEB
+        </Link>
+
+        {/* Desktop Nav */}
+        <nav className="hidden items-center gap-1 sm:flex">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-[#f0ecff] hover:text-[#7054dc] ${
+                  item.active
+                    ? 'bg-[#f0ecff] text-[#7054dc]'
+                    : 'text-[#21212b]'
+                }`}
+              >
+                <Icon size={14} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Right: Profile + Mobile toggle */}
+        <div className="flex items-center gap-2">
+          {/* Profile dropdown */}
+          <div className="relative" ref={profileMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+              className="flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white px-1.5 py-1 shadow-sm transition-colors hover:bg-[#f7f6ff]"
+              aria-label="Buka menu profil"
+            >
+              <IoPersonCircle size={28} className="text-[#7054dc]" />
+              <MdOutlineKeyboardArrowDown size={18} className="text-[#8a8a96]" />
+            </button>
+
+            {isProfileMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-3 w-[220px] overflow-hidden rounded-[20px] border border-[#d7d9df] bg-white shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+                <div className="bg-[#ffffff] px-3 py-2.5">
+                  <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-[#8a8a96]">
+                    Admin
+                  </p>
+                  <div className="mt-1.5 space-y-2">
+                    <div>
+                      <p className="text-[1rem] font-bold leading-tight text-[#7b7f8b]">
+                        {user?.fullName || user?.nama_lengkap || 'Admin'}
+                      </p>
+                      <p className="mt-1 text-[0.78rem] font-semibold leading-tight text-[#7b7f8b]">
+                        {user?.email || ''}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t border-[#d7d9df] bg-white px-2 py-2">
+                  <Link
+                    href="/admin/setting"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="flex w-full items-center justify-between rounded-lg px-1.5 py-1.5 text-[#7b7f8b] transition-colors hover:bg-[#f7f6ff]"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-5 w-5 items-center justify-center text-[#7b7f8b]">
+                        <MdPerson size={16} />
+                      </span>
+                      <span className="text-[0.78rem] font-medium leading-none text-[#7b7f8b]">
+                        Profil Admin
+                      </span>
+                    </div>
+                    <span className="text-[#7b7f8b]">
+                      <MdOutlineKeyboardArrowRight size={15} />
+                    </span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      logout();
+                    }}
+                    className="mt-1 flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[#ff7268] transition-colors hover:bg-[#fff6f5]"
+                  >
+                    <span className="flex h-5 w-5 items-center justify-center text-[#ff7268]">
+                      <MdLogout size={15} />
+                    </span>
+                    <span className="text-[0.78rem] font-medium leading-none text-[#ff7268]">
+                      Keluar Akun
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile hamburger */}
+          <button
+            type="button"
+            onClick={() => setIsMobileNavOpen((p) => !p)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#232530] hover:bg-[#f5f4fb] sm:hidden"
+            aria-label="Menu"
+          >
+            {isMobileNavOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Nav Drawer */}
+      {isMobileNavOpen && (
+        <div className="border-t border-[#eceaf4] bg-white px-4 py-3 sm:hidden">
+          <nav className="flex flex-col gap-1 text-[14px]">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 font-medium transition-colors ${
+                    item.active
+                      ? 'bg-[#f0ecff] text-[#7054dc]'
+                      : 'text-[#21212b] hover:bg-[#f7f6ff]'
+                  }`}
+                >
+                  <Icon size={15} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      )}
+    </header>
+  );
+}

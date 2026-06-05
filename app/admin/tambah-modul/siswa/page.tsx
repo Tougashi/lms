@@ -3,16 +3,14 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
-import { FaBell } from 'react-icons/fa';
-import { RiCustomerService2Line, RiHome5Fill } from 'react-icons/ri';
-import { IoPersonCircle } from 'react-icons/io5';
+import { RiHome5Fill } from 'react-icons/ri';
 import {
-  MdOutlineKeyboardArrowDown,
   MdMoreVert,
   MdKeyboardArrowLeft,
   MdKeyboardArrowRight,
   MdPersonAddAlt1,
 } from 'react-icons/md';
+import AdminHeader from '../../../component/admin/AdminHeader';
 import {
   FiFileText,
   FiDollarSign,
@@ -99,52 +97,6 @@ const sidebarSections: SidebarSection[] = [
   },
 ];
 
-/* ───────────────── header ───────────────── */
-
-function AdminHeader() {
-  return (
-    <header className="sticky top-0 z-50 border-b border-[#eceaf4] bg-white shadow-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="text-xl font-bold text-[#21212b]">
-          NAMA WEB
-        </Link>
-
-        <nav className="hidden gap-10 sm:flex">
-          <Link href="/beranda-siswa" className="text-sm text-[#21212b] hover:text-[#7054dc]">
-            Beranda
-          </Link>
-          <Link href="/eksplor-modul" className="text-sm text-[#21212b] hover:text-[#7054dc]">
-            Modul Saya
-          </Link>
-          <Link href="/admin/manajemen-pengguna" className="text-sm text-[#21212b] hover:text-[#7054dc]">
-            Siswa
-          </Link>
-          <Link href="/tentang-kami" className="text-sm text-[#21212b] hover:text-[#7054dc]">
-            Komunikasi
-          </Link>
-        </nav>
-
-        <div className="flex items-center gap-3">
-          <button type="button" className="rounded-full p-2 hover:bg-[#f7f6ff]" aria-label="Notifikasi">
-            <FaBell size={20} className="text-[#21212b]" />
-          </button>
-          <button type="button" className="hidden rounded-full p-2 hover:bg-[#f7f6ff] sm:inline-flex" aria-label="Bantuan">
-            <RiCustomerService2Line size={22} className="text-[#21212b]" />
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white px-1.5 py-1 shadow-sm transition-colors hover:bg-[#f7f6ff]"
-            aria-label="Buka menu profil"
-          >
-            <IoPersonCircle size={28} className="text-[#7054dc]" />
-            <MdOutlineKeyboardArrowDown size={18} className="text-[#8a8a96]" />
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}
-
 /* ───────────────── action menu ───────────────── */
 
 function ActionMenu({ onKeluarkan }: { onKeluarkan: () => void }) {
@@ -214,15 +166,6 @@ export default function ManagementSiswaModulPage() {
         <div className="grid w-full lg:grid-cols-[240px_1fr]">
           {/* ── LEFT SIDEBAR ── */}
           <aside className="hidden border-r border-[#e5e3ee] bg-white px-5 py-6 lg:flex lg:min-h-[calc(100vh-74px)] lg:flex-col">
-            {/* Dashboard Admin badge */}
-            <Link
-              href="/admin/dashboard"
-              className="mb-5 inline-flex w-fit items-center gap-2 rounded-xl border-2 border-[#f39b39] bg-[#fff8ef] px-3 py-1.5 text-[12px] font-semibold text-[#f39b39] transition-colors hover:bg-[#fff3e0]"
-            >
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#f39b39] text-white"><RiHome5Fill size={12} /></span>
-              Dashboard Admin
-            </Link>
-
             {/* Nav sections */}
             {sidebarSections.map((section, sIdx) => (
               <div key={sIdx} className={sIdx > 0 ? 'mt-7' : ''}>

@@ -4,7 +4,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
-  FaBell,
   FaCheckSquare,
   FaFilter,
   FaRegSquare,
@@ -14,16 +13,13 @@ import {
   FaUsers,
   FaChartBar,
 } from 'react-icons/fa';
-import { FaHeadset } from 'react-icons/fa6';
-import { IoPersonCircle } from 'react-icons/io5';
 import {
   MdKeyboardArrowLeft,
   MdKeyboardArrowRight,
   MdMoreVert,
-  MdOutlineKeyboardArrowDown,
   MdPersonAddAlt1,
 } from 'react-icons/md';
-import AdminSidebar from '../components/AdminSidebar';
+import AdminHeader from '../../component/admin/AdminHeader';
 import {
   AdminConfirmDialog,
   AdminToastContainer,
@@ -89,7 +85,7 @@ export default function ManajemenPenggunaPage() {
 
   // Toast & confirm
   const { toasts, showToast, dismissToast } = useAdminToast();
-  const [confirmState, setConfirmState] = useState<{ id: string; action: 'delete' | 'deactivate' } | null>(null);
+  const [confirmState, setConfirmState] = useState<{ id: string; action: 'delete' | 'deactivate'; bulkIds?: string[] } | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -203,13 +199,17 @@ export default function ManajemenPenggunaPage() {
 
   const executeConfirm = async () => {
     if (!confirmState) return;
-    const { id, action } = confirmState;
+    const { id, action, bulkIds } = confirmState;
     setConfirmState(null);
+    const idsToProcess = bulkIds ?? [id];
     try {
       if (action === 'delete') {
-        if (activeTab === 'guru') await adminTutorApi.delete(id);
-        else await adminSiswaApi.delete(id);
-        showToast('success', 'Data berhasil dihapus.');
+        for (const targetId of idsToProcess) {
+          if (activeTab === 'guru') await adminTutorApi.delete(targetId);
+          else await adminSiswaApi.delete(targetId);
+        }
+        setSelectedRowIds({});
+        showToast('success', `${idsToProcess.length > 1 ? `${idsToProcess.length} data` : 'Data'} berhasil dihapus.`);
       } else {
         if (activeTab === 'guru') await adminTutorApi.deactivate(id);
         else await adminSiswaApi.deactivate(id);
@@ -219,6 +219,14 @@ export default function ManajemenPenggunaPage() {
     } catch {
       showToast('error', action === 'delete' ? 'Gagal menghapus data.' : 'Gagal menonaktifkan akun.');
     }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Object.keys(selectedRowIds).filter((id) => selectedRowIds[id]);
+    if (ids.length === 0) return;
+    // Use the confirm flow — set a bulk target via a special marker
+    // We delete sequentially after confirmation
+    setConfirmState({ id: '__bulk__', action: 'delete', bulkIds: ids });
   };
 
   const tableColumns =
@@ -235,13 +243,15 @@ export default function ManajemenPenggunaPage() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f3f3f6]">
+    <div className="min-h-screen bg-[#f3f3f6]">
       {/* Custom confirm dialog */}
       {confirmState && (
         <AdminConfirmDialog
           message={
             confirmState.action === 'delete'
-              ? 'Yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.'
+              ? confirmState.bulkIds
+                ? `Yakin ingin menghapus ${confirmState.bulkIds.length} data yang dipilih? Tindakan ini tidak dapat dibatalkan.`
+                : 'Yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.'
               : 'Yakin ingin menonaktifkan akun ini?'
           }
           danger={confirmState.action === 'delete'}
@@ -252,28 +262,10 @@ export default function ManajemenPenggunaPage() {
       )}
       {/* Toast notifications */}
       <AdminToastContainer toasts={toasts} onDismiss={dismissToast} />
-      <div className="grid h-screen grid-cols-1 lg:grid-cols-[260px_1fr]">
-        <AdminSidebar active="pengguna" />
+      <AdminHeader />
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
 
-        <main className="overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-[#202126]">Selamat datang, Admin</p>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#7054dc] sm:text-4xl lg:text-5xl">
-                Management Pengguna
-              </h1>
-            </div>
-            <div className="flex items-center gap-3 rounded-full border border-[#dcd9e8] bg-white px-4 py-3 shadow-sm">
-              <FaBell className="text-[#9396a3]" size={18} />
-              <FaHeadset className="text-[#9396a3]" size={19} />
-              <button className="inline-flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white px-1.5 py-1 shadow-sm">
-                <IoPersonCircle size={24} className="text-[#7054dc]" />
-                <MdOutlineKeyboardArrowDown size={16} className="text-[#8a8a96]" />
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="mt-3 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="flex items-center gap-2 px-2 pt-1 xl:pt-2">
               <button
                 type="button"
@@ -298,12 +290,15 @@ export default function ManajemenPenggunaPage() {
           </div>
 
           <div className="rounded-[22px] border border-[#e1dff0] bg-white p-3 shadow-[0_2px_12px_rgba(0,0,0,0.04)] mt-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-3">
-                <button className="inline-flex items-center gap-2 rounded-full bg-[#f39b39] px-4 py-2 text-sm font-semibold text-white shadow-sm">
+                <Link
+                  href={activeTab === 'guru' ? '/admin/manajemen-pengguna/tambah-guru' : '/admin/manajemen-pengguna/tambah-siswa'}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#f39b39] px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                >
                   <MdPersonAddAlt1 size={14} />
                   {activeTab === 'guru' ? 'Tambah Guru' : 'Tambah Siswa'}
-                </button>
+                </Link>
                 <label className="flex h-8 w-full max-w-[340px] items-center gap-2 rounded-full border border-[#c8c9d0] bg-white px-3 text-sm text-[#8a8a96] sm:w-[320px]">
                   <FaSearch size={12} className="text-[#a0a3b0]" />
                   <input
@@ -352,7 +347,16 @@ export default function ManajemenPenggunaPage() {
                   )}
                 </div>
 
-                <button className="inline-flex items-center gap-2 rounded-full bg-[#f36e65] px-4 py-2 text-sm font-semibold text-white shadow-sm">
+                {Object.values(selectedRowIds).filter(Boolean).length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ece7ff] px-3 py-1 text-xs font-semibold text-[#7054dc]">
+                    {Object.values(selectedRowIds).filter(Boolean).length} dipilih
+                  </span>
+                )}
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={Object.values(selectedRowIds).filter(Boolean).length === 0}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#f36e65] px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
                   <FaTrash size={12} />
                   Hapus
                 </button>
@@ -360,7 +364,7 @@ export default function ManajemenPenggunaPage() {
             </div>
 
             <div className="rounded-[18px] border border-[#e9e8f0] bg-white">
-              <div className="overflow-x-auto">
+              <div className="min-h-[440px] overflow-x-auto">
                 <table className="min-w-[980px] w-full border-separate border-spacing-0">
                   <thead>
                     <tr className="bg-[#ebebec] text-[13px] font-medium text-[#9a9ca7]">
@@ -382,129 +386,151 @@ export default function ManajemenPenggunaPage() {
                   <tbody>
                     {isLoading ? (
                       <tr>
-                        <td colSpan={tableColumns.length + 2} className="py-10 text-center text-sm text-[#9396a3]">
+                        <td colSpan={tableColumns.length + 2} className="py-32 text-center text-sm text-[#9396a3]">
                           Memuat data...
                         </td>
                       </tr>
                     ) : paginatedRows.length === 0 ? (
                       <tr>
-                        <td colSpan={tableColumns.length + 2} className="py-10 text-center text-sm text-[#9396a3]">
+                        <td colSpan={tableColumns.length + 2} className="py-32 text-center text-sm text-[#9396a3]">
                           Tidak ada data.
                         </td>
                       </tr>
                     ) : (
-                      paginatedRows.map((row) => {
-                        const cols = activeTab === 'guru'
-                          ? getGuruCols(row as AdminTutorItem)
-                          : getSiswaCols(row as AdminSiswaItem);
-                        return (
-                          <tr key={row.id} className="border-t border-[#eef0f5] text-sm text-[#4d5260]">
-                            <td className="px-4 py-4 align-middle">
-                              <button
-                                type="button"
-                                onClick={() => toggleRow(row.id)}
-                                className={`inline-flex h-6 w-6 items-center justify-center rounded-sm border ${selectedRowIds[row.id] ? 'border-[#7054dc] bg-[#7054dc] text-white' : 'border-[#cfd3de] text-[#9aa0ab]'}`}
-                              >
-                                <FaCheckSquare size={12} />
-                              </button>
-                            </td>
-                            <td className="px-4 py-4 align-middle font-medium text-[#5a5f6a]">
-                              {activeTab === 'siswa' ? (
-                                <Link href="/admin/nilai-siswa" className="hover:text-[#7054dc] hover:underline transition-colors">
-                                  {cols[0]}
-                                </Link>
-                              ) : cols[0]}
-                            </td>
-                            <td className="px-4 py-4 align-middle">{cols[1]}</td>
-                            <td className="px-4 py-4 align-middle">{cols[2]}</td>
-                            <td className="px-4 py-4 align-middle">{cols[3]}</td>
-                            <td className="px-4 py-4 align-middle">{cols[4]}</td>
-                            <td className="px-4 py-4 align-middle text-right">
-                              <div className="relative inline-flex">
+                      <>
+                        {paginatedRows.map((row) => {
+                          const cols = activeTab === 'guru'
+                            ? getGuruCols(row as AdminTutorItem)
+                            : getSiswaCols(row as AdminSiswaItem);
+                          return (
+                            <tr key={row.id} className="border-t border-[#eef0f5] text-sm text-[#4d5260]">
+                              <td className="px-4 py-4 align-middle">
                                 <button
                                   type="button"
-                                  onClick={() => setOpenActionMenuId((prev) => (prev === row.id ? null : row.id))}
-                                  className="text-[#8d909c] hover:text-[#7054dc]"
+                                  onClick={() => toggleRow(row.id)}
+                                  className={`inline-flex h-6 w-6 items-center justify-center rounded-sm border ${selectedRowIds[row.id] ? 'border-[#7054dc] bg-[#7054dc] text-white' : 'border-[#cfd3de] text-[#9aa0ab]'}`}
                                 >
-                                  <MdMoreVert size={18} />
+                                  <FaCheckSquare size={12} />
                                 </button>
-                                {openActionMenuId === row.id && (
-                                  <div className="absolute right-0 top-9 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
-                                    <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]">
-                                      <FaEdit size={13} />
-                                      Edit
-                                    </button>
-                                    {activeTab === 'siswa' && (
+                              </td>
+                              <td className="px-4 py-4 align-middle font-medium text-[#5a5f6a]">
+                                {activeTab === 'siswa' ? (
+                                  <Link href="/admin/nilai-siswa" className="hover:text-[#7054dc] hover:underline transition-colors">
+                                    {cols[0]}
+                                  </Link>
+                                ) : cols[0]}
+                              </td>
+                              <td className="px-4 py-4 align-middle">{cols[1]}</td>
+                              <td className="px-4 py-4 align-middle">{cols[2]}</td>
+                              <td className="px-4 py-4 align-middle">{cols[3]}</td>
+                              <td className="px-4 py-4 align-middle">{cols[4]}</td>
+                              <td className="px-4 py-4 align-middle text-right">
+                                <div className="relative inline-flex">
+                                  <button
+                                    type="button"
+                                    onClick={() => setOpenActionMenuId((prev) => (prev === row.id ? null : row.id))}
+                                    className="text-[#8d909c] hover:text-[#7054dc]"
+                                  >
+                                    <MdMoreVert size={18} />
+                                  </button>
+                                  {openActionMenuId === row.id && (
+                                    <div className="absolute right-0 top-9 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
                                       <Link
-                                        href="/admin/nilai-siswa"
-                                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
+                                        href={activeTab === 'guru' ? `/admin/manajemen-pengguna/edit-guru?id=${row.id}` : `/admin/manajemen-pengguna/edit-siswa?id=${row.id}`}
+                                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]"
                                       >
-                                        <FaChartBar size={13} />
-                                        Lihat Nilai
+                                        <FaEdit size={13} />
+                                        Edit
                                       </Link>
-                                    )}
-                                    <button
-                                      onClick={() => handleDeactivate(row.id)}
-                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#60636d] hover:bg-[#f7f6ff]"
-                                    >
-                                      <FaUsers size={13} />
-                                      Nonaktifkan
-                                    </button>
-                                    <button
-                                      onClick={() => handleDelete(row.id)}
-                                      className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]"
-                                    >
-                                      <FaTrash size={13} />
-                                      Hapus
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
+                                      {activeTab === 'siswa' && (
+                                        <Link
+                                          href="/admin/nilai-siswa"
+                                          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
+                                        >
+                                          <FaChartBar size={13} />
+                                          Lihat Nilai
+                                        </Link>
+                                      )}
+                                      <button
+                                        onClick={() => handleDeactivate(row.id)}
+                                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#60636d] hover:bg-[#f7f6ff]"
+                                      >
+                                        <FaUsers size={13} />
+                                        Nonaktifkan
+                                      </button>
+                                      <button
+                                        onClick={() => handleDelete(row.id)}
+                                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]"
+                                      >
+                                        <FaTrash size={13} />
+                                        Hapus
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </>
                     )}
                   </tbody>
                 </table>
               </div>
 
-              <div className="flex items-center justify-between px-4 py-3">
-                <p className="text-xs text-[#9396a3]">{filteredRows.length} data</p>
+              <div className="flex items-center justify-between border-t border-[#f0eff6] px-4 py-3">
+                <p className="text-xs text-[#9396a3]">
+                  {filteredRows.length} data · Hal {safePage}/{totalPages}
+                </p>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={safePage <= 1}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-[#7054dc] disabled:opacity-40"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors text-[#7054dc] hover:bg-[#ede9fb] disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    <MdKeyboardArrowLeft size={16} />
+                    <MdKeyboardArrowLeft size={18} />
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${
-                        page === safePage
-                          ? 'border-[#7054dc] bg-[#7054dc] text-white'
-                          : 'border-[#d4d7e2] text-[#818694] hover:border-[#7054dc] hover:text-[#7054dc]'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) =>
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - safePage) <= 1
+                    )
+                    .reduce<(number | '...')[]
+                    >((acc, page, idx, arr) => {
+                      if (idx > 0 && (page as number) - (arr[idx - 1] as number) > 1) acc.push('...');
+                      acc.push(page);
+                      return acc;
+                    }, [])
+                    .map((item, idx) =>
+                      item === '...' ? (
+                        <span key={`ellipsis-${idx}`} className="px-1 text-xs text-[#9396a3]">…</span>
+                      ) : (
+                        <button
+                          key={item}
+                          onClick={() => setCurrentPage(item as number)}
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+                            item === safePage
+                              ? 'bg-[#7054dc] text-white shadow-sm'
+                              : 'text-[#6b7080] hover:bg-[#ede9fb] hover:text-[#7054dc]'
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      )
+                    )}
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage >= totalPages}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-[#7054dc] disabled:opacity-40"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors text-[#7054dc] hover:bg-[#ede9fb] disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    <MdKeyboardArrowRight size={16} />
+                    <MdKeyboardArrowRight size={18} />
                   </button>
                 </div>
               </div>
             </div>
           </div>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

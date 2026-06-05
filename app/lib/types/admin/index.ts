@@ -18,28 +18,63 @@ export interface AdminDashboardStats {
 export interface AdminModulItem {
     id: string;
     moduleName: string;
-    isDraft: boolean;
+    subtitle?: string;
+    targetTime?: number;
+    difficulty?: string;
+    isPaid?: boolean;
+    modulPrice?: number | null;
+    level?: string | null;
+    class?: string | null;
     modulType?: "SISWA" | "UMUM" | string;
+    isDraft: boolean;
     type?: "SISWA" | "UMUM" | string; // alias lama, tetap ada
     description?: string;
     tutorId?: string;
     tutor?: { fullName: string };
+    moduleImgUrl?: string | null;
+    pretestPostTestEnabled?: boolean;
+    hasStudyGroup?: boolean;
+    hasCertificate?: boolean;
     totalSiswa?: number;
 }
 
 export interface AdminModulCreatePayload {
     moduleName: string;
+    subtitle: string;
     description?: string;
+    targetTime: number;
+    difficulty: string;
+    isPaid?: boolean;
+    modulPrice?: number | null;
+    level?: string | null;
+    class?: string | null;
     type?: string;
     isDraft?: boolean;
     tutorId?: string;
+    modulType?: string;
+    moduleImgUrl?: string | null;
+    pretestPostTestEnabled?: boolean;
+    hasStudyGroup?: boolean;
+    hasCertificate?: boolean;
 }
 
 export interface AdminModulUpdatePayload {
     moduleName?: string;
+    subtitle?: string;
     description?: string;
+    targetTime?: number;
+    difficulty?: string;
+    isPaid?: boolean;
+    modulPrice?: number | null;
+    level?: string | null;
+    class?: string | null;
     isDraft?: boolean;
     tutorId?: string;
+    modulType?: string;
+    moduleImgUrl?: string | null;
+    pretestPostTestEnabled?: boolean;
+    hasStudyGroup?: boolean;
+    hasCertificate?: boolean;
 }
 
 export interface AdminAssignPayload {

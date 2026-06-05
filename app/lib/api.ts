@@ -819,7 +819,10 @@ export const uploadApi = {
     upload(file: File, fileType?: string) {
         const formData = new FormData();
         formData.append("file", file);
-        if (fileType) formData.append("type", fileType);
+        if (fileType) {
+            formData.append("fileType", fileType);
+            formData.append("type", fileType);
+        }
         return apiFetch<UploadResponse>("/upload", {
             method: "POST",
             data: formData,

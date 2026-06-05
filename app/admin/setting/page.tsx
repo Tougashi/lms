@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FaBell, FaEyeSlash, FaLock, FaSignOutAlt, FaRegEdit, FaUser } from "react-icons/fa";
 import { MdVerified } from "react-icons/md";
-import AdminSidebar from "../components/AdminSidebar";
+import AdminHeader from "../../component/admin/AdminHeader";
 
 const adminSettingMenu = [
   { id: "profil", label: "Profil Saya", icon: FaUser, danger: false },
@@ -17,11 +17,9 @@ export default function AdminSettingPage() {
   const [isNotificationSoundEnabled, setIsNotificationSoundEnabled] = useState(false);
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f7f6fb]">
-      <div className="grid h-screen grid-cols-1 lg:grid-cols-[260px_1fr]">
-        <AdminSidebar active="setting" />
-
-        <main className="overflow-y-auto px-4 py-6 sm:px-6">
+    <div className="min-h-screen bg-[#f7f6fb]">
+      <AdminHeader />
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
           <p className="text-sm font-semibold text-[#202126]">Selamat datang, Olivia</p>
           <h1 className="mt-1 text-lg font-bold text-[#202126]">Pengaturan Admin</h1>
 
@@ -227,8 +225,7 @@ export default function AdminSettingPage() {
               </div>
             </div>
           </section>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }
