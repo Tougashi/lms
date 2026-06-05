@@ -18,7 +18,6 @@ import {
   FiX,
 } from "react-icons/fi";
 
-
 import GuruHeader from "../../../component/guru/GuruHeader";
 import {
   guruModulApi,
@@ -712,8 +711,6 @@ function TambahModulKontenPageContent() {
 
     return material.linkUrl.trim().length > 0;
   };
-
-
 
   const handleCreateMaterial = async () => {
     const trimmedTitle = newMaterialTitle.trim();

@@ -30,6 +30,8 @@ export interface GuruModuleItem {
     moduleImgUrl?: string | null;
     createdAt?: string;
     updatedAt?: string;
+    progress?: any[];
+    totalSiswa?: number;
 }
 
 export interface GuruModuleListResponse {

@@ -196,7 +196,7 @@ function ModulGuruPageContent() {
                         </Link>
                         {!isDraftTab && (
                           <Link
-                            href="/modul-guru/manajemen"
+                            href={`/modul-guru/manajemen?modulId=${modul.id}`}
                             className="rounded-full border border-[#f4b46f] px-4 py-1.5 text-[12px] font-semibold text-[#f39b39] transition-colors hover:bg-[#fff3e6]"
                           >
                             Manajemen Modul
