@@ -8,6 +8,7 @@ import { IoPersonCircle } from "react-icons/io5";
 import { MdClose, MdLogout, MdMenu, MdOutlineKeyboardArrowDown } from "react-icons/md";
 import { useAuth } from "../context/AuthContext";
 import SiswaHeader from "./siswa/SiswaHeader";
+import GuruHeader from "./guru/GuruHeader";
 
 const guestMenuItems = [
   { label: "Beranda", href: "/" },
@@ -85,6 +86,9 @@ export default function Header() {
   }, []);
 
   if (!isLoading && isLoggedIn) {
+    if (user?.role === 'tutor' || user?.role === 'guru') {
+      return <GuruHeader />;
+    }
     return <SiswaHeader />;
   }
 

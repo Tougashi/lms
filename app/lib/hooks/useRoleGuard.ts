@@ -18,7 +18,8 @@ export function useRoleGuard(allowedRoles: string[]) {
   const { user, role, isLoading } = useAuth();
   const router = useRouter();
 
-  const isAuthorized = !isLoading && !!user && !!role && allowedRoles.includes(role);
+  const normalizedRole = role === 'guru' ? 'tutor' : role;
+  const isAuthorized = !isLoading && !!user && !!role && (allowedRoles.includes(role) || allowedRoles.includes(normalizedRole));
 
   useEffect(() => {
     if (isLoading) return;
@@ -26,9 +27,13 @@ export function useRoleGuard(allowedRoles: string[]) {
     // Not logged in — AuthContext already handles redirect to /login
     if (!user || !role) return;
 
+    // Handle alias guru <-> tutor
+    const currentNormalizedRole = role === 'guru' ? 'tutor' : role;
+    const isAllowed = allowedRoles.includes(role) || allowedRoles.includes(currentNormalizedRole);
+
     // Logged in but wrong role — redirect to their home page
-    if (!allowedRoles.includes(role)) {
-      switch (role) {
+    if (!isAllowed) {
+      switch (currentNormalizedRole) {
         case 'admin':
           router.replace('/admin/dashboard');
           break;

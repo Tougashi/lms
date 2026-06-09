@@ -87,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           router.push('/admin/dashboard');
           break;
         case 'tutor':
+        case 'guru':
           router.push('/beranda-guru');
           break;
         case 'siswa':
