@@ -57,7 +57,11 @@ export interface TutorRegisterPayload {
 export type RegisterPayload = SiswaRegisterPayload | TutorRegisterPayload;
 
 export interface CursorPagination<T> {
-  data: T[];
+  /** Actual field returned by the backend pagination utility */
+  items: T[];
+  next_cursor: string | null;
+  /** Legacy aliases kept for backward-compatibility — may be undefined */
+  data?: T[];
   nextCursor?: string | null;
   hasMore?: boolean;
 }

@@ -21,7 +21,7 @@ import {
 } from "react-icons/fi";
 
 import GuruHeader from "../../../component/guru/GuruHeader";
-import { guruModulApi } from "../../../lib/api";
+import { guruModulApi, uploadApi } from "../../../lib/api";
 import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
 import { useUpload } from "../../hooks/useUpload";
 import type { GuruModuleUpdatePayload } from "../../../lib/types/guru";
@@ -44,11 +44,10 @@ function TambahModulProfilPageContent() {
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [accessType, setAccessType] = useState<"SISWA" | "UMUM">("SISWA");
-    const [coverFile, setCoverFile] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
-    const [existingThumbnail, setExistingThumbnail] = useState<string | null>(
-        null,
-    );
+    const [coverUrl, setCoverUrl] = useState<string | null>(null);
+    const [coverUploading, setCoverUploading] = useState(false);
+    const coverObjectUrlRef = useRef<string | null>(null);
     const { user } = useAuth();
 
     const [isLoading, setIsLoading] = useState(!!modulId);
@@ -90,6 +89,10 @@ function TambahModulProfilPageContent() {
                         setTargetTimeUnit("minggu");
                     }
                 }
+                if (data.moduleImgUrl) {
+                    setCoverUrl(data.moduleImgUrl);
+                    setCoverPreview(data.moduleImgUrl);
+                }
                 setIsExpanded(true);
             } catch (err) {
                 console.error("Load module error:", err);
@@ -103,11 +106,9 @@ function TambahModulProfilPageContent() {
 
     useEffect(() => {
         return () => {
-            if (coverPreview) {
-                URL.revokeObjectURL(coverPreview);
-            }
+            if (coverObjectUrlRef.current) URL.revokeObjectURL(coverObjectUrlRef.current);
         };
-    }, [coverPreview]);
+    }, []);
 
     // Dynamic class options based on selected level (jenjang)
     const kelasOptions = useMemo(() => {
@@ -158,6 +159,7 @@ function TambahModulProfilPageContent() {
                 subtitle: subtitle.trim(),
                 description: description.trim(),
                 targetTime: computedTargetTime,
+                moduleImgUrl: coverUrl || undefined,
                 difficulty,
                 level: level || undefined,
                 class: kelas || undefined,
@@ -463,6 +465,17 @@ function TambahModulProfilPageContent() {
                         <div className="flex flex-col items-center">
                             <div className="rounded-[26px] border border-[#f0eff6] bg-white p-3 shadow-[0_10px_24px_rgba(20,20,30,0.06)]">
                                 <div className="relative h-[180px] w-[300px] overflow-hidden rounded-[20px] border border-[#e5e3ee] bg-[#f4f3ff]">
+                                    {coverUploading && (
+                                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 rounded-[20px]">
+                                            <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-medium text-[#7054dc] shadow-md">
+                                                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                </svg>
+                                                Mengunggah...
+                                            </div>
+                                        </div>
+                                    )}
                                     {coverPreview ? (
                                         <Image
                                             src={coverPreview}
@@ -491,18 +504,35 @@ function TambahModulProfilPageContent() {
                                         type="file"
                                         accept="image/*"
                                         className="hidden"
-                                        onChange={(event) => {
+                                        onChange={async (event) => {
                                             const file =
                                                 event.target.files?.[0];
                                             if (!file) return;
-                                            setCoverFile(file);
-                                            const nextUrl =
+                                            setCoverUrl(null);
+                                            if (coverObjectUrlRef.current) {
+                                                URL.revokeObjectURL(coverObjectUrlRef.current);
+                                                coverObjectUrlRef.current = null;
+                                            }
+                                            const localUrl =
                                                 URL.createObjectURL(file);
-                                            setCoverPreview((prev) => {
-                                                if (prev)
-                                                    URL.revokeObjectURL(prev);
-                                                return nextUrl;
-                                            });
+                                            coverObjectUrlRef.current = localUrl;
+                                            setCoverPreview(localUrl);
+                                            setCoverUploading(true);
+                                            try {
+                                                const res =
+                                                    await uploadApi.upload(
+                                                        file,
+                                                        "MODULE_IMAGE",
+                                                    );
+                                                setCoverUrl(res.url);
+                                                setCoverPreview(res.url);
+                                                URL.revokeObjectURL(localUrl);
+                                                coverObjectUrlRef.current = null;
+                                            } catch {
+                                                // preview lokal tetap dipakai
+                                            } finally {
+                                                setCoverUploading(false);
+                                            }
                                         }}
                                     />
                                 </div>

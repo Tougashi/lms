@@ -9,7 +9,7 @@ import TestimonialSection from "./component/TestimonialSectionView";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#d9d3e9]">
+    <div className="min-h-screen bg-[#F1EFFC]">
       <Header />
       <main className="">
         <Hero />

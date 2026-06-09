@@ -69,6 +69,7 @@ import type {
     AdminModulUpdatePayload,
     AdminAssignPayload,
     AdminEnrollmentItem,
+    AdminModulSiswaItem,
     AdminTopikItem,
     AdminTopikCreatePayload,
     AdminTopikUpdatePayload,
@@ -817,9 +818,11 @@ export const guruKuisApi = {
 
 export const uploadApi = {
     upload(file: File, fileType?: string) {
+        const type = fileType || "MODULE_IMAGE";
         const formData = new FormData();
         formData.append("file", file);
-        if (fileType) formData.append("type", fileType);
+        formData.append("type", type);
+        formData.append("fileType", type);
         return apiFetch<UploadResponse>("/upload", {
             method: "POST",
             data: formData,
@@ -920,7 +923,7 @@ export const adminModulApi = {
     },
 
     unassign(payload: AdminAssignPayload) {
-        return apiFetch<{ message: string }>("/admin/modul/unassign", {
+        return apiFetch<{ message: string }>("/admin/modul/assign", {
             method: "DELETE",
             data: payload,
         });
@@ -931,6 +934,16 @@ export const adminModulApi = {
             method: "GET",
             data: payload,
         });
+    },
+
+    getStudents(modulId: string, params?: { cursor?: string; limit?: number }) {
+        const query = new URLSearchParams();
+        if (params?.cursor) query.set("cursor", params.cursor);
+        if (params?.limit) query.set("limit", String(params.limit));
+        const qs = query.toString();
+        return apiFetch<CursorPagination<AdminModulSiswaItem>>(
+            `/admin/manage/module/${modulId}/siswa/all${qs ? `?${qs}` : ""}`,
+        );
     },
 };
 
@@ -1039,8 +1052,14 @@ export const adminKuisApi = {
 // ---------------------------------------------------------------------------
 
 export const adminSiswaApi = {
-    getAll() {
-        return apiFetch<AdminSiswaItem[]>("/admin/siswa");
+    getAll(params?: { cursor?: string; limit?: number }) {
+        const query = new URLSearchParams();
+        if (params?.cursor) query.set("cursor", params.cursor);
+        if (params?.limit) query.set("limit", String(params.limit));
+        const qs = query.toString();
+        return apiFetch<CursorPagination<AdminSiswaItem>>(
+            `/admin/siswa${qs ? `?${qs}` : ""}`,
+        );
     },
 
     search(q: string) {

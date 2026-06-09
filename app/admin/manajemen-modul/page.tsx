@@ -4,7 +4,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useCallback, useState } from 'react';
 import {
-  FaBell,
   FaCheckSquare,
   FaFilter,
   FaRegSquare,
@@ -13,18 +12,15 @@ import {
   FaEdit,
   FaBook,
 } from 'react-icons/fa';
-import { FaHeadset } from 'react-icons/fa6';
-import { IoPersonCircle } from 'react-icons/io5';
 import {
   MdKeyboardArrowLeft,
   MdKeyboardArrowRight,
   MdMoreVert,
-  MdOutlineKeyboardArrowDown,
   MdPersonAddAlt1,
   MdSupervisorAccount,
   MdGroupAdd,
 } from 'react-icons/md';
-import AdminSidebar from '../components/AdminSidebar';
+import AdminHeader from '../../component/admin/AdminHeader';
 import {
   AdminConfirmDialog,
   AdminToastContainer,
@@ -85,7 +81,7 @@ export default function ManajemenModulPage() {
 
   // Toast & confirm
   const { toasts, showToast, dismissToast } = useAdminToast();
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | string[] | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,8 +106,8 @@ export default function ManajemenModulPage() {
         setModulCount(dashRes.value.activeModules);
         setKuisCount(dashRes.value.activeQuizzes);
       }
-      if (modulRes.status === 'fulfilled') setModulList(modulRes.value.data ?? []);
-      if (kuisRes.status === 'fulfilled') setKuisList(kuisRes.value.data ?? []);
+      if (modulRes.status === 'fulfilled') setModulList(modulRes.value.items ?? []);
+      if (kuisRes.status === 'fulfilled') setKuisList(kuisRes.value.items ?? []);
     } finally {
       setIsLoading(false);
     }
@@ -158,20 +154,29 @@ export default function ManajemenModulPage() {
 
   const executeDelete = async () => {
     if (!deleteTarget) return;
-    const id = deleteTarget;
+    const ids = Array.isArray(deleteTarget) ? deleteTarget : [deleteTarget];
     setDeleteTarget(null);
     try {
-      if (activeTab === 'modul') await adminModulApi.delete(id);
-      else await adminKuisApi.delete(id);
+      for (const id of ids) {
+        if (activeTab === 'modul') await adminModulApi.delete(id);
+        else await adminKuisApi.delete(id);
+      }
       showToast('success', `${activeTab === 'modul' ? 'Modul' : 'Kuis'} berhasil dihapus.`);
+      setSelectedRowIds({});
       fetchData();
     } catch {
       showToast('error', `Gagal menghapus ${activeTab === 'modul' ? 'modul' : 'kuis'}.`);
     }
   };
 
+  const handleBulkDelete = () => {
+    const ids = Object.keys(selectedRowIds).filter((id) => selectedRowIds[id]);
+    if (ids.length === 0) return;
+    setDeleteTarget(ids);
+  };
+
   return (
-    <div className="h-screen overflow-hidden bg-[#f3f3f6]">
+    <div className="min-h-screen bg-[#f3f3f6]">
       {deleteTarget && (
         <AdminConfirmDialog
           message={`Yakin ingin menghapus ${activeTab === 'modul' ? 'modul' : 'kuis'} ini? Tindakan tidak dapat dibatalkan.`}
@@ -182,28 +187,10 @@ export default function ManajemenModulPage() {
         />
       )}
       <AdminToastContainer toasts={toasts} onDismiss={dismissToast} />
-      <div className="grid h-screen grid-cols-1 lg:grid-cols-[260px_1fr]">
-        <AdminSidebar active="modul" />
+      <AdminHeader />
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
 
-        <main className="overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-[#202126]">Selamat datang, Admin</p>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#7054dc] sm:text-4xl lg:text-5xl">
-                Management Modul
-              </h1>
-            </div>
-            <div className="flex items-center gap-3 rounded-full border border-[#dcd9e8] bg-white px-4 py-3 shadow-sm">
-              <FaBell className="text-[#9396a3]" size={18} />
-              <FaHeadset className="text-[#9396a3]" size={19} />
-              <button className="inline-flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white px-1.5 py-1 shadow-sm">
-                <IoPersonCircle size={24} className="text-[#7054dc]" />
-                <MdOutlineKeyboardArrowDown size={16} className="text-[#8a8a96]" />
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_420px] xl:items-start">
+          <div className="mt-3 grid gap-4 xl:grid-cols-[1fr_420px] xl:items-start">
             <div className="flex items-center gap-2 px-2 pt-1 xl:pt-2">
               <button
                 type="button"
@@ -228,7 +215,7 @@ export default function ManajemenModulPage() {
           </div>
 
           <div className="mt-6 rounded-[22px] border border-[#e1dff0] bg-white p-3 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-3">
                 <Link
                   href="/admin/tambah-modul"
@@ -282,7 +269,16 @@ export default function ManajemenModulPage() {
                     </div>
                   )}
                 </div>
-                <button className="inline-flex items-center gap-2 rounded-full bg-[#f36e65] px-4 py-2 text-sm font-semibold text-white shadow-sm">
+                {Object.values(selectedRowIds).filter(Boolean).length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ece7ff] px-3 py-1 text-xs font-semibold text-[#7054dc]">
+                    {Object.values(selectedRowIds).filter(Boolean).length} dipilih
+                  </span>
+                )}
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={Object.values(selectedRowIds).filter(Boolean).length === 0}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#f36e65] px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
                   <FaTrash size={12} />
                   Hapus
                 </button>
@@ -290,7 +286,7 @@ export default function ManajemenModulPage() {
             </div>
 
             <div className="rounded-[18px] border border-[#e9e8f0] bg-white">
-              <div className="overflow-x-auto">
+              <div className="min-h-[440px] overflow-x-auto">
                 <table className="min-w-[980px] w-full border-separate border-spacing-0">
                   <thead>
                     <tr className="bg-[#ebebec] text-[13px] font-medium text-[#9a9ca7]">
@@ -319,11 +315,11 @@ export default function ManajemenModulPage() {
                   <tbody>
                     {isLoading ? (
                       <tr>
-                        <td colSpan={6} className="py-10 text-center text-sm text-[#9396a3]">Memuat data...</td>
+                        <td colSpan={6} className="py-32 text-center text-sm text-[#9396a3]">Memuat data...</td>
                       </tr>
                     ) : paginatedRows.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-10 text-center text-sm text-[#9396a3]">Tidak ada data.</td>
+                        <td colSpan={6} className="py-32 text-center text-sm text-[#9396a3]">Tidak ada data.</td>
                       </tr>
                     ) : activeTab === 'modul' ? (
                       (paginatedRows as AdminModulItem[]).map((row) => (
@@ -342,18 +338,27 @@ export default function ManajemenModulPage() {
                           <td className="px-4 py-3 align-middle">{row.totalSiswa ?? 0} siswa</td>
                           <td className="px-4 py-3 align-middle">
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold">
-                              <button className="inline-flex items-center gap-1 text-[#f39b39]">
+                              <Link
+                                href={`/admin/manajemen-modul/edit?id=${row.id}`}
+                                className="inline-flex items-center gap-1 text-[#f39b39]"
+                              >
                                 <FaEdit size={12} />
                                 Edit
-                              </button>
-                              <button className="inline-flex items-center gap-1 text-[#7054dc]">
+                              </Link>
+                              <Link
+                                href={`/admin/manajemen-modul/siswa?id=${row.id}`}
+                                className="inline-flex items-center gap-1 text-[#7054dc]"
+                              >
                                 <MdSupervisorAccount size={13} />
                                 Management Siswa
-                              </button>
-                              <button className="inline-flex items-center gap-1 text-[#7054dc]">
+                              </Link>
+                              <Link
+                                href={`/admin/manajemen-modul/siswa?id=${row.id}`}
+                                className="inline-flex items-center gap-1 text-[#7054dc]"
+                              >
                                 <MdGroupAdd size={13} />
                                 Tambah Siswa
-                              </button>
+                              </Link>
                               <button
                                 onClick={() => handleDelete(row.id)}
                                 className="inline-flex items-center gap-1 text-[#f36e65]"
@@ -374,18 +379,27 @@ export default function ManajemenModulPage() {
                               </button>
                               {openActionMenuId === row.id && (
                                 <div className="absolute right-0 top-9 z-30 w-[168px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
-                                  <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]">
+                                  <Link
+                                    href={`/admin/manajemen-modul/edit?id=${row.id}`}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
+                                  >
                                     <FaEdit size={13} />
                                     Edit
-                                  </button>
-                                  <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]">
+                                  </Link>
+                                  <Link
+                                    href={`/admin/manajemen-modul/siswa?id=${row.id}`}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]"
+                                  >
                                     <MdSupervisorAccount size={14} />
                                     Management Siswa
-                                  </button>
-                                  <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]">
+                                  </Link>
+                                  <Link
+                                    href={`/admin/manajemen-modul/siswa?id=${row.id}`}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]"
+                                  >
                                     <MdGroupAdd size={14} />
                                     Tambah Siswa
-                                  </button>
+                                  </Link>
                                   <button
                                     onClick={() => handleDelete(row.id)}
                                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]"
@@ -418,10 +432,10 @@ export default function ManajemenModulPage() {
                           </td>
                           <td className="px-4 py-3 align-middle">
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold">
-                              <button className="inline-flex items-center gap-1 text-[#f39b39]">
+                              <Link href={`/admin/manajemen-modul/edit?id=${row.id}`} className="inline-flex items-center gap-1 text-[#f39b39]">
                                 <FaEdit size={12} />
                                 Edit
-                              </button>
+                              </Link>
                               <button
                                 onClick={() => handleDelete(row.id)}
                                 className="inline-flex items-center gap-1 text-[#f36e65]"
@@ -442,10 +456,13 @@ export default function ManajemenModulPage() {
                               </button>
                               {openActionMenuId === row.id && (
                                 <div className="absolute right-0 top-9 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
-                                  <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]">
+                                  <Link
+                                    href={`/admin/manajemen-modul/edit?id=${row.id}`}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
+                                  >
                                     <FaEdit size={13} />
                                     Edit
-                                  </button>
+                                  </Link>
                                   <button
                                     onClick={() => handleDelete(row.id)}
                                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]"
@@ -464,42 +481,59 @@ export default function ManajemenModulPage() {
                 </table>
               </div>
 
-              <div className="flex items-center justify-between px-4 py-3">
-                <p className="text-xs text-[#9396a3]">{currentRows.length} data</p>
+              <div className="flex items-center justify-between border-t border-[#f0eff6] px-4 py-3">
+                <p className="text-xs text-[#9396a3]">
+                  {currentRows.length} data · Hal {safePage}/{totalPages}
+                </p>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={safePage <= 1}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-[#7054dc] disabled:opacity-40"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors text-[#7054dc] hover:bg-[#ede9fb] disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    <MdKeyboardArrowLeft size={16} />
+                    <MdKeyboardArrowLeft size={18} />
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${
-                        page === safePage
-                          ? 'border-[#7054dc] bg-[#7054dc] text-white'
-                          : 'border-[#d4d7e2] text-[#818694] hover:border-[#7054dc] hover:text-[#7054dc]'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) =>
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - safePage) <= 1
+                    )
+                    .reduce<(number | '...')[]
+                    >((acc, page, idx, arr) => {
+                      if (idx > 0 && (page as number) - (arr[idx - 1] as number) > 1) acc.push('...');
+                      acc.push(page);
+                      return acc;
+                    }, [])
+                    .map((item, idx) =>
+                      item === '...' ? (
+                        <span key={`ellipsis-${idx}`} className="px-1 text-xs text-[#9396a3]">…</span>
+                      ) : (
+                        <button
+                          key={item}
+                          onClick={() => setCurrentPage(item as number)}
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+                            item === safePage
+                              ? 'bg-[#7054dc] text-white shadow-sm'
+                              : 'text-[#6b7080] hover:bg-[#ede9fb] hover:text-[#7054dc]'
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      )
+                    )}
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={safePage >= totalPages}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-transparent text-[#7054dc] disabled:opacity-40"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors text-[#7054dc] hover:bg-[#ede9fb] disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    <MdKeyboardArrowRight size={16} />
+                    <MdKeyboardArrowRight size={18} />
                   </button>
                 </div>
               </div>
             </div>
           </div>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }
