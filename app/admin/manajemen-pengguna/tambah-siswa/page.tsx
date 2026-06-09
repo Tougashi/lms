@@ -1,53 +1,251 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { RiHome5Fill } from 'react-icons/ri';
-import { FiArrowLeft } from 'react-icons/fi';
-import AdminHeader from '../../../component/admin/AdminHeader';
-import { adminSiswaApi } from '../../../lib/api';
+import Image from "next/image";
+import Link from "next/link";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  FiArrowLeft,
+  FiCamera,
+  FiCheck,
+  FiChevronDown,
+  FiEye,
+  FiEyeOff,
+  FiUser,
+} from "react-icons/fi";
+import AdminHeader from "../../../component/admin/AdminHeader";
+import { adminSiswaApi, uploadApi } from "../../../lib/api";
 import {
   AdminToastContainer,
   useAdminToast,
-} from '../../components/AdminToast';
+} from "../../components/AdminToast";
 
+/* ─── style constants ─── */
 const inputCls =
-  'mt-2 h-[42px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc] transition-colors';
-const selectCls =
-  'mt-2 h-[42px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc] appearance-none transition-colors';
-const labelCls = 'text-[13px] font-bold text-[#232530]';
-const errorCls = 'mt-1 text-[11px] text-[#f36e65]';
-const hintCls = 'mt-1 text-[11px] text-[#7e8290]';
+  "mt-1.5 h-[44px] w-full rounded-xl border border-[#e2e0ea] bg-[#fafafa] px-4 text-[13px] text-[#232530] outline-none focus:border-[#7054dc] focus:bg-white transition-colors placeholder:text-[#c0bfca]";
+const labelCls = "block text-[12px] font-semibold text-[#3d3a4a]";
+const errorCls = "mt-1 text-[11px] text-[#e8473f]";
+const hintCls = "mt-1 text-[11px] text-[#a0a3af]";
 
+/* ─── SectionTitle ─── */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 mb-5">
+      <span className="text-[11px] font-bold uppercase tracking-[0.13em] text-[#9b97ad] whitespace-nowrap">
+        {children}
+      </span>
+      <div className="flex-1 h-px bg-[#eeecf6]" />
+    </div>
+  );
+}
+
+/* ─── CustomSelect ─── */
+interface SelectOption {
+  label: string;
+  value: string;
+}
+interface CustomSelectProps {
+  value: string;
+  onChange: (v: string) => void;
+  options: SelectOption[];
+  placeholder?: string;
+  error?: boolean;
+}
+function CustomSelect({
+  value,
+  onChange,
+  options,
+  placeholder = "— Pilih —",
+  error,
+}: CustomSelectProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find((o) => o.value === value);
+
+  /* close on outside click */
+  const handleBlur = () => setTimeout(() => setOpen(false), 150);
+
+  return (
+    <div ref={ref} className="relative mt-1.5" onBlur={handleBlur}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={[
+          "flex h-[44px] w-full items-center justify-between rounded-xl border px-4 text-[13px] transition-colors outline-none",
+          open
+            ? "border-[#7054dc] bg-white"
+            : error
+              ? "border-[#e8473f] bg-[#fafafa]"
+              : "border-[#e2e0ea] bg-[#fafafa] hover:border-[#c8c4db]",
+          value ? "text-[#232530]" : "text-[#c0bfca]",
+        ].join(" ")}
+      >
+        <span>{selected ? selected.label : placeholder}</span>
+        <FiChevronDown
+          size={15}
+          className={`text-[#9b97ad] transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <ul className="absolute z-50 mt-1 w-full rounded-xl border border-[#e2e0ea] bg-white py-1 shadow-[0_8px_24px_rgba(0,0,0,0.1)] overflow-hidden">
+          {/* clear option */}
+          <li>
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] text-[#c0bfca] hover:bg-[#f7f5ff] transition-colors"
+            >
+              {placeholder}
+            </button>
+          </li>
+          {options.map((opt) => (
+            <li key={opt.value}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={[
+                  "flex w-full items-center justify-between px-4 py-2.5 text-[13px] transition-colors",
+                  value === opt.value
+                    ? "bg-[#f0edfb] text-[#7054dc] font-semibold"
+                    : "text-[#232530] hover:bg-[#f7f5ff]",
+                ].join(" ")}
+              >
+                {opt.label}
+                {value === opt.value && (
+                  <FiCheck size={13} className="text-[#7054dc]" />
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* ─── option lists ─── */
+const jenjangOptions: SelectOption[] = [
+  { label: "SD", value: "SD" },
+  { label: "SMP", value: "SMP" },
+  { label: "SMA", value: "SMA" },
+];
+
+const allKelasOptions: SelectOption[] = Array.from({ length: 12 }, (_, i) => ({
+  label: `Kelas ${i + 1}`,
+  value: String(i + 1),
+}));
+
+const kelasRangeByJenjang: Record<string, number[]> = {
+  SD: [1, 2, 3, 4, 5, 6],
+  SMP: [7, 8, 9],
+  SMA: [10, 11, 12],
+};
+
+function getKelasOptions(jenjang: string): SelectOption[] {
+  if (!jenjang) return allKelasOptions;
+  const range = kelasRangeByJenjang[jenjang] ?? [];
+  return allKelasOptions.filter((o) => range.includes(Number(o.value)));
+}
+
+/* ══════════════════════════════════════════════════════════════ */
 export default function TambahSiswaPage() {
   const router = useRouter();
   const { toasts, showToast, dismissToast } = useAdminToast();
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const [namaLengkap, setNamaLengkap] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [jenjang, setJenjang] = useState('');
-  const [kelasSekolah, setKelasSekolah] = useState('');
-  const [studentType, setStudentType] = useState<'SISWA' | 'GURU'>('SISWA');
+  /* akun */
+  const [namaLengkap, setNamaLengkap] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [jenjang, setJenjang] = useState("");
+  const [kelasSekolah, setKelasSekolah] = useState("");
+  const [studentType, setStudentType] = useState<"SISWA" | "GURU">("SISWA");
+
+  /* foto profil */
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const photoObjUrlRef = useRef<string | null>(null);
+
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  /* ── upload handler ── */
+  const handlePhotoChange = async (file: File | null) => {
+    setPhotoFile(file);
+    setPhotoUrl(null);
+    if (photoObjUrlRef.current) {
+      URL.revokeObjectURL(photoObjUrlRef.current);
+      photoObjUrlRef.current = null;
+    }
+    if (!file) {
+      setPhotoPreview(null);
+      return;
+    }
+
+    const localUrl = URL.createObjectURL(file);
+    photoObjUrlRef.current = localUrl;
+    setPhotoPreview(localUrl);
+    setPhotoUploading(true);
+    try {
+      const res = await uploadApi.upload(file, "PROFILE_IMAGE");
+      setPhotoUrl(res.url);
+      setPhotoPreview(res.url);
+      URL.revokeObjectURL(localUrl);
+      photoObjUrlRef.current = null;
+    } catch {
+      showToast(
+        "error",
+        "Gagal mengunggah foto. Preview lokal tetap ditampilkan.",
+      );
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  /* ── jenjang change: reset kelas if out of range ── */
+  const handleJenjangChange = (val: string) => {
+    setJenjang(val);
+    if (val && kelasSekolah) {
+      const range = kelasRangeByJenjang[val] ?? [];
+      if (!range.includes(Number(kelasSekolah))) {
+        setKelasSekolah("");
+      }
+    }
+  };
+
+  /* ── validasi ── */
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!namaLengkap.trim()) e.namaLengkap = 'Nama lengkap wajib diisi.';
-    if (!email.trim()) e.email = 'Email wajib diisi.';
-    if (!email.includes('@')) e.email = 'Format email tidak valid.';
+    if (!namaLengkap.trim()) e.namaLengkap = "Nama lengkap wajib diisi.";
+    if (!email.trim()) e.email = "Email wajib diisi.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      e.email = "Format email tidak valid.";
     if (!password || password.length < 6)
-      e.password = 'Password minimal 6 karakter.';
+      e.password = "Password minimal 6 karakter.";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
+  /* ── submit ── */
   const handleSubmit = async () => {
     if (!validate()) return;
     setIsSaving(true);
     try {
+      let finalPhotoUrl = photoUrl;
+      if (!finalPhotoUrl && photoFile) {
+        const res = await uploadApi.upload(photoFile, "PROFILE_IMAGE");
+        finalPhotoUrl = res.url ?? null;
+      }
       await adminSiswaApi.create({
         nama_lengkap: namaLengkap.trim(),
         email: email.trim(),
@@ -55,91 +253,215 @@ export default function TambahSiswaPage() {
         jenjang: jenjang || undefined,
         kelas_sekolah: kelasSekolah || undefined,
         studentType,
+        profileImage: finalPhotoUrl ?? undefined,
       });
-      showToast('success', 'Siswa berhasil ditambahkan.');
-      setTimeout(() => router.push('/admin/manajemen-pengguna'), 1200);
+      showToast("success", "Siswa berhasil ditambahkan.");
+      setTimeout(() => router.push("/admin/manajemen-pengguna"), 1200);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : 'Gagal menambahkan siswa.';
-      showToast('error', msg);
+        err instanceof Error ? err.message : "Gagal menambahkan siswa.";
+      showToast("error", msg);
     } finally {
       setIsSaving(false);
     }
   };
 
+  /* ── render ── */
   return (
-    <div className="min-h-screen bg-[#f3f3f6]">
+    <div className="min-h-screen bg-[#f4f3f8]">
       <AdminToastContainer toasts={toasts} onDismiss={dismissToast} />
       <AdminHeader />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-        <div className="mt-2">
-          <Link
-            href="/admin/manajemen-pengguna"
-            className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530] transition-colors hover:text-[#7054dc]"
-          >
-            <FiArrowLeft size={15} />
-            Kembali ke Manajemen Pengguna
-          </Link>
-        </div>
+      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        {/* back */}
+        <Link
+          href="/admin/manajemen-pengguna"
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#6b6880] transition-colors hover:text-[#7054dc]"
+        >
+          <FiArrowLeft size={14} />
+          Kembali ke Manajemen Pengguna
+        </Link>
 
-        {/* Page heading */}
-        <div className="mt-5">
-
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#7054dc] sm:text-4xl lg:text-5xl">
-            Tambah Siswa
+        {/* heading */}
+        <div className="mt-5 mb-7">
+          <h1 className="text-2xl font-bold text-[#232530] sm:text-[28px]">
+            Tambah Siswa Baru
           </h1>
+          <p className="mt-1 text-[13px] text-[#8e8ba0]">
+            Field bertanda <span className="text-[#e8473f]">*</span> wajib
+            diisi. Field lainnya dapat diisi belakangan.
+          </p>
         </div>
 
-        {/* Form card */}
-        <div className="mt-5 rounded-[22px] border border-[#e1dff0] bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
-          <div className="mx-auto max-w-[720px] space-y-5">
+        <div className="space-y-5">
+          {/* ══ CARD: Foto Profil ══ */}
+          <div className="rounded-2xl border border-[#e6e3f0] bg-white p-6 shadow-sm">
+            <SectionTitle>Foto Profil</SectionTitle>
+
+            <div className="flex items-center gap-6">
+              {/* avatar circle */}
+              <div
+                className="relative shrink-0 h-[88px] w-[88px] cursor-pointer overflow-hidden rounded-full border-2 border-dashed border-[#d0cce8] bg-[#f0eefb] transition-all hover:border-[#7054dc] hover:bg-[#ece8fb]"
+                onClick={() => photoInputRef.current?.click()}
+              >
+                {photoUploading && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/35 rounded-full">
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                  </div>
+                )}
+                {photoPreview ? (
+                  <Image
+                    src={photoPreview}
+                    alt="Preview"
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-1">
+                    <FiUser size={26} className="text-[#b8b0dc]" />
+                    <FiCamera size={12} className="text-[#c5bfe8]" />
+                  </div>
+                )}
+              </div>
+
+              {/* right side */}
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-[#3d3a4a]">
+                  {photoPreview ? "Foto dipilih" : "Belum ada foto"}
+                </p>
+                <p className="mt-0.5 text-[12px] text-[#a0a3af]">
+                  Format JPG, PNG, atau WebP. Maks. 10 MB.
+                </p>
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="rounded-lg border border-[#d0cce8] px-4 py-1.5 text-[12px] font-semibold text-[#7054dc] transition-colors hover:bg-[#f5f2ff]"
+                  >
+                    {photoPreview ? "Ganti Foto" : "Pilih Foto"}
+                  </button>
+                  {photoPreview && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhotoFile(null);
+                        setPhotoPreview(null);
+                        setPhotoUrl(null);
+                        if (photoInputRef.current)
+                          photoInputRef.current.value = "";
+                      }}
+                      className="rounded-lg border border-[#fad4d4] px-4 py-1.5 text-[12px] font-semibold text-[#e8473f] transition-colors hover:bg-[#fff5f5]"
+                    >
+                      Hapus
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => handlePhotoChange(e.target.files?.[0] ?? null)}
+            />
+          </div>
+
+          {/* ══ CARD: Informasi Akun ══ */}
+          <div className="rounded-2xl border border-[#e6e3f0] bg-white p-6 shadow-sm">
+            <SectionTitle>Informasi Akun</SectionTitle>
+
             {/* Nama Lengkap */}
-            <div>
+            <div className="mb-4">
               <label className={labelCls}>
-                Nama Lengkap <span className="text-[#f36e65]">*</span>
+                Nama Lengkap <span className="text-[#e8473f]">*</span>
               </label>
               <input
                 type="text"
                 value={namaLengkap}
                 onChange={(e) => setNamaLengkap(e.target.value)}
                 placeholder="Masukkan nama lengkap siswa"
-                className={inputCls}
+                className={`${inputCls} ${errors.namaLengkap ? "border-[#e8473f]" : ""}`}
               />
-              {errors.namaLengkap && (
+              {errors.namaLengkap ? (
                 <p className={errorCls}>{errors.namaLengkap}</p>
+              ) : (
+                <p className={hintCls}>
+                  Gunakan nama lengkap sesuai identitas resmi
+                </p>
               )}
-              <p className={hintCls}>Gunakan nama lengkap sesuai identitas resmi</p>
             </div>
 
             {/* Email + Password */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2 mb-4">
               <div>
                 <label className={labelCls}>
-                  Email <span className="text-[#f36e65]">*</span>
+                  Email <span className="text-[#e8473f]">*</span>
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="siswa@email.com"
-                  className={inputCls}
+                  className={`${inputCls} ${errors.email ? "border-[#e8473f]" : ""}`}
                 />
-                {errors.email && <p className={errorCls}>{errors.email}</p>}
+                {errors.email ? (
+                  <p className={errorCls}>{errors.email}</p>
+                ) : (
+                  <p className={hintCls}>Digunakan untuk login</p>
+                )}
               </div>
               <div>
                 <label className={labelCls}>
-                  Password <span className="text-[#f36e65]">*</span>
+                  Password <span className="text-[#e8473f]">*</span>
                 </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Minimal 6 karakter"
-                  className={inputCls}
-                />
-                {errors.password && (
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Minimal 6 karakter"
+                    className={`${inputCls} pr-11 ${errors.password ? "border-[#e8473f]" : ""}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    tabIndex={-1}
+                    className="absolute right-3.5 top-1/2 mt-[3px] -translate-y-1/2 text-[#b0b3bf] hover:text-[#7054dc] transition-colors"
+                  >
+                    {showPassword ? (
+                      <FiEyeOff size={15} />
+                    ) : (
+                      <FiEye size={15} />
+                    )}
+                  </button>
+                </div>
+                {errors.password ? (
                   <p className={errorCls}>{errors.password}</p>
+                ) : (
+                  <p className={hintCls}>
+                    Password sementara, siswa bisa ubah nanti
+                  </p>
                 )}
               </div>
             </div>
@@ -148,87 +470,97 @@ export default function TambahSiswaPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className={labelCls}>Jenjang Sekolah</label>
-                <select
+                <CustomSelect
                   value={jenjang}
-                  onChange={(e) => setJenjang(e.target.value)}
-                  className={selectCls}
-                >
-                  <option value="">Pilih Jenjang</option>
-                  <option value="SD">SD</option>
-                  <option value="SMP">SMP</option>
-                  <option value="SMA">SMA</option>
-                </select>
-                <p className={hintCls}>Sesuaikan dengan jenjang pendidikan siswa</p>
+                  onChange={handleJenjangChange}
+                  options={jenjangOptions}
+                  placeholder="— Pilih Jenjang —"
+                />
+                <p className={hintCls}>
+                  Sesuaikan dengan jenjang pendidikan siswa
+                </p>
               </div>
               <div>
                 <label className={labelCls}>Kelas</label>
-                <select
+                <CustomSelect
                   value={kelasSekolah}
-                  onChange={(e) => setKelasSekolah(e.target.value)}
-                  className={selectCls}
+                  onChange={setKelasSekolah}
+                  options={getKelasOptions(jenjang)}
+                  placeholder="— Pilih Kelas —"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ══ CARD: Tipe Akses ══ */}
+          <div className="rounded-2xl border border-[#e6e3f0] bg-white p-6 shadow-sm">
+            <SectionTitle>Tipe Akses</SectionTitle>
+
+            <div className="flex items-center gap-3">
+              {(
+                [
+                  { label: "Siswa", value: "SISWA" },
+                  { label: "Umum", value: "GURU" },
+                ] as { label: string; value: "SISWA" | "GURU" }[]
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setStudentType(opt.value)}
+                  className={[
+                    "rounded-xl px-5 py-2 text-[13px] font-semibold transition-colors",
+                    studentType === opt.value
+                      ? "bg-[#7054dc] text-white shadow-[0_4px_14px_rgba(112,84,220,0.3)]"
+                      : "border border-[#e2e0ea] text-[#6b6880] hover:border-[#c8c4db] hover:bg-[#fafafa]",
+                  ].join(" ")}
                 >
-                  <option value="">Pilih Kelas</option>
-                  <option value="4">Kelas 4</option>
-                  <option value="5">Kelas 5</option>
-                  <option value="6">Kelas 6</option>
-                  <option value="7">Kelas 7</option>
-                  <option value="8">Kelas 8</option>
-                  <option value="9">Kelas 9</option>
-                  <option value="10">Kelas 10</option>
-                  <option value="11">Kelas 11</option>
-                  <option value="12">Kelas 12</option>
-                </select>
-              </div>
+                  {opt.label}
+                </button>
+              ))}
             </div>
+            <p className={`${hintCls} mt-3`}>
+              Siswa mendapatkan akses ke modul yang di-assign. Umum memiliki
+              akses terbatas.
+            </p>
+          </div>
 
-            {/* Tipe Siswa */}
-            <div>
-              <label className={labelCls}>Tipe Akses</label>
-              <div className="mt-2 flex items-center gap-6 text-[13px] text-[#6e7280]">
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name="studentType"
-                    checked={studentType === 'SISWA'}
-                    onChange={() => setStudentType('SISWA')}
-                    className="h-4 w-4 accent-[#7054dc]"
+          {/* ── Action buttons ── */}
+          <div className="flex items-center justify-end gap-3 pb-6 pt-1">
+            <Link
+              href="/admin/manajemen-pengguna"
+              className="rounded-xl border border-[#d8d3f0] px-6 py-2.5 text-[13px] font-semibold text-[#7054dc] transition-colors hover:bg-[#f5f2ff]"
+            >
+              Batal
+            </Link>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSaving || photoUploading}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#7054dc] px-7 py-2.5 text-[13px] font-semibold text-white shadow-[0_6px_20px_rgba(112,84,220,0.3)] transition-all hover:bg-[#5f46cc] disabled:opacity-60"
+            >
+              {isSaving && (
+                <svg
+                  className="animate-spin h-3.5 w-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
                   />
-                  Siswa (terdaftar di sekolah)
-                </label>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name="studentType"
-                    checked={studentType === 'GURU'}
-                    onChange={() => setStudentType('GURU')}
-                    className="h-4 w-4 accent-[#7054dc]"
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                   />
-                  Umum
-                </label>
-              </div>
-              <p className={hintCls}>
-                Siswa mendapatkan akses ke modul yang di-assign. Umum memiliki akses
-                terbatas.
-              </p>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center justify-end gap-3 border-t border-[#f0eff6] pt-5">
-              <Link
-                href="/admin/manajemen-pengguna"
-                className="rounded-xl border border-[#d8d3f0] px-6 py-2.5 text-[13px] font-semibold text-[#7054dc] transition-colors hover:bg-[#f5f2ff]"
-              >
-                Batal
-              </Link>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSaving}
-                className="rounded-xl bg-[#7054dc] px-6 py-2.5 text-[13px] font-semibold text-white shadow-[0_6px_16px_rgba(112,84,220,0.3)] transition-colors hover:bg-[#5f46cc] disabled:opacity-60"
-              >
-                {isSaving ? 'Menyimpan...' : 'Simpan Siswa'}
-              </button>
-            </div>
+                </svg>
+              )}
+              {isSaving ? "Menyimpan..." : "Simpan Siswa"}
+            </button>
           </div>
         </div>
       </main>
