@@ -19,7 +19,7 @@ export function useRoleGuard(allowedRoles: string[]) {
   const router = useRouter();
 
   const normalizedRole = role === 'guru' ? 'tutor' : role;
-  const isAuthorized = !isLoading && !!user && !!role && (allowedRoles.includes(role) || allowedRoles.includes(normalizedRole));
+  const isAuthorized = !isLoading && !!user && !!role && (allowedRoles.includes(role) || (normalizedRole && allowedRoles.includes(normalizedRole)));
 
   useEffect(() => {
     if (isLoading) return;
@@ -29,7 +29,7 @@ export function useRoleGuard(allowedRoles: string[]) {
 
     // Handle alias guru <-> tutor
     const currentNormalizedRole = role === 'guru' ? 'tutor' : role;
-    const isAllowed = allowedRoles.includes(role) || allowedRoles.includes(currentNormalizedRole);
+    const isAllowed = allowedRoles.includes(role) || (currentNormalizedRole && allowedRoles.includes(currentNormalizedRole));
 
     // Logged in but wrong role — redirect to their home page
     if (!isAllowed) {
