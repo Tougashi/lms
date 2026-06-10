@@ -6,9 +6,9 @@ import {
   FiCheckSquare, FiChevronDown, FiEdit2, FiMoreVertical,
   FiPlus, FiSettings, FiTrash2, FiX,
 } from 'react-icons/fi';
-import AdminHeader from '../../../component/admin/AdminHeader';
-import AdminModuleSidebar from '../../components/AdminModuleSidebar';
-import { adminPretestApi as guruPretestApi, adminPosttestApi as guruPosttestApi } from '../../../lib/api';
+import AdminHeader from '../../../../component/admin/AdminHeader';
+import AdminModuleSidebar from '../../../components/AdminModuleSidebar';
+import { adminPretestApi as guruPretestApi, adminPosttestApi as guruPosttestApi } from '../../../../lib/api';
 
 /* ─── Mini Editor ─── */
 function MiniEditor({ placeholder, value, onChange }: { placeholder: string; value?: string; onChange?: (html: string) => void }) {
@@ -60,7 +60,7 @@ type BankSoal = {
 };
 
 /* ─── Inner page ─── */
-function AdminPrePostPageContent() {
+function EditModulPrePostContent() {
   const searchParams = useSearchParams();
   const modulId = searchParams.get('id');
 
@@ -307,7 +307,7 @@ function AdminPrePostPageContent() {
       <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
         <AdminHeader />
         <main className="flex w-full">
-          <AdminModuleSidebar basePath="/admin/tambah-modul" modulId={modulId ?? undefined} title="Tambah Modul" showSiswaTab={true} />
+          <AdminModuleSidebar basePath="/admin/manajemen-modul/edit" modulId={modulId ?? undefined} title="Edit Modul" showSiswaTab={true} />
           <section className="flex-1 px-4 pb-10 pt-6 sm:px-6 lg:px-8">
             <button type="button" onClick={() => setActiveBankId(null)} className="mb-4 text-[12px] font-medium text-[#7054dc]">← Kembali ke Daftar Bank Soal</button>
             <div className="flex items-center gap-3">
@@ -407,7 +407,7 @@ function AdminPrePostPageContent() {
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
       <AdminHeader />
       <main className="flex w-full">
-        <AdminModuleSidebar basePath="/admin/tambah-modul" modulId={modulId ?? undefined} title="Tambah Modul" showSiswaTab={true} />
+        <AdminModuleSidebar basePath="/admin/manajemen-modul/edit" modulId={modulId ?? undefined} title="Edit Modul" showSiswaTab={true} />
         <section className="flex-1 px-4 pb-10 pt-6 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ece7ff] text-[#7054dc]"><FiCheckSquare size={18} /></div>
@@ -479,10 +479,10 @@ function AdminPrePostPageContent() {
   );
 }
 
-export default function TambahModulPrepostPage() {
+export default function EditModulPrePostPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-[#f7f6fb]" />}>
-      <AdminPrePostPageContent />
+      <EditModulPrePostContent />
     </Suspense>
   );
 }
