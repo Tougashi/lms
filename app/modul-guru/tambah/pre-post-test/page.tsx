@@ -414,7 +414,6 @@ function PrePostTestPageContent() {
         <nav className="mt-4 space-y-3 text-[13px]">
           <Link href={modulId ? `/modul-guru/tambah/konten?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"><FiLayers size={12}/>Konten Modul</Link>
           <div className="flex items-center gap-2 text-[#7054dc]"><FiCheckSquare size={12}/><span className="font-semibold">Pree - Post Test Modul</span></div>
-          <Link href={modulId ? `/modul-guru/tambah/sertifikat?modulId=${modulId}` : '#'} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"><FiBookOpen size={12}/>Capaian Sertifikat</Link>
         </nav>
         <button type="button" onClick={handlePublish} disabled={!modulId} className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Terbitkan Modul</button>
       </div>

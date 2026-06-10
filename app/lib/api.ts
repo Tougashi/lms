@@ -846,9 +846,10 @@ export const guruProfileApi = {
 // ---------------------------------------------------------------------------
 
 export const guruProgressApi = {
-    getAll(limit = 10, cursor?: string | null) {
+    getAll(limit = 10, cursor?: string | null, modulId?: string) {
         const params = new URLSearchParams({ limit: String(limit) });
         if (cursor) params.set("cursor", cursor);
+        if (modulId) params.set("modulId", modulId);
         return apiFetch<TutorProgressPaginatedResponse>(
             `/tutor/progress?${params.toString()}`,
         );

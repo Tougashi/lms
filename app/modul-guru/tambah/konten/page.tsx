@@ -1283,17 +1283,6 @@ function TambahModulKontenPageContent() {
                   <FiCheckSquare size={12} />
                   Pree - Post Test Modul
                 </Link>
-                <Link
-                  href={
-                    modulId
-                      ? `/modul-guru/tambah/sertifikat?modulId=${modulId}`
-                      : "#"
-                  }
-                  className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
-                >
-                  <FiBookOpen size={12} />
-                  Capaian Sertifikat
-                </Link>
               </nav>
 
               <button
