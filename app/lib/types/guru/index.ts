@@ -134,6 +134,10 @@ export interface GuruTopikItem {
     updatedAt?: string;
 }
 
+export interface GuruTopikWithMateri extends GuruTopikItem {
+    materis: GuruMateriItem[];
+}
+
 // ---------------------------------------------------------------------------
 // Pretest
 // ---------------------------------------------------------------------------

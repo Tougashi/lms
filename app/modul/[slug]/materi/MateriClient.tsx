@@ -53,7 +53,7 @@ function formatRemainingTime(totalSeconds: number) {
 // ---------------------------------------------------------------------------
 type SequenceItemType =
     | "pretest"
-    | "submateri"
+    | "materi"
     | "quiz"
     | "summary"
     | "rangkuman-akhir"
@@ -93,24 +93,33 @@ function buildSequence(
 
     for (const topik of modul.curriculum.topiks) {
         for (const item of topik.items) {
-            if (item.itemType === "SUBMATERI") {
+            if (item.itemType === "MATERI") {
                 seq.push({
-                    id: item.itemId,
-                    title: item.title,
-                    type: "submateri",
+                    id: item.id,
+                    title: item.judul,
+                    type: "materi",
                     topikId: topik.id,
                     topikName: topik.nama,
-                    hasVideo: item.hasVideo,
+                    hasVideo: item.isVideo,
                     videoUrl: item.videoUrl ?? undefined,
-                    konten: item.content ?? undefined,
+                    konten: item.article ?? undefined,
                 });
             } else if (item.itemType === "QUIZ") {
                 seq.push({
-                    id: item.itemId,
-                    title: "Quiz",
+                    id: item.id,
+                    title: item.judul || "Kuis",
                     type: "quiz",
                     topikId: topik.id,
                     topikName: topik.nama,
+                });
+            } else if (item.itemType === "RANGKUMAN_TOPIK") {
+                seq.push({
+                    id: item.id,
+                    title: item.judul,
+                    type: "summary",
+                    topikId: topik.id,
+                    topikName: topik.nama,
+                    konten: item.article ?? undefined,
                 });
             }
         }
@@ -143,33 +152,33 @@ function buildContentTree(
     for (const topik of modul.curriculum.topiks) {
         const items: SequenceItem[] = [];
         for (const item of topik.items) {
-            if (item.itemType === "SUBMATERI") {
+            if (item.itemType === "MATERI") {
                 items.push({
-                    id: item.itemId,
-                    title: item.title,
-                    type: "submateri",
+                    id: item.id,
+                    title: item.judul,
+                    type: "materi",
                     topikId: topik.id,
                     topikName: topik.nama,
-                    hasVideo: item.hasVideo,
+                    hasVideo: item.isVideo,
                     videoUrl: item.videoUrl ?? undefined,
-                    konten: item.content ?? undefined,
+                    konten: item.article ?? undefined,
                 });
             } else if (item.itemType === "QUIZ") {
                 items.push({
-                    id: item.itemId,
-                    title: "Quiz",
+                    id: item.id,
+                    title: item.judul || "Kuis",
                     type: "quiz",
                     topikId: topik.id,
                     topikName: topik.nama,
                 });
             } else if (item.itemType === "RANGKUMAN_TOPIK") {
                 items.push({
-                    id: item.itemId,
-                    title: item.title,
+                    id: item.id,
+                    title: item.judul,
                     type: "summary",
                     topikId: topik.id,
                     topikName: topik.nama,
-                    konten: item.content ?? undefined,
+                    konten: item.article ?? undefined,
                 });
             }
         }
@@ -468,16 +477,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         : itemId === "posttest" ? "POSTTEST"
         : itemId === "rating" ? "RATING"
         : itemId === "certificate" ? "CERTIFICATE"
-        : "SUBMATERI");
-
+        : "MATERI");
+    
     try {
-      // Use submateri endpoint for submateri items (backward compat with ProgressDetail table),
-      // use the generic endpoint for all other item types
-      if (type === "SUBMATERI") {
-        await siswaProgressApi.completeSubmateri(itemId);
-      } else {
         await siswaProgressApi.completeItem(itemId, type, modulId);
-      }
       const updated = await siswaStudyRoomApi.getByModul(modulId);
       if (updated.progress) setProgress(updated.progress);
     } catch (err) {

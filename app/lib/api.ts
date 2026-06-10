@@ -34,6 +34,7 @@ import type {
 import type {
     TutorDashboard,
     GuruModuleListResponse,
+    GuruTopikWithMateri,
     GuruModuleItem,
     GuruModuleCreatePayload,
     GuruModuleUpdatePayload,
@@ -357,9 +358,9 @@ export const siswaProgressApi = {
         return apiFetch<ProgressDetail>(`/siswa/progress/${modulId}`);
     },
 
-    completeSubmateri(submateriId: string) {
+    completeMateri(materiId: string) {
         return apiFetch<{ message: string }>(
-            `/siswa/progress/submateri/${submateriId}/complete`,
+            `/siswa/progress/materi/${materiId}/complete`,
             { method: "POST" },
         );
     },
@@ -575,7 +576,7 @@ export const guruModulApi = {
 
 export const guruMateriApi = {
     getByModul(modulId: string) {
-        return apiFetch<GuruMateriItem[]>(`/tutor/materi/${modulId}`);
+        return apiFetch<GuruTopikWithMateri[]>(`/tutor/materi/${modulId}`);
     },
 
     create(payload: GuruMateriCreatePayload) {

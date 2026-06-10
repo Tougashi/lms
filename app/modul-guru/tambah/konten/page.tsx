@@ -26,6 +26,7 @@ import {
   guruKuisApi,
   uploadApi,
 } from "../../../lib/api";
+import type { GuruTopikWithMateri } from "../../../lib/types/guru";
 import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
 import { usePopup } from "../../../component/ui/PopupProvider";
 
@@ -380,6 +381,8 @@ function TambahModulKontenPageContent() {
   const [isTopicAdded, setIsTopicAdded] = useState(false);
   const [topicTitle, setTopicTitle] = useState("");
   const [topicId, setTopicId] = useState<string | null>(null);
+  const [topiks, setTopiks] = useState<GuruTopikWithMateri[]>([]);
+  const [activeTopikId, setActiveTopikId] = useState<string | null>(null);
   const [isCreatingTopic, setIsCreatingTopic] = useState(false);
   const [topicError, setTopicError] = useState("");
   const [isEditingTopic, setIsEditingTopic] = useState(false);
@@ -468,70 +471,60 @@ function TambahModulKontenPageContent() {
     materialsRef.current = materials;
   }, [materials]);
 
-  // Load existing topics from API
+  // Load existing topics & materials from unified API
   useEffect(() => {
     if (!modulId) return;
-    const loadTopics = async () => {
-      try {
-        const topics = await guruTopikApi.getByModul(modulId);
-        if (topics.length > 0) {
-          const firstTopic = topics[0];
-          setTopicTitle(firstTopic.nama);
-          setTopicId(firstTopic.id);
-          setIsTopicAdded(true);
-        }
-      } catch (err) {
-        console.error("Load topics error:", err);
-      }
-    };
-    loadTopics();
-  }, [modulId]);
-
-  // Load existing materials from API when modulId is available
-  useEffect(() => {
-    if (!modulId) return;
-    const loadMaterials = async () => {
+    const loadContent = async () => {
       try {
         const items = await guruMateriApi.getByModul(modulId);
+        setTopiks(items);
         if (items.length > 0) {
-          const loaded = items.map((item, idx) => {
-            const localId = Date.now() + idx;
-            setMaterialApiIds((prev) => ({
-              ...prev,
-              [localId]: item.id,
-            }));
-            return {
-              id: localId,
-              title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
-              type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
-              isSaved: true,
-              isExpanded: false,
-              videoSource: "link" as const,
-              linkUrl: item.videoUrl || "",
-              linkPreviewTitle: "",
-              linkPreviewThumb: item.videoUrl
-                ? getYoutubeThumb(item.videoUrl)
-                : "",
-              linkVideoTitle: "",
-              linkVideoDuration: "",
-              showUploadSuccess: false,
-              fileName: "",
-              fileSize: "",
-              uploadProgress: 100,
-              uploadStatus: "done" as const,
-              previewUrl: "",
-              duration: "00:00",
-              articleContent: item.article || "",
-            };
-          });
-          setMaterials(loaded);
-          if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
+          const firstTopik = items[0];
+          setActiveTopikId(firstTopik.id);
+          setTopicTitle(firstTopik.nama);
+          setTopicId(firstTopik.id);
+          setIsTopicAdded(true);
+
+          if (firstTopik.materis.length > 0) {
+            const loaded = firstTopik.materis.map((item, idx) => {
+              const localId = Date.now() + idx;
+              setMaterialApiIds((prev) => ({
+                ...prev,
+                [localId]: item.id,
+              }));
+              return {
+                id: localId,
+                title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
+                type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
+                isSaved: true,
+                isExpanded: false,
+                videoSource: "link" as const,
+                linkUrl: item.videoUrl || "",
+                linkPreviewTitle: "",
+                linkPreviewThumb: item.videoUrl
+                  ? getYoutubeThumb(item.videoUrl)
+                  : "",
+                linkVideoTitle: "",
+                linkVideoDuration: "",
+                showUploadSuccess: false,
+                fileName: "",
+                fileSize: "",
+                uploadProgress: 100,
+                uploadStatus: "done" as const,
+                previewUrl: "",
+                duration: "00:00",
+                articleContent: item.article || "",
+              };
+            });
+            setMaterials(loaded);
+            if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
+          }
         }
       } catch (err) {
-        console.error("Load materials error:", err);
+        console.error("Load content error:", err);
       }
     };
-    loadMaterials();
+    loadContent();
   }, [modulId]);
 
   useEffect(() => {
@@ -1141,6 +1134,8 @@ function TambahModulKontenPageContent() {
       setIsTopicAdded(true);
       setIsFormOpen(false);
       setActiveMaterialId(null);
+      setActiveTopikId(created.id);
+      setTopiks((prev) => [...prev, { ...created, materis: [] }]);
     } catch (err: unknown) {
       console.error("Create topic error:", err);
       setTopicError(
@@ -1158,6 +1153,11 @@ function TambahModulKontenPageContent() {
       await guruTopikApi.update(topicId, { nama: editTopicTitle.trim() });
       setTopicTitle(editTopicTitle.trim());
       setIsEditingTopic(false);
+      setTopiks((prev) =>
+        prev.map((t) =>
+          t.id === topicId ? { ...t, nama: editTopicTitle.trim() } : t,
+        ),
+      );
     } catch (err: unknown) {
       console.error("Update topic error:", err);
       toast(
@@ -1168,8 +1168,9 @@ function TambahModulKontenPageContent() {
   }, [topicId, editTopicTitle]);
 
   // Delete topic via API
-  const handleDeleteTopic = useCallback(async () => {
-    if (!topicId) return;
+  const handleDeleteTopic = useCallback(async (id?: string) => {
+    const targetId = id || topicId;
+    if (!targetId) return;
     const ok = await confirm({
       message: "Apakah Anda yakin ingin menghapus topik ini?",
       variant: "danger",
@@ -1177,12 +1178,14 @@ function TambahModulKontenPageContent() {
     });
     if (!ok) return;
     try {
-      await guruTopikApi.delete(topicId);
+      await guruTopikApi.delete(targetId);
       setTopicTitle("");
       setTopicId(null);
       setIsTopicAdded(false);
       setMaterials([]);
       setQuizzes([]);
+      setTopiks((prev) => prev.filter((t) => t.id !== targetId));
+      setActiveTopikId((prev) => (prev === targetId ? null : prev));
     } catch (err: unknown) {
       console.error("Delete topic error:", err);
       toast(
@@ -1331,7 +1334,7 @@ function TambahModulKontenPageContent() {
                 </div>
               )}
 
-              {!isTopicAdded && !isFormOpen && (
+              {topiks.length === 0 && !isFormOpen && (
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(true)}
@@ -1341,7 +1344,7 @@ function TambahModulKontenPageContent() {
                 </button>
               )}
 
-              {isFormOpen && !isTopicAdded && (
+              {topiks.length === 0 && isFormOpen && (
                 <div className="mt-4 rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4 shadow-[0_8px_20px_rgba(20,20,30,0.05)]">
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="text-[12px] font-semibold text-[#232530]">
@@ -1381,14 +1384,20 @@ function TambahModulKontenPageContent() {
                 </div>
               )}
 
-              {isTopicAdded && (
-                <div className="mt-4 space-y-4">
-                  <div className="rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <p className="text-[12px] font-semibold text-[#232530]">
-                          Topik 1:
-                        </p>
+              {topiks.length > 0 && (
+                <div className="mt-4 space-y-6">
+                  {topiks.map((topik, topikIndex) => (
+                    <div
+                      key={topik.id}
+                      className={`rounded-2xl border border-[#e5e3ee] px-5 py-4 ${
+                        activeTopikId === topik.id ? "bg-white" : "bg-[#fbfbfe]"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <p className="text-[12px] font-semibold text-[#232530]">
+                            Topik {topikIndex + 1}:
+                          </p>
                         {isEditingTopic ? (
                           <>
                             <input
@@ -1418,15 +1427,18 @@ function TambahModulKontenPageContent() {
                               Batal
                             </button>
                           </>
-                        ) : (
+                          ) : (
                           <>
                             <p className="text-[12px] font-semibold text-[#232530]">
-                              {topicTitle}
+                              {topik.nama}
                             </p>
                             <button
                               type="button"
                               onClick={() => {
-                                setEditTopicTitle(topicTitle);
+                                setActiveTopikId(topik.id);
+                                setTopicTitle(topik.nama);
+                                setTopicId(topik.id);
+                                setEditTopicTitle(topik.nama);
                                 setIsEditingTopic(true);
                               }}
                               className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"
@@ -1436,7 +1448,7 @@ function TambahModulKontenPageContent() {
                             </button>
                             <button
                               type="button"
-                              onClick={handleDeleteTopic}
+                              onClick={() => handleDeleteTopic(topik.id)}
                               className="cursor-pointer text-[#7a7e8a] hover:text-[#e04e4e]"
                               aria-label="Hapus topik"
                             >
@@ -1447,7 +1459,9 @@ function TambahModulKontenPageContent() {
                       </div>
                     </div>
 
-                    <div className="mt-4 space-y-3">
+                    {activeTopikId === topik.id ? (
+                      <>
+                      <div className="mt-4 space-y-3">
                       {materials.map((material, index) => (
                         <div
                           key={material.id}
@@ -1465,7 +1479,7 @@ function TambahModulKontenPageContent() {
                                 className="text-left"
                               >
                                 <span className="text-[12px] font-semibold text-[#232530]">
-                                  Materi {index + 1}:
+                                  {material.type === "video" ? `Video ${index + 1}` : `Materi ${index + 1}`}:
                                 </span>
                               </button>
                               {editingMaterialId === material.id ? (
@@ -2442,8 +2456,58 @@ function TambahModulKontenPageContent() {
                         </div>
                       </div>
                     )}
+                  </>
+                ) : (
+                  <div className="mt-4">
+                    <p className="text-[12px] text-[#7a7e8a]">
+                      {topik.materis.length} materi
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTopikId(topik.id);
+                        setTopicTitle(topik.nama);
+                        setTopicId(topik.id);
+                        const loaded = topik.materis.map((item, idx) => {
+                          const localId = Date.now() + idx;
+                          setMaterialApiIds((prev) => ({
+                            ...prev,
+                            [localId]: item.id,
+                          }));
+                          return {
+                            id: localId,
+                            title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
+                            type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
+                            isSaved: true,
+                            isExpanded: false,
+                            videoSource: "link" as const,
+                            linkUrl: item.videoUrl || "",
+                            linkPreviewTitle: "",
+                            linkPreviewThumb: item.videoUrl ? getYoutubeThumb(item.videoUrl) : "",
+                            linkVideoTitle: "",
+                            linkVideoDuration: "",
+                            showUploadSuccess: false,
+                            fileName: "",
+                            fileSize: "",
+                            uploadProgress: 100,
+                            uploadStatus: "done" as const,
+                            previewUrl: "",
+                            duration: "00:00",
+                            articleContent: item.article || "",
+                          };
+                        });
+                        setMaterials(loaded);
+                        if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
+                        setQuizzes([]);
+                      }}
+                      className="mt-2 text-[12px] font-semibold text-[#7054dc] hover:underline"
+                    >
+                      Kelola Konten
+                    </button>
                   </div>
-
+                )}
+                </div>
+                ))}
                   <button
                     type="button"
                     onClick={() => setIsFormOpen(true)}

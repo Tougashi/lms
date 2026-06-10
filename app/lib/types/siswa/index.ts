@@ -312,18 +312,33 @@ export interface StudyRoomAssessment {
   questions: StudyRoomQuestion[];
 }
 
+export interface StudyRoomMateri {
+  id: string;
+  itemType: 'MATERI';
+  judul: string;
+  isVideo: boolean;
+  videoUrl: string | null;
+  article: string | null;
+}
+
 export interface StudyRoomItem {
-  itemId: string;
-  itemType: 'SUBMATERI' | 'QUIZ' | 'RANGKUMAN_TOPIK';
-  title: string;
-  content: string | null;
-  hasVideo?: boolean;
+  id: string;
+  itemType: 'MATERI' | 'QUIZ' | 'RANGKUMAN_TOPIK';
+  judul: string;
+  isVideo?: boolean;
   videoUrl?: string | null;
+  article?: string | null;
+  question?: string;
+  correctAnswer?: string;
+  skor?: number;
+  quizImgQuestionUrl?: string | null;
+  quizAnswerOptions?: { id: string; option: string }[];
 }
 
 export interface StudyRoomTopik {
   id: string;
   nama: string;
+  rangkumanTopik: string | null;
   items: StudyRoomItem[];
 }
 
