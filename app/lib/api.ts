@@ -14,6 +14,7 @@ import type {
     CertificateItem,
     EnrolledModuleItem,
     ModuleDetail,
+    ModuleDetailResponse,
     PretestResponse,
     PosttestResponse,
     ProgressDetail,
@@ -26,6 +27,7 @@ import type {
     SiswaModuleListResponse,
     SiswaProfile,
     SoalItem,
+    StudyRoomResponse,
     TestSubmitPayload,
     TestSubmitResult,
 } from "./types/siswa";
@@ -282,13 +284,23 @@ export const siswaModulApi = {
     },
 
     getById(id: string) {
-        return apiFetch<ModuleItem>(`/siswa/modul/${id}`);
+        return apiFetch<ModuleDetailResponse>(`/siswa/modul/${id}`);
     },
 
     enroll(id: string) {
         return apiFetch<{ message: string }>(`/siswa/modul/${id}/enroll`, {
             method: "POST",
         });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Siswa – Study Room endpoints (consolidated module + questions + progress)
+// ---------------------------------------------------------------------------
+
+export const siswaStudyRoomApi = {
+    getByModul(modulId: string) {
+        return apiFetch<StudyRoomResponse>(`/siswa/study-room/${modulId}`);
     },
 };
 
@@ -349,6 +361,16 @@ export const siswaProgressApi = {
         return apiFetch<{ message: string }>(
             `/siswa/progress/submateri/${submateriId}/complete`,
             { method: "POST" },
+        );
+    },
+
+    completeItem(itemId: string, itemType: string, modulId: string) {
+        return apiFetch<{ message: string }>(
+            `/siswa/progress/item/${itemId}/complete`,
+            {
+                method: "POST",
+                data: { itemType, modulId },
+            },
         );
     },
 };

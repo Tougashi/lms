@@ -98,6 +98,7 @@ export interface ProgressDetail {
   progressPercentage: number;
   completionRate?: number;
   completedSubmateri?: string[];
+  completedContentItems?: string[];
   modul?: ModuleItem;
 }
 
@@ -172,4 +173,196 @@ export interface QuizSubmitResult {
   message: string;
   isCorrect: boolean;
   quizId: string;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Centralized Module Detail — matches the backend Prisma response
+// ─────────────────────────────────────────────────────────────────
+
+export interface QuizAnswerOptionDetail {
+  id: string;
+  quizId: string;
+  option: string;
+}
+
+export interface QuizSettingDetail {
+  id: string;
+  quizId: string;
+  timeLimit: number | null;
+  allowMultipleAttempts: boolean;
+  isComputationalThinkingEnabled: boolean;
+  minScoreTreshold: number | null;
+  standardScorePerQuestion: number;
+}
+
+export interface QuizDetail {
+  id: string;
+  materiId: string;
+  question: string;
+  correctAnswer: string;
+  skor: number;
+  quizImgQuestionUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+  quizAnswerOptions: QuizAnswerOptionDetail[];
+  quizSettings: QuizSettingDetail[];
+}
+
+export interface SubmateriDetail {
+  id: string;
+  materiId: string;
+  judul: string;
+  konten: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MateriDetail {
+  id: string;
+  tutorId: string;
+  isVideo: boolean;
+  videoUrl: string | null;
+  article: string | null;
+  topikId: string;
+  createdAt: string;
+  updatedAt: string;
+  submateris: SubmateriDetail[];
+  quizzes: QuizDetail[];
+}
+
+export interface TopikItemDetail {
+  id: string;
+  topikId: string;
+  itemId: string;
+  orderNumber: number;
+  itemType: "ARTICLE" | "QUIZ";
+}
+
+export interface TopikDetail {
+  id: string;
+  nama: string;
+  modulId: string;
+  isComputationalThinking: boolean;
+  createdAt: string;
+  updatedAt: string;
+  materis: MateriDetail[];
+  topikItems: TopikItemDetail[];
+}
+
+export interface ComputationalThinkingDetail {
+  id: string;
+  modulId: string;
+  aspek: string;
+  deskripsi: string | null;
+}
+
+export interface PretestInfo {
+  id: string;
+  pretestName?: string;
+}
+
+export interface PosttestInfo {
+  id: string;
+}
+
+export interface ModuleDetailResponse {
+  id: string;
+  moduleName: string;
+  subtitle: string;
+  description: string;
+  targetTime: number;
+  difficulty: string;
+  isPaid: boolean;
+  modulPrice: number | null;
+  level: string | null;
+  class: string | null;
+  pretestPostTestEnabled: boolean;
+  hasStudyGroup: boolean;
+  hasCertificate: boolean;
+  moduleImgUrl: string | null;
+  modulType: string;
+  tutorId: string;
+  isDraft: boolean;
+  createdAt: string;
+  updatedAt: string;
+  tutor: {
+    fullName: string;
+    profileImg: string | null;
+  } | null;
+  pretest: PretestInfo | null;
+  posttest: PosttestInfo | null;
+  topiks: TopikDetail[];
+  computationalThinkings: ComputationalThinkingDetail[];
+  progress: ProgressDetail | null;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Study Room — consolidated endpoint response
+// ─────────────────────────────────────────────────────────────────
+
+export interface StudyRoomQuestion {
+  id: string;
+  text: string;
+  options: Array<{ key: string; label: string }>;
+}
+
+export interface StudyRoomAssessment {
+  id: string;
+  title: string;
+  questions: StudyRoomQuestion[];
+}
+
+export interface StudyRoomItem {
+  itemId: string;
+  itemType: 'SUBMATERI' | 'QUIZ' | 'RANGKUMAN_TOPIK';
+  title: string;
+  content: string | null;
+  hasVideo?: boolean;
+  videoUrl?: string | null;
+}
+
+export interface StudyRoomTopik {
+  id: string;
+  nama: string;
+  items: StudyRoomItem[];
+}
+
+export interface StudyRoomCurriculum {
+  pretest: StudyRoomAssessment | null;
+  topiks: StudyRoomTopik[];
+  rangkumanAkhir: {
+    itemId: string;
+    title: string;
+    content: string | null;
+  } | null;
+  posttest: StudyRoomAssessment | null;
+}
+
+export interface StudyRoomProgress {
+  id: string;
+  siswaId: string;
+  modulId: string;
+  completedContentItems: string[];
+  progressPercentage: number;
+  pretestScore: number | null;
+  posttestScore: number | null;
+  finalScore: number | null;
+  status: string;
+  isGraduated: boolean;
+}
+
+export interface StudyRoomCertificate {
+  id: string;
+  certificateUrl: string;
+  kode_sertif: string;
+  issued_at: string;
+}
+
+export interface StudyRoomResponse {
+  modulId: string;
+  moduleName: string;
+  hasCertificate: boolean;
+  progress: StudyRoomProgress | null;
+  certificate: StudyRoomCertificate | null;
+  curriculum: StudyRoomCurriculum;
 }

@@ -51,7 +51,7 @@ export default function BerandaSiswaPage() {
             Array.from(unresolvedIds).map(async (mid) => {
               try {
                 const m = await siswaModulApi.getById(mid);
-                resolvedNames[mid] = m.moduleName || m.nama_modul || 'Modul';
+                resolvedNames[mid] = m.moduleName;
               } catch {
                 resolvedNames[mid] = 'Modul';
               }
