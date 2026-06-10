@@ -2,11 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { RiHome5Fill } from 'react-icons/ri';
 import {
   FiArrowLeft,
   FiFileText,
-  FiDollarSign,
   FiLayers,
   FiCheckSquare,
   FiUsers,
@@ -18,14 +16,15 @@ type Props = {
   /** Module ID — when provided, appended as ?id=xxx to every link (used on edit modul) */
   modulId?: string;
   title?: string;
+  /** Show the "Management Siswa" item — only for edit modul (default false) */
+  showSiswaTab?: boolean;
 };
 
-const NAV_SECTIONS = [
+const BASE_NAV_SECTIONS = [
   {
     group: 'Rencanakan Modul',
     items: [
       { label: 'Profil Modul', Icon: FiFileText, sub: '' },
-      { label: 'Penetapan Harga', Icon: FiDollarSign, sub: '/harga' },
     ],
   },
   {
@@ -35,21 +34,27 @@ const NAV_SECTIONS = [
       { label: 'Pre - Post Test', Icon: FiCheckSquare, sub: '/prepost' },
     ],
   },
-  {
-    group: 'Management Pengguna',
-    items: [
-      { label: 'Management Siswa', Icon: FiUsers, sub: '/siswa' },
-    ],
-  },
 ];
+
+const SISWA_SECTION = {
+  group: 'Management Pengguna',
+  items: [
+    { label: 'Management Siswa', Icon: FiUsers, sub: '/siswa' },
+  ],
+};
 
 export default function AdminModuleSidebar({
   basePath,
   modulId,
   title = 'Tambah Modul',
+  showSiswaTab = false,
 }: Props) {
   const pathname = usePathname();
   const qs = modulId ? `?id=${modulId}` : '';
+
+  const navSections = showSiswaTab
+    ? [...BASE_NAV_SECTIONS, SISWA_SECTION]
+    : BASE_NAV_SECTIONS;
 
   const isActive = (sub: string) => {
     if (sub === '') {
@@ -85,7 +90,7 @@ export default function AdminModuleSidebar({
 
       {/* Nav */}
       <div className="mt-4 flex flex-col gap-5">
-        {NAV_SECTIONS.map((section) => (
+        {navSections.map((section) => (
           <div key={section.group}>
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#a0a3b0]">
               {section.group}

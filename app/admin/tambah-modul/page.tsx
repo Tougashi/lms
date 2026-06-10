@@ -12,9 +12,13 @@ import {
   FiX,
 } from "react-icons/fi";
 import AdminHeader from "../../component/admin/AdminHeader";
+import AdminModuleSidebar from "../components/AdminModuleSidebar";
 import { AdminToastContainer, useAdminToast } from "../components/AdminToast";
 import { adminModulApi, adminTutorApi, uploadApi } from "../../lib/api";
 import type { AdminTutorItem } from "../../lib/types/admin";
+
+/* ─── ID state (persisted across re-renders without triggering re-render for sidebar) ─── */
+let _createdModulId: string | null = null;
 
 /* ─── style constants ─── */
 const inputCls =
@@ -325,7 +329,7 @@ export default function TambahModulAdminPage() {
         moduleImgUrl = res.url ?? null;
       }
 
-      await adminModulApi.create({
+      const created = await adminModulApi.create({
         moduleName: moduleName.trim(),
         subtitle: subtitle.trim(),
         description: description.trim(),
@@ -345,8 +349,8 @@ export default function TambahModulAdminPage() {
         hasCertificate,
       });
 
-      showToast("success", "Modul berhasil disimpan.");
-      router.push("/admin/manajemen-modul");
+      showToast("success", "Modul berhasil dibuat. Lanjutkan mengisi konten modul.");
+      router.push(`/admin/tambah-modul/konten?id=${created.id}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Gagal menyimpan modul.";
       showToast("error", msg);
@@ -393,23 +397,31 @@ export default function TambahModulAdminPage() {
       <AdminToastContainer toasts={toasts} onDismiss={dismissToast} />
       <AdminHeader />
 
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        {/* Back link */}
-        <Link
-          href="/admin/manajemen-modul"
-          className="mb-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#7054dc] hover:text-[#5f46cc] transition-colors"
-        >
-          <FiArrowLeft size={15} />
-          Kembali ke Manajemen Modul
-        </Link>
+      <main className="flex w-full">
+        <AdminModuleSidebar
+          basePath="/admin/tambah-modul"
+          title="Tambah Modul"
+          showSiswaTab={true}
+        />
 
-        {/* Heading */}
-        <h1 className="text-[22px] font-bold text-[#1a1830]">
-          Tambah Modul Baru
-        </h1>
-        <p className="mt-1 text-[13px] text-[#9b97ad]">
-          Field <span className="text-[#e8473f]">*</span> wajib diisi
-        </p>
+        <div className="flex-1 px-4 pb-12 pt-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-3xl">
+            {/* Back link */}
+            <Link
+              href="/admin/manajemen-modul"
+              className="mb-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#7054dc] hover:text-[#5f46cc] transition-colors"
+            >
+              <FiArrowLeft size={15} />
+              Kembali ke Manajemen Modul
+            </Link>
+
+            {/* Heading */}
+            <h1 className="text-[22px] font-bold text-[#1a1830]">
+              Tambah Modul Baru
+            </h1>
+            <p className="mt-1 text-[13px] text-[#9b97ad]">
+              Field <span className="text-[#e8473f]">*</span> wajib diisi
+            </p>
 
         <div className="mt-6 space-y-5">
           {/* ── Card 1: Cover Modul ── */}
@@ -788,8 +800,10 @@ export default function TambahModulAdminPage() {
               className="inline-flex h-[44px] items-center gap-2 rounded-xl bg-[#7054dc] px-7 text-[13px] font-semibold text-white shadow-[0_6px_18px_rgba(112,84,220,0.28)] hover:bg-[#5f46cc] transition-colors disabled:opacity-60"
             >
               {isSaving && <Spinner size={14} className="text-white" />}
-              {isSaving ? "Menyimpan..." : "Simpan Modul"}
+              {isSaving ? "Menyimpan..." : "Simpan & Lanjutkan"}
             </button>
+          </div>
+        </div>
           </div>
         </div>
       </main>

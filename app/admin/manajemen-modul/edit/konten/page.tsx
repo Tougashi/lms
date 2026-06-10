@@ -5,9 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import {
   FiChevronDown, FiEdit2, FiLayers, FiPlus, FiTrash2, FiX,
 } from 'react-icons/fi';
-import AdminHeader from '../../../component/admin/AdminHeader';
-import AdminModuleSidebar from '../../components/AdminModuleSidebar';
-import { adminTopikApi, adminMateriApi, uploadApi } from '../../../lib/api';
+import AdminHeader from '../../../../component/admin/AdminHeader';
+import AdminModuleSidebar from '../../../components/AdminModuleSidebar';
+import { adminTopikApi, adminMateriApi, uploadApi } from '../../../../lib/api';
 
 /* ─── Rich Text Editor ─── */
 function RichTextEditor({ placeholder }: { placeholder: string }) {
@@ -58,9 +58,10 @@ function RichTextEditor({ placeholder }: { placeholder: string }) {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10 13.5l4-4M7 17a4 4 0 0 1 0-6l2-2a4 4 0 0 1 6 6l-2 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
         </button>
         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploadingImage} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#232530] hover:bg-[#f5f4fb] disabled:opacity-50" aria-label="Image">
-          {isUploadingImage ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#7054dc] border-t-transparent" /> : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="2"/><circle cx="9" cy="11" r="2" fill="currentColor"/><path d="M20 16l-5-5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-          )}
+          {isUploadingImage
+            ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#7054dc] border-t-transparent" />
+            : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="2"/><circle cx="9" cy="11" r="2" fill="currentColor"/><path d="M20 16l-5-5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          }
         </button>
       </div>
       <div className="relative px-3 py-3 text-[12px] text-[#232530]">
@@ -92,14 +93,13 @@ type Material = {
   articleContent: string;
 };
 
-/* ─── helper ─── */
 const getYoutubeThumb = (url: string) => {
   const match = url.match(/(?:v=|be\/)([a-zA-Z0-9_-]{6,})/);
   return match ? `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg` : '';
 };
 
-/* ─── Inner Page (needs Suspense for useSearchParams) ─── */
-function AdminKontenPageContent() {
+/* ─── Inner Page ─── */
+function EditModulKontenContent() {
   const searchParams = useSearchParams();
   const modulId = searchParams.get('id');
 
@@ -185,7 +185,6 @@ function AdminKontenPageContent() {
     };
   }, []);
 
-  /* Show upload success banner briefly */
   useEffect(() => {
     materials.forEach((m) => {
       if (!m.showUploadSuccess || uploadSuccessTimersRef.current[m.id]) return;
@@ -300,7 +299,12 @@ function AdminKontenPageContent() {
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
       <AdminHeader />
       <main className="flex w-full">
-        <AdminModuleSidebar basePath="/admin/tambah-modul" modulId={modulId ?? undefined} title="Tambah Modul" showSiswaTab={true} />
+        <AdminModuleSidebar
+          basePath="/admin/manajemen-modul/edit"
+          modulId={modulId ?? undefined}
+          title="Edit Modul"
+          showSiswaTab={true}
+        />
 
         <section className="flex-1 px-4 pb-10 pt-6 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
@@ -385,7 +389,6 @@ function AdminKontenPageContent() {
                 )}
               </div>
 
-              {/* New material form */}
               {isMaterialFormOpen && (
                 <div className="mt-4 rounded-2xl border border-[#e5e3ee] bg-white p-4">
                   <p className="text-[13px] font-semibold text-[#232530]">Nama Materi</p>
@@ -410,10 +413,8 @@ function AdminKontenPageContent() {
                 </div>
               )}
 
-              {/* Material list with side-by-side layout */}
               {materials.length > 0 && (
                 <div className="mt-4 flex gap-4">
-                  {/* Left: material list */}
                   <div className="w-[220px] shrink-0 space-y-1">
                     {materials.map((m) => (
                       <button
@@ -428,7 +429,6 @@ function AdminKontenPageContent() {
                     ))}
                   </div>
 
-                  {/* Right: active material editor */}
                   {activeMaterial && (
                     <div className="flex-1 rounded-2xl border border-[#e5e3ee] bg-white p-5">
                       <div className="flex items-center justify-between">
@@ -450,7 +450,6 @@ function AdminKontenPageContent() {
                         <span className="rounded-full bg-[#ece7ff] px-2 py-0.5 font-semibold capitalize text-[#7054dc]">{activeMaterial.type}</span>
                       </div>
 
-                      {/* Video source */}
                       {activeMaterial.type === 'video' && (
                         <div className="mt-4">
                           <p className="text-[12px] font-semibold text-[#232530]">Sumber Video</p>
@@ -483,19 +482,17 @@ function AdminKontenPageContent() {
                           {activeMaterial.videoSource === 'upload' && (
                             <label className="mt-3 flex h-[80px] cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-[#c8bfff] bg-[#f9f8ff] text-[12px] text-[#7054dc] hover:bg-[#f0eeff]">
                               <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileChange(activeMaterial.id, e.target.files?.[0] ?? null)} />
-                              {activeMaterial.uploadStatus === 'done' ? (
-                                <span className="font-semibold text-green-600">✓ {activeMaterial.fileName}</span>
-                              ) : activeMaterial.uploadStatus === 'uploading' ? (
-                                <span>Mengunggah... {activeMaterial.uploadProgress}%</span>
-                              ) : (
-                                <span>+ Upload Video</span>
-                              )}
+                              {activeMaterial.uploadStatus === 'done'
+                                ? <span className="font-semibold text-green-600">✓ {activeMaterial.fileName}</span>
+                                : activeMaterial.uploadStatus === 'uploading'
+                                  ? <span>Mengunggah... {activeMaterial.uploadProgress}%</span>
+                                  : <span>+ Upload Video</span>
+                              }
                             </label>
                           )}
                         </div>
                       )}
 
-                      {/* Article editor */}
                       {activeMaterial.type === 'artikel' && (
                         <div className="mt-4">
                           <p className="text-[12px] font-semibold text-[#232530]">Konten Artikel</p>
@@ -529,10 +526,10 @@ function AdminKontenPageContent() {
   );
 }
 
-export default function TambahModulKontenPage() {
+export default function EditModulKontenPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-[#f7f6fb]" />}>
-      <AdminKontenPageContent />
+      <EditModulKontenContent />
     </Suspense>
   );
 }

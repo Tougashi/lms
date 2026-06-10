@@ -798,6 +798,13 @@ export const guruPosttestApi = {
 };
 
 // ---------------------------------------------------------------------------
+// Admin – Pretest & Posttest (alias ke endpoint tutor, admin memiliki akses sama)
+// ---------------------------------------------------------------------------
+
+export const adminPretestApi = guruPretestApi;
+export const adminPosttestApi = guruPosttestApi;
+
+// ---------------------------------------------------------------------------
 // Guru / Tutor – Kuis endpoints
 // ---------------------------------------------------------------------------
 
