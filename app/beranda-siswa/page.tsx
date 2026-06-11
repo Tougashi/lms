@@ -29,9 +29,12 @@ export default function BerandaSiswaPage() {
   useEffect(() => {
     if (authLoading || !user) return;
 
+    let isMounted = true;
+
     const fetchDashboard = async () => {
       try {
         const data = await dashboardApi.siswa();
+        if (!isMounted) return;
 
         // Resolve module names for progress items that lack modul relation
         const progressItems = data.latestProgress ?? [];
@@ -58,6 +61,8 @@ export default function BerandaSiswaPage() {
             })
           );
 
+          if (!isMounted) return;
+
           for (const p of progressItems) {
             if ((!p.modul?.moduleName && !p.modul?.nama_modul) && p.modulId && resolvedNames[p.modulId]) {
               p.modul = { ...p.modul, id: p.modulId, moduleName: resolvedNames[p.modulId] } as ProgressItem['modul'];
@@ -68,16 +73,17 @@ export default function BerandaSiswaPage() {
           }
         }
 
-        setDashboard(data);
+        if (isMounted) setDashboard(data);
       } catch (err: unknown) {
         console.error('Dashboard fetch error:', err);
-        setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
+        if (isMounted) setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
       } finally {
-        setIsLoadingData(false);
+        if (isMounted) setIsLoadingData(false);
       }
     };
 
     fetchDashboard();
+    return () => { isMounted = false; };
   }, [authLoading, user]);
 
   // Derive data from dashboard response

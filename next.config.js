@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    reactStrictMode: true,
+    onDemandEntries: {
+        maxInactiveAge: 15_000,
+        pagesBufferLength: 2,
+    },
     images: {
         remotePatterns: [
             {

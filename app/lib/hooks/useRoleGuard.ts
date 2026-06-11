@@ -20,6 +20,10 @@ export function useRoleGuard(allowedRoles: string[]) {
 
   const isAuthorized = !isLoading && !!user && !!role && allowedRoles.includes(role);
 
+  // Serialize to a stable primitive so inline arrays like ['siswa'] don't re-trigger
+  // the effect on every parent render due to new array reference.
+  const serializedRoles = allowedRoles.join(',');
+
   useEffect(() => {
     if (isLoading) return;
 
@@ -27,7 +31,7 @@ export function useRoleGuard(allowedRoles: string[]) {
     if (!user || !role) return;
 
     // Logged in but wrong role — redirect to their home page
-    if (!allowedRoles.includes(role)) {
+    if (!serializedRoles.split(',').includes(role)) {
       switch (role) {
         case 'admin':
           router.replace('/admin/dashboard');
@@ -41,7 +45,7 @@ export function useRoleGuard(allowedRoles: string[]) {
           break;
       }
     }
-  }, [isLoading, user, role, allowedRoles, router]);
+  }, [isLoading, user, role, serializedRoles, router]);
 
   return { isAuthorized, isLoading, user, role };
 }

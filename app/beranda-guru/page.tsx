@@ -57,19 +57,22 @@ function BerandaGuruPageContent() {
   useEffect(() => {
     if (authLoading || !user) return;
 
+    let isMounted = true;
+
     const fetchDashboard = async () => {
       try {
         const data = await dashboardApi.tutor();
-        setDashboard(data);
+        if (isMounted) setDashboard(data);
       } catch (err: unknown) {
         console.error('Tutor dashboard fetch error:', err);
-        setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
+        if (isMounted) setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
       } finally {
-        setIsLoadingData(false);
+        if (isMounted) setIsLoadingData(false);
       }
     };
 
     fetchDashboard();
+    return () => { isMounted = false; };
   }, [authLoading, user]);
 
   const stats = {

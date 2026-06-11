@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FiBookOpen, FiCheckSquare, FiDollarSign, FiFileText, FiLayers } from 'react-icons/fi';
 import Link from 'next/link';
@@ -23,25 +23,36 @@ function TambahModulHargaPageContent() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const { toast, confirm } = usePopup();
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear any pending navigation timer on unmount
+  useEffect(() => {
+    return () => {
+      if (navTimerRef.current) clearTimeout(navTimerRef.current);
+    };
+  }, []);
 
   // Load existing module data to pre-fill isPaid & modulPrice
   useEffect(() => {
     if (!modulId) return;
+    let isMounted = true;
     const load = async () => {
       try {
         const data = await guruModulApi.detail(modulId);
+        if (!isMounted) return;
         setIsPaid(data.isPaid ?? false);
         if (data.modulPrice != null && data.modulPrice > 0) {
           setModulPrice(String(data.modulPrice));
         }
       } catch (err) {
         console.error('Load module error:', err);
-        setError('Gagal memuat data modul.');
+        if (isMounted) setError('Gagal memuat data modul.');
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
     load();
+    return () => { isMounted = false; };
   }, [modulId]);
 
   const handleSave = useCallback(async () => {
@@ -66,8 +77,7 @@ function TambahModulHargaPageContent() {
         modulPrice: priceValue,
       });
       setSuccessMsg('Harga modul berhasil disimpan!');
-      // Navigate to konten page after short delay
-      setTimeout(() => {
+      navTimerRef.current = setTimeout(() => {
         router.push(`/modul-guru/tambah/konten?modulId=${modulId}`);
       }, 800);
     } catch (err: unknown) {

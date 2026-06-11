@@ -66,7 +66,7 @@ function buildCurriculumItems(topik: TopikDetail): CurriculumItem[] {
         } else if (ti.itemType === "QUIZ") {
             const quiz = topik.materis
                 .flatMap((m) => m.quizzes)
-                .find((q) => q.id === ti.itemId);
+                .find((q) => q?.id === ti.itemId);
             if (quiz) items.push({ type: "QUIZ", data: quiz });
         }
     }
@@ -171,7 +171,6 @@ export default function ModulDetailPage({
                     window.location.href = `/modul/${id}/materi`;
                     return;
                 }
-                // console.log(err);
 
                 const res = await siswaModulApi
                     .getById(id)

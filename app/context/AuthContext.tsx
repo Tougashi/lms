@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   type ReactNode,
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -126,8 +127,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   }, [router]);
 
+  const value = useMemo(
+    () => ({ user, role, isLoading, login, register, logout }),
+    [user, role, isLoading, login, register, logout],
+  );
+
   return (
-    <AuthContext.Provider value={{ user, role, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

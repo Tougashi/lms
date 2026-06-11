@@ -87,6 +87,8 @@ export default function EksplorModulPage() {
             return [];
         }
 
+        let isMounted = true;
+
         const fetchData = async () => {
             setIsLoading(true);
             setError("");
@@ -95,6 +97,8 @@ export default function EksplorModulPage() {
                     siswaModulApi.getAll({ limit: 50 }),
                     siswaModulApi.getEnrolled({ limit: 50 }),
                 ]);
+
+                if (!isMounted) return;
 
                 const allModules = extractArray<ModuleItem>(allRes);
                 const enrolled = extractArray<EnrolledModuleItem>(enrolledRes);
@@ -106,17 +110,18 @@ export default function EksplorModulPage() {
                 setEnrolledModules(enrolled);
             } catch (err: unknown) {
                 console.error("Eksplor modul fetch error:", err);
-                setError(
+                if (isMounted) setError(
                     err instanceof Error
                         ? err.message
                         : "Gagal memuat data modul",
                 );
             } finally {
-                setIsLoading(false);
+                if (isMounted) setIsLoading(false);
             }
         };
 
         fetchData();
+        return () => { isMounted = false; };
     }, []);
 
     const filteredModules = useMemo(() => {

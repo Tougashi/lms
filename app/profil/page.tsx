@@ -2,15 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { FaBell, FaEye, FaEyeSlash, FaFileAlt, FaLock, FaRegEdit, FaSignOutAlt, FaUser } from "react-icons/fa";
 import { MdVerified } from "react-icons/md";
 import { useAuth } from "../context/AuthContext";
 import SiswaHeader from "../component/siswa/SiswaHeader";
 import GuruHeader from "../component/guru/GuruHeader";
 import { useRoleGuard } from "../lib/hooks/useRoleGuard";
-import { siswaProfileApi, siswaCertificateApi, authApi } from "../lib/api";
+import { siswaProfileApi, siswaCertificateApi, authApi, guruProfileApi, guruSignatureApi } from "../lib/api";
 import type { SiswaProfile, CertificateItem } from "../lib/types/siswa";
+import type { TutorProfile } from "../lib/types/guru";
 
 function extractArray<T>(res: unknown): T[] {
   if (Array.isArray(res)) return res as T[];
@@ -52,6 +53,14 @@ export default function ProfilPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
+  // Tutor signature state
+  const [tutorProfile, setTutorProfile] = useState<TutorProfile | null>(null);
+  const [sigFile, setSigFile] = useState<File | null>(null);
+  const [sigPreview, setSigPreview] = useState('');
+  const [isSigUploading, setIsSigUploading] = useState(false);
+  const [sigMsg, setSigMsg] = useState('');
+  const sigInputRef = useRef<HTMLInputElement>(null);
+
   // Certificate state
   const [certificates, setCertificates] = useState<CertificateItem[]>([]);
   const [isCertLoading, setIsCertLoading] = useState(false);
@@ -87,15 +96,62 @@ export default function ProfilPage() {
     setIsProfileLoading(false);
   }, [user]);
 
+  // Load tutor profile + existing signature
+  useEffect(() => {
+    if (user?.role !== 'tutor') return;
+    let isMounted = true;
+    guruProfileApi.get()
+      .then((p) => {
+        if (!isMounted) return;
+        setTutorProfile(p);
+        if (p.signatureUrl) setSigPreview(p.signatureUrl);
+      })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, [user?.role]);
+
   // Fetch certificates when tab switches
   useEffect(() => {
     if (activeMenu !== "sertifikat" || !user) return;
+    let isMounted = true;
     setIsCertLoading(true);
     siswaCertificateApi.getAll({ limit: 20 })
-      .then((res) => setCertificates(extractArray<CertificateItem>(res)))
+      .then((res) => { if (isMounted) setCertificates(extractArray<CertificateItem>(res)); })
       .catch(() => { /* ignore */ })
-      .finally(() => setIsCertLoading(false));
+      .finally(() => { if (isMounted) setIsCertLoading(false); });
+    return () => { isMounted = false; };
   }, [activeMenu, user]);
+
+  const handleSigFileSelect = useCallback((file: File | null) => {
+    if (!file) return;
+    if (!file.type.includes('png')) { setSigMsg('Hanya file .PNG yang diizinkan.'); return; }
+    if (file.size > 2 * 1024 * 1024) { setSigMsg('Ukuran file melebihi 2MB.'); return; }
+    setSigMsg('');
+    setSigFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (typeof result === 'string') setSigPreview(result);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleSigUpload = useCallback(async () => {
+    if (!sigFile) return;
+    setIsSigUploading(true);
+    setSigMsg('');
+    try {
+      const res = await guruSignatureApi.upload(sigFile);
+      setSigPreview(res.signatureUrl);
+      setSigFile(null);
+      setSigMsg('Tanda tangan berhasil disimpan!');
+      setTutorProfile((prev) => prev ? { ...prev, signatureUrl: res.signatureUrl } : prev);
+    } catch (err: unknown) {
+      setSigMsg(err instanceof Error ? err.message : 'Gagal mengunggah tanda tangan.');
+    } finally {
+      setIsSigUploading(false);
+    }
+  }, [sigFile]);
 
   const handleSaveProfile = useCallback(async () => {
     if (!profile) return;
@@ -326,6 +382,59 @@ export default function ProfilPage() {
                           </div>
                         )}
                       </div>
+
+                      {/* Tutor Signature Upload */}
+                      {user?.role === "tutor" && (
+                        <div className="mt-4 rounded-xl border border-[#e4e2eb] bg-white p-4">
+                          <h3 className="text-sm font-semibold text-[#202126]">Tanda Tangan</h3>
+                          <p className="mt-1 text-xs text-[#7d8291]">
+                            Tanda tangan ditampilkan pada sertifikat kelulusan siswa. Format .PNG, latar transparan.
+                          </p>
+
+                          {sigMsg && (
+                            <p className={`mt-2 text-xs ${sigMsg.includes("berhasil") ? "text-green-600" : "text-red-500"}`}>
+                              {sigMsg}
+                            </p>
+                          )}
+
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => sigInputRef.current?.click()}
+                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") sigInputRef.current?.click(); }}
+                            className="mt-3 flex min-h-[100px] cursor-pointer flex-col items-center justify-center rounded-xl border border-[#e4e2eb] bg-[#fbfaff] px-4 py-5 transition-colors hover:border-[#b8adee]"
+                          >
+                            {sigPreview ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <img src={sigPreview} alt="Pratinjau tanda tangan" className="max-h-[80px] object-contain" />
+                                <span className="text-[11px] text-[#7054dc]">Klik untuk mengganti</span>
+                              </div>
+                            ) : (
+                              <p className="text-center text-xs text-[#9aa0ad]">
+                                Klik untuk unggah tanda tangan<br />(Format .PNG, maks. 2MB)
+                              </p>
+                            )}
+                            <input
+                              ref={sigInputRef}
+                              type="file"
+                              accept=".png,image/png"
+                              className="hidden"
+                              onChange={(e) => handleSigFileSelect(e.target.files?.[0] ?? null)}
+                            />
+                          </div>
+
+                          {sigFile && (
+                            <button
+                              type="button"
+                              disabled={isSigUploading}
+                              onClick={handleSigUpload}
+                              className="mt-3 rounded-lg bg-[#7054dc] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                            >
+                              {isSigUploading ? "Menyimpan..." : "Simpan Tanda Tangan"}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </>

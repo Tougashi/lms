@@ -192,6 +192,8 @@ export function PopupProvider({ children }: { children: ReactNode }) {
     resolve: (result: boolean) => void;
   } | null>(null);
   const idRef = useRef(0);
+  const confirmStateRef = useRef(confirmState);
+  confirmStateRef.current = confirmState;
 
   const toast = useCallback((message: string, type: ToastType = 'info') => {
     const id = ++idRef.current;
@@ -208,12 +210,14 @@ export function PopupProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Empty deps: ref always holds the current confirmState so the callback
+  // never becomes stale but also never re-creates on every confirm() call.
   const handleConfirmResolve = useCallback(
     (result: boolean) => {
-      confirmState?.resolve(result);
+      confirmStateRef.current?.resolve(result);
       setConfirmState(null);
     },
-    [confirmState],
+    [],
   );
 
   return (

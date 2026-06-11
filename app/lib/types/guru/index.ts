@@ -313,7 +313,7 @@ export interface TutorProfile {
     profileImg?: string | null;
     role: string;
     socialMedias?: { platform: string; url: string }[];
-    signatures?: { fileUrl: string }[];
+    signatureUrl?: string | null;
 }
 
 // ---------------------------------------------------------------------------

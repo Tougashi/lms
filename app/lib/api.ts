@@ -27,6 +27,7 @@ import type {
     SiswaModuleListResponse,
     SiswaProfile,
     SoalItem,
+    StudyRoomCertificate,
     StudyRoomResponse,
     TestSubmitPayload,
     TestSubmitResult,
@@ -440,6 +441,13 @@ export const siswaCertificateApi = {
 
     getById(id: string) {
         return apiFetch<CertificateItem>(`/siswa/certificates/${id}`);
+    },
+
+    claim(modulId: string) {
+        return apiFetch<StudyRoomCertificate>("/siswa/certificates/claim", {
+            method: "POST",
+            data: { modulId },
+        });
     },
 };
 
@@ -868,6 +876,30 @@ export const uploadApi = {
 export const guruProfileApi = {
     get() {
         return apiFetch<TutorProfile>("/tutor/profile");
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Signature endpoints
+// ---------------------------------------------------------------------------
+
+interface SignatureResponse {
+    message: string;
+    signatureUrl: string;
+}
+
+interface SignatureGetResponse {
+    signatureUrl: string | null;
+}
+
+export const guruSignatureApi = {
+    get() {
+        return apiFetch<SignatureGetResponse>("/tutor/signature");
+    },
+    upload(file: File) {
+        const formData = new FormData();
+        formData.append("file", file);
+        return apiUpload<SignatureResponse>("/tutor/signature", formData);
     },
 };
 

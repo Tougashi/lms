@@ -1,4 +1,4 @@
-import type { ModuleItem, TopikItem, MateriItem } from '../modul';
+import type { ModuleItem, TopikItem as ModulTopikItem, MateriItem } from '../modul';
 import type { RatingItem } from '../umum';
 
 export interface SiswaDashboard {
@@ -42,7 +42,7 @@ export interface EnrolledModuleItem extends ModuleItem {
 }
 
 export interface ModuleDetail extends ModuleItem {
-  topik?: TopikItem[];
+  topik?: ModulTopikItem[];
   materi?: MateriItem[];
 }
 
@@ -55,6 +55,7 @@ export interface SoalItem {
   pilihan_d: string;
   kunci_jawaban?: string;
   gambar_url?: string | null;
+  knowledgeComponentId?: string;
 }
 
 export interface PretestResponse {
@@ -380,4 +381,40 @@ export interface StudyRoomResponse {
   progress: StudyRoomProgress | null;
   certificate: StudyRoomCertificate | null;
   curriculum: StudyRoomCurriculum;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Curriculum discriminated unions — used by sidebar & content switcher
+// ─────────────────────────────────────────────────────────────────
+
+export interface TopikItemMateri {
+  type: "MATERI";
+  sequence: number;
+  id: string;
+  judul: string;
+  isVideo: boolean;
+  videoUrl: string | null;
+  article: string | null;
+}
+
+export interface TopikItemQuiz {
+  type: "QUIZ";
+  sequence: number;
+  id: string;
+  judul: string;
+  question: string;
+  correctAnswer: string;
+  skor: number;
+  quizImgQuestionUrl: string | null;
+  quizAnswerOptions: Array<{ id: string; option: string }>;
+}
+
+/** Discriminated union — every consumer must handle both "MATERI" and "QUIZ" branches. */
+export type TopikItem = TopikItemMateri | TopikItemQuiz;
+
+export interface Topik {
+  id: string;
+  nama: string;
+  topikItems: TopikItem[];
+  rangkumanTopik: string | null;
 }

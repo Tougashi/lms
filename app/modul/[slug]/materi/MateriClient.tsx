@@ -34,6 +34,7 @@ import type {
     TestSubmitResult,
     CertificateItem,
 } from "../../../lib/types/siswa";
+import { calculateProgress } from "../../../lib/utils/progress";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,6 +78,7 @@ type ContentSection = {
     id: string;
     title: string;
     items: SequenceItem[];
+    rangkumanTopik: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -171,18 +173,11 @@ function buildContentTree(
                     topikId: topik.id,
                     topikName: topik.nama,
                 });
-            } else if (item.itemType === "RANGKUMAN_TOPIK") {
-                items.push({
-                    id: item.id,
-                    title: item.judul,
-                    type: "summary",
-                    topikId: topik.id,
-                    topikName: topik.nama,
-                    konten: item.article ?? undefined,
-                });
             }
+            // RANGKUMAN_TOPIK items are excluded from clickable sidebar items.
+            // The text is surfaced via topik.rangkumanTopik as a non-clickable block.
         }
-        tree.push({ id: topik.id, title: topik.nama, items });
+        tree.push({ id: topik.id, title: topik.nama, items, rangkumanTopik: topik.rangkumanTopik });
     }
     return tree;
 }
@@ -222,6 +217,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   const [posttestSoal, setPosttestSoal] = useState<SoalItem[]>([]);
   const [progress, setProgress] = useState<StudyRoomProgress | null>(null);
   const [certificate, setCertificate] = useState<StudyRoomCertificate | null>(null);
+  const [isClaimingCertificate, setIsClaimingCertificate] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dataError, setDataError] = useState("");
 
@@ -444,9 +440,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     ).length,
     [sequence, completedContentItemMap]
   );
-  const progressPercent = (progress?.status === "COMPLETED" || progress?.isGraduated)
-    ? 100
-    : (totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0);
+  const progressPercent = calculateProgress(sequence, completedContentItemMap, progress?.status, progress?.isGraduated);
 
   // ─── Certificate eligibility ──────────────────────────────────────────
   // Certificate requires 100% progress AND hasCertificate flag on the modul
@@ -512,7 +506,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         setCompletedContentItemMap((prev) => ({ ...prev, posttest: true }));
         // Save certificate from posttest response if returned
         if (result?.certificate) {
-          setCertificate(result.certificate as unknown as StudyRoomCertificate);
+          setCertificate(result.certificate);
         }
       } else if (assessmentType === "pretest") {
         result = await siswaPretestApi.submit(modulId, { answers });
@@ -532,7 +526,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
               await siswaKuisApi.submit({
                 quizId: soal.id,
                 answer: answerText,
-                knowledgeComponentId: (soal as any).knowledgeComponentId || "unknown",
+                knowledgeComponentId: soal.knowledgeComponentId ?? "unknown",
               });
             } catch (e) {
               console.error("Failed to submit kuis answer", e);
@@ -542,7 +536,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         if (activeQuizItemId) {
           await markContentItemAsCompleted(activeQuizItemId, "quiz");
         }
-        result = { score: 100, message: "Kuis selesai" } as unknown as TestSubmitResult;
+        result = { score: 100, message: "Kuis selesai" };
       }
 
       // Refetch study room to get updated progress & certificate
@@ -632,7 +626,22 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         // All items completed — navigate back to module detail page
         router.push(`/modul/${modulId}`);
       } else {
-        setCurrentSeqIndex((prev) => prev + 1);
+        const nextIdx = currentSeqIndex + 1;
+        const nextItem = sequence[nextIdx];
+        setCurrentSeqIndex(nextIdx);
+        if (nextItem?.type === "posttest") {
+          setAssessmentType("posttest");
+          setCurrentView("pretest-intro");
+          setIsMaterialMode(false);
+          setIsFinalSummaryView(false);
+          setActiveQuestionIndex(0);
+          setSelectedAnswers({});
+          setRemainingSeconds(POSTTEST_DURATION_SECONDS);
+          setTestDurationSeconds(POSTTEST_DURATION_SECONDS);
+          setTestResult(null);
+          setIsPosttestStarted(false);
+          setIsPosttestFinished(false);
+        }
       }
       return;
     }
@@ -728,6 +737,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
               return (
                 <button
                   type="button"
+                  aria-current={isActive ? true : undefined}
                   disabled={isLocked && !isCompleted}
                   onClick={() => {
                     if (isLocked && !isCompleted) return;
@@ -804,6 +814,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
                   {expandedSections[section.id] && (
                     <div className="border-t border-[#eceaf4] bg-white">
+                      {section.items.length === 0 && (
+                        <p className="px-3 py-2 text-[10px] italic text-[#9ca0af]">
+                          Belum ada konten.
+                        </p>
+                      )}
                       {section.items.map((item) => {
                         const seqIndex = sequence.findIndex((s) => s.id === item.id);
                         const isSelected = sequence[currentSeqIndex]?.id === item.id;
@@ -815,6 +830,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                           <button
                             key={item.id}
                             type="button"
+                            aria-current={isSelected ? true : undefined}
                             onClick={async () => {
                               if (isItemLocked) return;
                               if (seqIndex >= 0) setCurrentSeqIndex(seqIndex);
@@ -867,6 +883,18 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                           </button>
                         );
                       })}
+
+                      {/* Non-clickable rangkumanTopik summary block */}
+                      {section.rangkumanTopik && section.rangkumanTopik.trim() !== '' && (
+                        <div className="border-t border-[#f0eef7] bg-[#faf9ff] px-3 py-2.5">
+                          <div className="flex items-start gap-2">
+                            <FaBookOpen size={9} className="mt-0.5 shrink-0 text-[#9ca0af]" />
+                            <p className="text-[10px] leading-relaxed italic text-[#6b6f7e]">
+                              {section.rangkumanTopik}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -883,6 +911,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
               return (
                 <button
                   type="button"
+                  aria-current={isActive ? true : undefined}
                   disabled={isLocked}
                   onClick={() => {
                     if (isLocked) return;
@@ -925,6 +954,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
               return (
                 <button
                   type="button"
+                  aria-current={isActive ? true : undefined}
                   disabled={isLocked && !isCompleted}
                   onClick={() => {
                     if (isLocked && !isCompleted) return;
@@ -985,6 +1015,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
               return (
                 <button
                   type="button"
+                  aria-current={isActive ? true : undefined}
                   disabled={isLocked && !isCompleted}
                   onClick={() => {
                     if (isLocked && !isCompleted) return;
@@ -1026,6 +1057,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
               return (
                 <button
                   type="button"
+                  aria-current={isActive ? true : undefined}
                   disabled={isLocked && !isCompleted}
                   onClick={() => {
                     if (isLocked && !isCompleted) return;
@@ -1278,21 +1310,47 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentView("materi");
-                      setIsMaterialMode(true);
-                      // Advance to the first uncompleted item after pretest
-                      const firstUnlocked = currentSeqIndex + 1;
-                      if (firstUnlocked < sequence.length) {
-                        setCurrentSeqIndex(firstUnlocked);
-                      }
-                    }}
-                    className="mx-auto mt-8 inline-flex min-w-[180px] items-center justify-center rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
-                  >
-                    {assessmentType === "pretest" ? "Mulai Belajar" : "Kembali ke Materi"}
-                  </button>
+                  {assessmentType === "posttest" ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const certIdx = sequence.findIndex((s) => s.id === "certificate");
+                        const ratingIdx = sequence.findIndex((s) => s.id === "rating");
+                        if (modulDetail?.hasCertificate && certIdx >= 0) {
+                          setCurrentSeqIndex(certIdx);
+                          setCurrentView("certificate");
+                          setIsMaterialMode(false);
+                          setIsFinalSummaryView(false);
+                        } else if (ratingIdx >= 0) {
+                          setCurrentSeqIndex(ratingIdx);
+                          setCurrentView("rating");
+                          setIsMaterialMode(false);
+                          setIsFinalSummaryView(false);
+                        } else {
+                          setCurrentView("materi");
+                          setIsMaterialMode(true);
+                        }
+                      }}
+                      className="mx-auto mt-8 inline-flex min-w-[180px] items-center justify-center rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+                    >
+                      {modulDetail?.hasCertificate ? "Lihat Sertifikat" : "Beri Penilaian"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentView("materi");
+                        setIsMaterialMode(true);
+                        const firstUnlocked = currentSeqIndex + 1;
+                        if (firstUnlocked < sequence.length) {
+                          setCurrentSeqIndex(firstUnlocked);
+                        }
+                      }}
+                      className="mx-auto mt-8 inline-flex min-w-[180px] items-center justify-center rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+                    >
+                      {assessmentType === "pretest" ? "Mulai Belajar" : "Kembali ke Materi"}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1467,23 +1525,25 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                   ) : isEligibleForCertificate ? (
                     <div className="rounded-2xl border border-[#e6e4ed] bg-white px-8 py-12 text-center">
                       <PiMedalFill size={80} className="mx-auto text-[#f39b39]" />
-                      <h2 className="mt-4 text-2xl font-bold text-[#202126]">Sertifikat Segera Tersedia</h2>
+                      <h2 className="mt-4 text-2xl font-bold text-[#202126]">Klaim Sertifikat Kelulusan</h2>
                       <p className="mt-2 text-sm text-[#8a8a96]">
-                        Kamu telah menyelesaikan seluruh materi. Sertifikat akan segera diterbitkan.
+                        Kamu telah menyelesaikan seluruh materi. Klik tombol di bawah untuk menerbitkan sertifikat.
                       </p>
                       <button
                         type="button"
+                        disabled={isClaimingCertificate}
                         onClick={async () => {
+                          setIsClaimingCertificate(true);
                           try {
-                            const certs = await siswaCertificateApi.getAll({ limit: 20 });
-                            const certList = (certs as any).items || certs.data || [];
-                            const cert = certList.find((c: CertificateItem) => c.modulId === modulId);
-                            if (cert) setCertificate(cert as unknown as StudyRoomCertificate);
-                          } catch { /* not available yet */ }
+                            const cert = await siswaCertificateApi.claim(modulId);
+                            setCertificate(cert);
+                          } catch { /* claim failed */ } finally {
+                            setIsClaimingCertificate(false);
+                          }
                         }}
-                        className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+                        className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                       >
-                        Muat Ulang Sertifikat
+                        {isClaimingCertificate ? "Memproses..." : "Klaim Sertifikat"}
                       </button>
                     </div>
                   ) : (
