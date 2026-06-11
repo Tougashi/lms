@@ -174,6 +174,8 @@ export default function TambahGuruPage() {
   /* cv */
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [cvFileName, setCvFileName] = useState("");
+  const [cvPreviewUrl, setCvPreviewUrl] = useState<string | null>(null);
+  const cvObjUrlRef = useRef<string | null>(null);
 
   /* profesional */
   const [pekerjaan, setPekerjaan] = useState("");
@@ -205,8 +207,27 @@ export default function TambahGuruPage() {
   /* ── CV file change ── */
   const handleCvFileChange = (file: File | null) => {
     if (!file) return;
+    // revoke previous blob
+    if (cvObjUrlRef.current) {
+      URL.revokeObjectURL(cvObjUrlRef.current);
+      cvObjUrlRef.current = null;
+    }
     setCvFile(file);
     setCvFileName(file.name);
+    const blobUrl = URL.createObjectURL(file);
+    cvObjUrlRef.current = blobUrl;
+    setCvPreviewUrl(blobUrl);
+  };
+
+  const handleCvRemove = () => {
+    if (cvObjUrlRef.current) {
+      URL.revokeObjectURL(cvObjUrlRef.current);
+      cvObjUrlRef.current = null;
+    }
+    setCvFile(null);
+    setCvFileName("");
+    setCvPreviewUrl(null);
+    if (cvInputRef.current) cvInputRef.current.value = "";
   };
 
   /* ── strict numeric phone ── */
@@ -535,41 +556,52 @@ export default function TambahGuruPage() {
               </div>
             </div>
 
-            {/* CV Portofolio — PDF only */}
-            <div className="mb-4">
-              <label className={labelCls}>CV / Portofolio</label>
-              <p className={`${hintCls} mb-2`}>Format PDF. Maks. 10 MB.</p>
+              {/* CV Portofolio — PDF only */}
+              <div className="mb-4">
+                <label className={labelCls}>CV / Portofolio</label>
+                <p className={`${hintCls} mb-2`}>Format PDF. Maks. 10 MB.</p>
 
-              {cvFile ? (
-                <div className="mt-1.5 flex h-[44px] items-center gap-3 rounded-xl border border-[#7054dc] bg-[#f5f2ff] px-4">
-                  <FiPaperclip size={14} className="shrink-0 text-[#7054dc]" />
-                  <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">{cvFileName}</span>
+                {cvFile ? (
+                  <div>
+                    {/* file badge */}
+                    <div className="flex h-[44px] items-center gap-3 rounded-xl border border-[#7054dc] bg-[#f5f2ff] px-4">
+                      <FiPaperclip size={14} className="shrink-0 text-[#7054dc]" />
+                      <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">{cvFileName}</span>
+                      <button type="button" onClick={handleCvRemove} className="text-[#7054dc] hover:text-red-500">
+                        <FiX size={14} />
+                      </button>
+                    </div>
+
+                    {/* PDF preview */}
+                    {cvPreviewUrl && (
+                      <div className="mt-3 overflow-hidden rounded-xl border border-[#e5e3ee] bg-[#f7f6fb]">
+                        <iframe
+                          src={cvPreviewUrl}
+                          title="Preview CV"
+                          className="h-[420px] w-full"
+                          style={{ border: 0 }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
                   <button
                     type="button"
-                    onClick={() => { setCvFile(null); setCvFileName(""); if (cvInputRef.current) cvInputRef.current.value = ""; }}
-                    className="text-[#7054dc] hover:text-red-500"
+                    onClick={() => cvInputRef.current?.click()}
+                    className="mt-1.5 flex h-[44px] w-full items-center gap-2 rounded-xl border border-dashed border-[#d0cce8] bg-[#fafafa] px-4 text-[13px] font-medium text-[#9b97ad] transition-colors hover:border-[#7054dc] hover:bg-[#f5f2ff] hover:text-[#7054dc]"
                   >
-                    <FiX size={14} />
+                    <FiPaperclip size={14} />
+                    Pilih file PDF CV / Portofolio
                   </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => cvInputRef.current?.click()}
-                  className="mt-1.5 flex h-[44px] w-full items-center gap-2 rounded-xl border border-dashed border-[#d0cce8] bg-[#fafafa] px-4 text-[13px] font-medium text-[#9b97ad] transition-colors hover:border-[#7054dc] hover:bg-[#f5f2ff] hover:text-[#7054dc]"
-                >
-                  <FiPaperclip size={14} />
-                  Pilih file PDF CV / Portofolio
-                </button>
-              )}
-              <input
-                ref={cvInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                className="hidden"
-                onChange={(e) => handleCvFileChange(e.target.files?.[0] ?? null)}
-              />
-            </div>
+                )}
+                <input
+                  ref={cvInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="hidden"
+                  onChange={(e) => handleCvFileChange(e.target.files?.[0] ?? null)}
+                />
+              </div>
 
             {/* Biografi */}
             <div>
