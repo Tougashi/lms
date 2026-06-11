@@ -415,7 +415,7 @@ export default function ManajemenPenggunaPage() {
                               </td>
                               <td className="px-4 py-4 align-middle font-medium text-[#5a5f6a]">
                                 {activeTab === 'siswa' ? (
-                                  <Link href="/admin/nilai-siswa" className="hover:text-[#7054dc] hover:underline transition-colors">
+                                  <Link href={`/admin/nilai-siswa?studentId=${row.id}`} className="hover:text-[#7054dc] hover:underline transition-colors">
                                     {cols[0]}
                                   </Link>
                                 ) : cols[0]}
@@ -444,7 +444,7 @@ export default function ManajemenPenggunaPage() {
                                       </Link>
                                       {activeTab === 'siswa' && (
                                         <Link
-                                          href="/admin/nilai-siswa"
+                                          href={`/admin/nilai-siswa?studentId=${row.id}`}
                                           className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
                                         >
                                           <FaChartBar size={13} />

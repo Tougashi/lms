@@ -519,6 +519,42 @@ function TambahModulKontenPageContent() {
             setMaterials(loaded);
             if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
           }
+
+          // Load quizzes from API
+          const quizIds: Record<number, string> = {};
+          const mappedQuizzes = (firstTopik.quizzes || []).map((q, qIdx) => {
+            const localId = Date.now() + qIdx + 1000;
+            quizIds[localId] = q.id;
+            return {
+              id: localId,
+              title:
+                q.question.length > 40
+                  ? q.question.substring(0, 40) + "…"
+                  : q.question,
+              isExpanded: false,
+              ctMode: q.quizType === "COMPUTATIONAL_THINKING",
+              duration: q.quizSettings[0]?.timeLimit
+                ? Math.round(q.quizSettings[0].timeLimit / 60)
+                : 90,
+              minScore: q.quizSettings[0]?.minScoreTreshold ?? 0,
+              scorePerQuestion:
+                q.quizSettings[0]?.standardScorePerQuestion ?? 10,
+              questions: [
+                {
+                  id: localId + 1,
+                  label: q.question,
+                  answers: (q.quizAnswerOptions || []).map((opt, oIdx) => ({
+                    id: localId + 10 + oIdx,
+                    text: opt.option,
+                    isCorrect: opt.option === q.correctAnswer,
+                  })),
+                },
+              ],
+              ctStories: [makeCTStory()],
+            };
+          });
+          setQuizzes(mappedQuizzes);
+          setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
         }
       } catch (err) {
         console.error("Load content error:", err);
@@ -844,16 +880,13 @@ function TambahModulKontenPageContent() {
   });
 
   const handleCreateQuiz = async () => {
-    // Find first saved material with an API ID to attach quiz to
-    const firstMaterialEntry = Object.entries(materialApiIds)[0];
-    if (!firstMaterialEntry) {
+    if (!topicId) {
       toast(
-        "Simpan minimal satu materi terlebih dahulu sebelum membuat kuis.",
+        "Pilih topik terlebih dahulu sebelum membuat kuis.",
         "warning",
       );
       return;
     }
-    const [, materiApiId] = firstMaterialEntry;
 
     const nextId = Date.now();
 
@@ -862,7 +895,8 @@ function TambahModulKontenPageContent() {
     try {
       const created = await guruKuisApi.create({
         quiz: {
-          materiId: materiApiId,
+          topikId: topicId,
+          quizType: "REGULER",
           question: "Soal Kuis 1",
           correctAnswer: "A",
           skor: 10,
@@ -895,7 +929,7 @@ function TambahModulKontenPageContent() {
         ctMode: false,
         duration: 90,
         minScore: 0,
-        scorePerQuestion: 0,
+        scorePerQuestion: 10,
         questions: [
           {
             id: nextId + 1,
@@ -1116,6 +1150,160 @@ function TambahModulKontenPageContent() {
     setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
   };
 
+  const handleSelectCorrectAnswer = (
+    quizId: number,
+    questionId: number,
+    answerId: number,
+  ) => {
+    setQuizzes((prev) =>
+      prev.map((q) => {
+        if (q.id !== quizId) return q;
+        return {
+          ...q,
+          questions: q.questions.map((qn) => {
+            if (qn.id !== questionId) return qn;
+            return {
+              ...qn,
+              answers: qn.answers.map((a) => ({
+                ...a,
+                isCorrect: a.id === answerId,
+              })),
+            };
+          }),
+        };
+      }),
+    );
+  };
+
+  const handleSelectCTCorrectAnswer = (
+    quizId: number,
+    storyId: number,
+    subQId: number,
+    answerId: number,
+  ) => {
+    setQuizzes((prev) =>
+      prev.map((q) => {
+        if (q.id !== quizId) return q;
+        return {
+          ...q,
+          ctStories: q.ctStories.map((s) => {
+            if (s.id !== storyId) return s;
+            return {
+              ...s,
+              subQuestions: s.subQuestions.map((sq) => {
+                if (sq.id !== subQId) return sq;
+                return {
+                  ...sq,
+                  answers: sq.answers.map((a) => ({
+                    ...a,
+                    isCorrect: a.id === answerId,
+                  })),
+                };
+              }),
+            };
+          }),
+        };
+      }),
+    );
+  };
+
+  const handleSubmitQuiz = async (quizId: number) => {
+    const quiz = quizzes.find((q) => q.id === quizId);
+    if (!quiz) return;
+
+    if (quiz.ctMode) {
+      const hasEmpty = quiz.ctStories.some((s) =>
+        s.subQuestions.some((sq) =>
+          sq.answers.some((a) => !a.text.trim()),
+        ),
+      );
+      if (hasEmpty) {
+        toast("Lengkapi semua opsi jawaban CT terlebih dahulu.", "warning");
+        return;
+      }
+      const hasCorrect = quiz.ctStories.every((s) =>
+        s.subQuestions.every((sq) =>
+          sq.answers.some((a) => a.isCorrect),
+        ),
+      );
+      if (!hasCorrect) {
+        toast("Pilih jawaban benar untuk setiap sub-soal CT.", "warning");
+        return;
+      }
+    } else {
+      const qn = quiz.questions[0];
+      if (!qn || !qn.label.trim()) {
+        toast("Masukkan teks soal terlebih dahulu.", "warning");
+        return;
+      }
+      if (qn.answers.length < 2) {
+        toast("Minimal 2 opsi jawaban.", "warning");
+        return;
+      }
+      if (!qn.answers.some((a) => a.isCorrect)) {
+        toast("Pilih jawaban yang benar.", "warning");
+        return;
+      }
+    }
+
+    const question = quiz.ctMode
+      ? quiz.ctStories[0]?.subQuestions[0]?.label || "Soal CT"
+      : quiz.questions[0]?.label || "Soal Kuis";
+    const answers = quiz.ctMode
+      ? quiz.ctStories[0]?.subQuestions[0]?.answers || []
+      : quiz.questions[0]?.answers || [];
+    const correctAnswer =
+      answers.find((a) => a.isCorrect)?.text || answers[0]?.text || "";
+    const answerOptions = answers.map((a) => ({ option: a.text }));
+
+    setIsSavingQuiz(true);
+    try {
+      const apiId = quizApiIds[quizId];
+      if (apiId) {
+        await guruKuisApi.update(apiId, {
+          question,
+          correctAnswer,
+          skor: quiz.scorePerQuestion || 10,
+          quizType: quiz.ctMode ? "COMPUTATIONAL_THINKING" : "REGULER",
+          answerOptions,
+          setting: {
+            timeLimit: quiz.duration * 60,
+            allowMultipleAttempts: false,
+            isComputationalThinkingEnabled: quiz.ctMode,
+            minScoreTreshold: quiz.minScore,
+            standardScorePerQuestion: quiz.scorePerQuestion,
+          },
+        });
+        toast("Kuis berhasil diperbarui.", "success");
+      } else {
+        const created = await guruKuisApi.create({
+          quiz: {
+            topikId: topicId!,
+            quizType: quiz.ctMode ? "COMPUTATIONAL_THINKING" : "REGULER",
+            question,
+            correctAnswer,
+            skor: quiz.scorePerQuestion || 10,
+          },
+          answerOptions,
+          setting: {
+            timeLimit: quiz.duration * 60,
+            allowMultipleAttempts: false,
+            isComputationalThinkingEnabled: quiz.ctMode,
+            minScoreTreshold: quiz.minScore,
+            standardScorePerQuestion: quiz.scorePerQuestion,
+          },
+        });
+        setQuizApiIds((prev) => ({ ...prev, [quizId]: created.id }));
+        toast("Kuis berhasil disimpan.", "success");
+      }
+    } catch (err) {
+      console.error("Submit quiz error:", err);
+      toast("Gagal menyimpan kuis.", "error");
+    } finally {
+      setIsSavingQuiz(false);
+    }
+  };
+
   // Create topic via API
   const handleCreateTopic = useCallback(async () => {
     if (topicTitle.trim().length === 0) return;
@@ -1135,7 +1323,7 @@ function TambahModulKontenPageContent() {
       setIsFormOpen(false);
       setActiveMaterialId(null);
       setActiveTopikId(created.id);
-      setTopiks((prev) => [...prev, { ...created, materis: [] }]);
+      setTopiks((prev) => [...prev, { ...created, materis: [], quizzes: [] }]);
     } catch (err: unknown) {
       console.error("Create topic error:", err);
       setTopicError(
@@ -2101,8 +2289,12 @@ function TambahModulKontenPageContent() {
                       >
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <span className="text-[12px] font-semibold text-[#232530]">
-                              Kuis Topik 1:
+                            <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                              quiz.ctMode
+                                ? "bg-[#fef3c7] text-[#b45309]"
+                                : "bg-[#eef2ff] text-[#4f46e5]"
+                            }`}>
+                              {quiz.ctMode ? "CT" : "REGULER"}
                             </span>
                             {editingQuizId === quiz.id ? (
                               <>
@@ -2135,7 +2327,7 @@ function TambahModulKontenPageContent() {
                                 </button>
                               </>
                             ) : (
-                              <span className="text-[12px] font-semibold text-[#232530]">
+                              <span className="max-w-[300px] truncate text-[12px] font-semibold text-[#232530]">
                                 {quiz.title}
                               </span>
                             )}
@@ -2167,6 +2359,13 @@ function TambahModulKontenPageContent() {
                               className="cursor-pointer text-[#7a7e8a]"
                             >
                               <FiSettings size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSubmitQuiz(quiz.id)}
+                              className="inline-flex h-[26px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-3 text-[11px] font-semibold text-white hover:bg-[#5f46cc]"
+                            >
+                              Simpan
                             </button>
                           </div>
                           <div className="flex items-center gap-2">
@@ -2212,13 +2411,49 @@ function TambahModulKontenPageContent() {
                           </div>
                         </div>
 
+                        {!quiz.isExpanded && (
+                          <p className="mt-1.5 text-[11px] text-[#7a7e8a]">
+                            {quiz.questions[0]?.answers.length || 0} pilihan
+                            <span className="mx-1.5">·</span>
+                            {quiz.duration} menit
+                            <span className="mx-1.5">·</span>
+                            Minimal {quiz.minScore}
+                          </p>
+                        )}
+
                         {quiz.isExpanded && (
                           <div className="mt-4">
+                            <div className="mb-4 flex items-center gap-1 rounded-lg border border-[#e5e3ee] bg-white p-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleToggleCTMode(quiz.id, false)
+                                }
+                                className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                                  !quiz.ctMode
+                                    ? "bg-[#7054dc] text-white"
+                                    : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
+                                }`}
+                              >
+                                Reguler
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleToggleCTMode(quiz.id, true)
+                                }
+                                className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                                  quiz.ctMode
+                                    ? "bg-[#7054dc] text-white"
+                                    : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
+                                }`}
+                              >
+                                Computational Thinking
+                              </button>
+                            </div>
+
                             {quiz.ctMode ? (
                               <>
-                                <p className="mb-3 text-[12px] font-semibold text-[#7054dc]">
-                                  Mode Computational Thinking
-                                </p>
                                 {quiz.ctStories.map((story, sIdx) => (
                                   <div key={story.id} className="mb-6">
                                     <QuizMiniEditor placeholder="Masukkan cerita di sini ..." />
@@ -2234,7 +2469,28 @@ function TambahModulKontenPageContent() {
                                               key={ans.id}
                                               className="flex items-center gap-2"
                                             >
-                                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#d9d7df]" />
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  handleSelectCTCorrectAnswer(
+                                                    quiz.id,
+                                                    story.id,
+                                                    sq.id,
+                                                    ans.id,
+                                                  )
+                                                }
+                                                className="inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors"
+                                                style={{
+                                                  borderColor:
+                                                    ans.isCorrect
+                                                      ? "#7054dc"
+                                                      : "#d9d7df",
+                                                }}
+                                              >
+                                                {ans.isCorrect && (
+                                                  <span className="h-2.5 w-2.5 rounded-full bg-[#7054dc]" />
+                                                )}
+                                              </button>
                                               <input
                                                 type="text"
                                                 value={ans.text}
@@ -2250,7 +2506,7 @@ function TambahModulKontenPageContent() {
                                                               q.ctStories.map(
                                                                 (s) =>
                                                                   s.id !==
-                                                                  story.id
+                                                                    story.id
                                                                     ? s
                                                                     : {
                                                                         ...s,
@@ -2260,7 +2516,7 @@ function TambahModulKontenPageContent() {
                                                                               sqq,
                                                                             ) =>
                                                                               sqq.id !==
-                                                                              sq.id
+                                                                                sq.id
                                                                                 ? sqq
                                                                                 : {
                                                                                     ...sqq,
@@ -2270,7 +2526,7 @@ function TambahModulKontenPageContent() {
                                                                                           a,
                                                                                         ) =>
                                                                                           a.id ===
-                                                                                          ans.id
+                                                                                            ans.id
                                                                                             ? {
                                                                                                 ...a,
                                                                                                 text: val,
@@ -2281,12 +2537,13 @@ function TambahModulKontenPageContent() {
                                                                           ),
                                                                       },
                                                               ),
-                                                          },
+                                                           },
                                                     ),
                                                   );
                                                 }}
                                                 placeholder={
-                                                  aIdx < sq.answers.length - 1
+                                                  aIdx <
+                                                  sq.answers.length - 1
                                                     ? "Masukkan Jawaban"
                                                     : "Tambah Opsi Jawaban"
                                                 }
@@ -2309,13 +2566,6 @@ function TambahModulKontenPageContent() {
                                             </div>
                                           ))}
                                         </div>
-                                        <p className="mt-2 text-[11px] text-[#7a7e8a]">
-                                          <span className="font-semibold italic">
-                                            Catatan:
-                                          </span>{" "}
-                                          Pilih salah satu opsi untuk jawaban
-                                          yang benar.
-                                        </p>
                                       </div>
                                     ))}
                                   </div>
@@ -2342,7 +2592,27 @@ function TambahModulKontenPageContent() {
                                           key={ans.id}
                                           className="flex items-center gap-2"
                                         >
-                                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#d9d7df]" />
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleSelectCorrectAnswer(
+                                                quiz.id,
+                                                question.id,
+                                                ans.id,
+                                              )
+                                            }
+                                            className="inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors"
+                                            style={{
+                                              borderColor:
+                                                ans.isCorrect
+                                                  ? "#7054dc"
+                                                  : "#d9d7df",
+                                            }}
+                                          >
+                                            {ans.isCorrect && (
+                                              <span className="h-2.5 w-2.5 rounded-full bg-[#7054dc]" />
+                                            )}
+                                          </button>
                                           <input
                                             type="text"
                                             value={ans.text}
@@ -2380,7 +2650,8 @@ function TambahModulKontenPageContent() {
                                               );
                                             }}
                                             placeholder={
-                                              aIdx < question.answers.length - 1
+                                              aIdx <
+                                              question.answers.length - 1
                                                 ? "Masukkan Jawaban"
                                                 : "Tambah Opsi Jawaban"
                                             }
@@ -2402,13 +2673,6 @@ function TambahModulKontenPageContent() {
                                         </div>
                                       ))}
                                     </div>
-                                    <p className="mt-2 text-[11px] text-[#7a7e8a]">
-                                      <span className="font-semibold italic">
-                                        Catatan:
-                                      </span>{" "}
-                                      Pilih salah satu opsi untuk jawaban yang
-                                      benar.
-                                    </p>
                                   </div>
                                 ))}
                                 <button
@@ -2487,7 +2751,45 @@ function TambahModulKontenPageContent() {
                         });
                         setMaterials(loaded);
                         if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
-                        setQuizzes([]);
+                        const quizIds: Record<number, string> = {};
+                        const mappedQuiz = (topik.quizzes || []).map(
+                          (q, qIdx) => {
+                            const localId = Date.now() + qIdx + 1000;
+                            quizIds[localId] = q.id;
+                            return {
+                              id: localId,
+                              title:
+                                q.question.length > 40
+                                  ? q.question.substring(0, 40) + "…"
+                                  : q.question,
+                              isExpanded: false,
+                              ctMode: q.quizType === "COMPUTATIONAL_THINKING",
+                              duration: q.quizSettings[0]?.timeLimit
+                                ? Math.round(q.quizSettings[0].timeLimit / 60)
+                                : 90,
+                              minScore: q.quizSettings[0]?.minScoreTreshold ?? 0,
+                              scorePerQuestion:
+                                q.quizSettings[0]?.standardScorePerQuestion ??
+                                10,
+                              questions: [
+                                {
+                                  id: localId + 1,
+                                  label: q.question,
+                                  answers: (
+                                    q.quizAnswerOptions || []
+                                  ).map((opt, oIdx) => ({
+                                    id: localId + 10 + oIdx,
+                                    text: opt.option,
+                                    isCorrect: opt.option === q.correctAnswer,
+                                  })),
+                                },
+                              ],
+                              ctStories: [makeCTStory()],
+                            };
+                          },
+                        );
+                        setQuizzes(mappedQuiz);
+                        setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
                       }}
                       className="mt-2 text-[12px] font-semibold text-[#7054dc] hover:underline"
                     >

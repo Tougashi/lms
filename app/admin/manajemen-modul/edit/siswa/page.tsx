@@ -425,7 +425,7 @@ function EditModulSiswaContent() {
                         </button>
                       </td>
                       <td className="px-3 py-3 align-middle font-medium text-[#5a5f6a]">
-                        <Link href="/admin/nilai-siswa" className="hover:text-[#7054dc] hover:underline transition-colors">
+                        <Link href={`/admin/nilai-siswa?studentId=${row.id}`} className="hover:text-[#7054dc] hover:underline transition-colors">
                           {row.nama_lengkap}
                         </Link>
                       </td>

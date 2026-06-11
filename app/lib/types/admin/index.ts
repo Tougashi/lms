@@ -286,21 +286,76 @@ export interface AdminTutorUpdatePayload {
   profileImg?: string | null;
 }
 
-// ── Progress ─────────────────────────────────────────────────────────────────
+// ── Progress & Analisis Nilai Siswa ─────────────────────────────────────────
 
+export interface AdminStudentInfo {
+    fullName: string;
+    email: string;
+    avatarUrl?: string | null;
+}
+
+export interface AdminModuleProgressItem {
+    moduleId: string;
+    moduleName: string;
+    level?: string | null;
+    class?: string | null;
+    moduleImgUrl?: string | null;
+    pretestScore?: number | null;
+    posttestScore?: number | null;
+    averageQuizScore: number;
+    progressPercentage: number;
+    totalMateri: number;
+    completedMateri: number;
+    isGraduated: boolean;
+    recommendation: string;
+    quizRecords: AdminQuizRecord[];
+}
+
+export interface AdminQuizRecord {
+    topik: string;
+    quizType: "REGULER" | "COMPUTATIONAL_THINKING";
+    score: number;
+    minScoreTreshold: number | null;
+    status: "tuntas" | "di-bawah";
+}
+
+export interface AdminProgressDetail {
+    studentInfo: AdminStudentInfo;
+    modules: AdminModuleProgressItem[];
+}
+
+export interface AdminCTPillar {
+    score: number;
+    label: string;
+}
+
+export interface AdminCTAnalysisData {
+    studentInfo: AdminStudentInfo;
+    moduleProgress: AdminModuleProgressItem | null;
+    computationalThinking: {
+        decomposition: AdminCTPillar;
+        patternRecognition: AdminCTPillar;
+        abstraction: AdminCTPillar;
+        algorithm: AdminCTPillar;
+    };
+    quizRecords: AdminQuizRecord[];
+    recommendation: string;
+}
+
+// Legacy — keep for backward compat
 export interface AdminProgressItem {
-  studentId: string;
-  moduleId?: string;
-  [key: string]: unknown;
+    studentId: string;
+    moduleId?: string;
+    [key: string]: unknown;
 }
 
 export interface AdminCTAnalysis {
-  studentId: string;
-  decomposition: number;
-  abstraction: number;
-  patternRecognition: number;
-  algorithm: number;
-  overall: number;
+    studentId: string;
+    decomposition: number;
+    abstraction: number;
+    patternRecognition: number;
+    algorithm: number;
+    overall: number;
 }
 
 // ── Profile ──────────────────────────────────────────────────────────────────

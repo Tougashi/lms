@@ -2,134 +2,139 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { RiHome5Fill } from 'react-icons/ri';
 import { FiArrowLeft } from 'react-icons/fi';
 import { FaHandsClapping } from 'react-icons/fa6';
 import { HiExclamationCircle, HiCheckCircle } from 'react-icons/hi2';
+import { adminProgressApi } from '../../lib/api';
+import type { AdminCTAnalysisData } from '../../lib/types/admin';
 import AdminHeader from '../../component/admin/AdminHeader';
 
-/* ───────────────── data types ───────────────── */
+/* ───────────────── helpers ───────────────── */
 
-type CTSkill = {
-  label: string;
-  fullLabel: string;
-  score: number;
-  total: number;
-  status: string;
-  statusColor: string;
-  dotColor: string;
-};
-
-type QuizRow = {
-  topik: string;
-  kategori: string;
-  kategoriLabel: string;
-  aktivitas: string;
-  nilai: number;
-  status: 'tuntas' | 'di-bawah';
-};
-
-/* ───────────────── static data ───────────────── */
-
-const ctSkills: CTSkill[] = [
-  {
-    label: 'Decomposition',
+const PILLAR_META: Record<
+  string,
+  { fullLabel: string; color: string }
+> = {
+  decomposition: {
     fullLabel: 'Memecah Masalah (Decomposition)',
-    score: 80,
-    total: 100,
-    status: 'Baik',
-    statusColor: '#5bb8e8',
-    dotColor: '#5bb8e8',
+    color: '#5bb8e8',
   },
-  {
-    label: 'Pattern Recognition',
+  patternRecognition: {
     fullLabel: 'Mengenali Pola (Pattern Recognition)',
-    score: 70,
-    total: 100,
-    status: 'Perlu Penguatan',
-    statusColor: '#e85d9e',
-    dotColor: '#e85d9e',
+    color: '#e85d9e',
   },
-  {
-    label: 'Abstraction',
+  abstraction: {
     fullLabel: 'Menyaring Informasi (Abstraction)',
-    score: 100,
-    total: 100,
-    status: 'Sangat Baik',
-    statusColor: '#7c5cf7',
-    dotColor: '#7c5cf7',
+    color: '#7c5cf7',
   },
-  {
-    label: 'Algorithm',
+  algorithm: {
     fullLabel: 'Menyusun Langkah (Algorithm)',
-    score: 50,
-    total: 100,
-    status: 'Butuh Intervensi',
-    statusColor: '#f5a545',
-    dotColor: '#f5a545',
+    color: '#f5a545',
   },
-];
+};
 
-const quizRows: QuizRow[] = [
-  {
-    topik: 'Set Unit Terkecil Kehidupan',
-    kategori: 'Mode CT',
-    kategoriLabel: 'Mode CT',
-    aktivitas: 'Kuis',
-    nilai: 100,
-    status: 'tuntas',
-  },
-  {
-    topik: 'Bioproses pada Tumbuhan',
-    kategori: 'Mode CT',
-    kategoriLabel: 'Mode CT',
-    aktivitas: 'Kuis',
-    nilai: 65,
-    status: 'di-bawah',
-  },
-  {
-    topik: 'Sistem Pertukaran Zat',
-    kategori: '-',
-    kategoriLabel: '-',
-    aktivitas: 'Kuis',
-    nilai: 70,
-    status: 'di-bawah',
-  },
-  {
-    topik: 'Koordinasi dan Reproduksi',
-    kategori: '-',
-    kategoriLabel: '-',
-    aktivitas: 'Kuis',
-    nilai: 90,
-    status: 'tuntas',
-  },
-];
+const STATUS_COLORS: Record<string, string> = {
+  'Sangat Baik': '#22c55e',
+  Baik: '#5bb8e8',
+  'Perlu Penguatan': '#e85d9e',
+  'Butuh Intervensi': '#f5a545',
+};
 
-/* ───────────────── pie chart data ───────────────── */
+/* ───────────────── loading skeleton ───────────────── */
 
-// Segments clockwise from top: Decomposition(80), Algorithm(50), PatternRecognition(70), Abstraction(100)
-const PIE_SEGMENTS = [
-  { value: 80,  label: '80%',  color: '#5bb8e8' }, // Decomposition — sky blue
-  { value: 50,  label: '50%',  color: '#f5a545' }, // Algorithm — orange
-  { value: 70,  label: '70%',  color: '#e85d9e' }, // Pattern Recognition — pink/magenta
-  { value: 100, label: '100%', color: '#7c5cf7' }, // Abstraction — purple
-];
-const PIE_TOTAL = PIE_SEGMENTS.reduce((a, s) => a + s.value, 0);
+function Skeleton({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-2xl bg-[#e8e6f0] ${className}`}
+    />
+  );
+}
 
-/* ───────────────── sub-components ───────────────── */
+function LoadingState() {
+  return (
+    <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
+      <AdminHeader />
+      <main className="mx-auto w-full max-w-[1260px] px-4 pb-10 pt-6 sm:px-6">
+        <Skeleton className="mb-6 h-5 w-48" />
+        <div className="mt-5 grid gap-8 lg:grid-cols-[1fr_280px]">
+          <div>
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-[60px] w-[60px] rounded-2xl" />
+              <div>
+                <Skeleton className="mb-2 h-5 w-40" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-4">
+              <Skeleton className="h-[68px] w-[160px] rounded-2xl" />
+              <Skeleton className="h-[68px] w-[160px] rounded-2xl" />
+              <Skeleton className="h-[68px] min-w-[240px] flex-1 rounded-2xl" />
+            </div>
+            <Skeleton className="mt-7 h-6 w-56" />
+            <div className="mt-5 flex gap-10">
+              <Skeleton className="h-[260px] w-[260px] shrink-0 rounded-2xl" />
+              <div className="flex-1 space-y-5">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-20 w-full" />
+                ))}
+              </div>
+            </div>
+          </div>
+          <aside className="hidden lg:block">
+            <Skeleton className="mb-4 h-[320px] w-full rounded-2xl" />
+            <Skeleton className="mb-2 h-10 w-full rounded-xl" />
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </aside>
+        </div>
+      </main>
+    </div>
+  );
+}
 
-function PieChart() {
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
+      <AdminHeader />
+      <main className="mx-auto w-full max-w-[1260px] px-4 pb-10 pt-6 sm:px-6">
+        <div className="mt-16 flex flex-col items-center gap-4 text-center">
+          <HiExclamationCircle size={48} className="text-[#f36e65]" />
+          <h2 className="text-[18px] font-bold">Gagal Memuat Data</h2>
+          <p className="max-w-md text-[13px] text-[#7a7e8a]">{message}</p>
+          <Link
+            href="/admin/manajemen-pengguna"
+            className="mt-2 inline-flex h-[36px] items-center justify-center rounded-lg bg-[#7054dc] px-5 text-[13px] font-semibold text-white"
+          >
+            Kembali
+          </Link>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* ───────────────── pie chart ───────────────── */
+
+function PieChart({ pillars }: { pillars: AdminCTAnalysisData['computationalThinking'] }) {
   const size = 260;
   const cx = size / 2;
   const cy = size / 2;
   const radius = 105;
 
-  let cumulativeAngle = -90; // start from top (12 o'clock)
+  const segments = [
+    { value: pillars.decomposition.score, label: `${pillars.decomposition.score}%`, color: PILLAR_META.decomposition.color, key: 'decomposition' },
+    { value: pillars.algorithm.score, label: `${pillars.algorithm.score}%`, color: PILLAR_META.algorithm.color, key: 'algorithm' },
+    { value: pillars.patternRecognition.score, label: `${pillars.patternRecognition.score}%`, color: PILLAR_META.patternRecognition.color, key: 'patternRecognition' },
+    { value: pillars.abstraction.score, label: `${pillars.abstraction.score}%`, color: PILLAR_META.abstraction.color, key: 'abstraction' },
+  ];
 
-  const slices = PIE_SEGMENTS.map((seg, index) => {
-    const angle = (seg.value / PIE_TOTAL) * 360;
+  const total = segments.reduce((a, s) => a + s.value, 0) || 360;
+
+  let cumulativeAngle = -90;
+
+  const slices = segments.map((seg) => {
+    const angle = (seg.value / total) * 360;
     const startAngle = cumulativeAngle;
     const endAngle = cumulativeAngle + angle;
     cumulativeAngle = endAngle;
@@ -143,7 +148,6 @@ function PieChart() {
     const x2 = cx + radius * Math.cos(endRad);
     const y2 = cy + radius * Math.sin(endRad);
 
-    // Label position at ~60% radius
     const midAngle = (startAngle + endAngle) / 2;
     const midRad = (midAngle * Math.PI) / 180;
     const labelRadius = radius * 0.6;
@@ -151,7 +155,7 @@ function PieChart() {
     const labelY = cy + labelRadius * Math.sin(midRad);
 
     return (
-      <g key={index}>
+      <g key={seg.key}>
         <path
           d={`M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`}
           fill={seg.color}
@@ -175,7 +179,6 @@ function PieChart() {
 
   return (
     <div className="relative">
-      {/* 3D shadow effect below the pie */}
       <div
         className="absolute left-1/2 -translate-x-1/2 rounded-[50%]"
         style={{
@@ -192,74 +195,72 @@ function PieChart() {
   );
 }
 
-function StudentProfileCard({ view }: { view: 'ct' | 'kuis' }) {
-  return (
-    <div className="flex flex-col items-center">
-      {/* avatar */}
-      <div className="relative h-[140px] w-[140px]">
-        <div className="absolute inset-0 rounded-full border-[3px] border-[#d8b4fe]" />
-        <div className="absolute inset-[6px] overflow-hidden rounded-full bg-[#f3f4f8]">
-          <Image
-            src="/assets/images/beranda-siswa/modul.png"
-            alt="Olivia Rodrigo"
-            width={128}
-            height={128}
-            className="h-full w-full object-cover"
-          />
-        </div>
-      </div>
-
-      <h3 className="mt-5 text-[18px] font-semibold text-[#232530]">Olivia Rodrigo</h3>
-      <p className="mt-1 text-[13px] text-[#8a8d98]">oliviolivrgio@gmail.com</p>
-
-      {/* bottom card */}
-      <div className="mt-6 w-full rounded-2xl border border-[#e8e6f0] bg-[#fafafe] px-5 py-5 text-center">
-        {view === 'ct' ? (
-          <p className="text-[13px] leading-[1.7] text-[#555968]">
-            Analisis Computational Thinking pada Kuis Topik Sel Unit Terkecil Kehidupan
-          </p>
-        ) : (
-          <>
-            <div className="mb-3 flex items-center justify-center gap-2">
-              <FaHandsClapping size={18} className="text-[#f39b39]" />
-              <span className="text-[14px] font-semibold text-[#f39b39]">Perlu Penguatan</span>
-            </div>
-            <p className="text-[13px] leading-[1.7] text-[#555968]">
-              Siswa menunjukkan pemahaman yang baik pada sebagian besar topik, namun perlu mengulas kembali Topik 2 karena skor kuis di bawah ambang batas.
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* ───────────────── main page ───────────────── */
 
 function NilaiSiswaContent() {
   const searchParams = useSearchParams();
+  const studentId = searchParams.get('studentId');
   const tabParam = searchParams.get('tab');
   const [activeView, setActiveView] = useState<'ct' | 'kuis'>(tabParam === 'kuis' ? 'kuis' : 'ct');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<AdminCTAnalysisData | null>(null);
 
-  const backLabel = activeView === 'ct' ? 'Kembali ke Nilai Siswa' : 'Kembali ke Daftar Siswa';
+  useEffect(() => {
+    if (!studentId) {
+      setLoading(false);
+      setError('Tidak ada siswa yang dipilih.');
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    adminProgressApi
+      .analyze(studentId)
+      .then((result) => {
+        if (!cancelled) setData(result);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Gagal memuat data siswa.',
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [studentId]);
+
+  if (loading) return <LoadingState />;
+  if (error || !data) return <ErrorState message={error || 'Data tidak ditemukan.'} />;
+
+  const { studentInfo, moduleProgress, computationalThinking, quizRecords, recommendation } = data;
+  const moduleName = moduleProgress?.moduleName || 'Modul';
+  const level = moduleProgress?.level || '';
+  const cls = moduleProgress?.class || '';
 
   return (
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
       <AdminHeader />
 
       <main className="mx-auto w-full max-w-[1260px] px-4 pb-10 pt-6 sm:px-6">
-        {/* Back link — own line below badge */}
         <div className="mt-2">
           <Link
             href="/admin/manajemen-pengguna"
             className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530] transition-colors hover:text-[#7054dc]"
           >
             <FiArrowLeft size={15} />
-            {backLabel}
+            Kembali ke Daftar Siswa
           </Link>
         </div>
 
-        {/* Two-column layout: left content + right profile */}
         <div className="mt-5 grid gap-8 lg:grid-cols-[1fr_280px]">
           {/* ── LEFT COLUMN ── */}
           <div>
@@ -267,16 +268,18 @@ function NilaiSiswaContent() {
             <div className="flex items-center gap-4">
               <div className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-2xl bg-[#f3f4f8]">
                 <Image
-                  src="/assets/images/beranda-siswa/matapelajaran.png"
-                  alt="Biologi"
+                  src={moduleProgress?.moduleImgUrl || '/assets/images/beranda-siswa/matapelajaran.png'}
+                  alt={moduleName}
                   width={60}
                   height={60}
                   className="h-full w-full object-cover"
                 />
               </div>
               <div>
-                <h1 className="text-[17px] font-bold text-[#232530]">Biologi</h1>
-                <p className="text-[13px] text-[#8a8d98]">Jenjang SMA | Kelas 11</p>
+                <h1 className="text-[17px] font-bold text-[#232530]">{moduleName}</h1>
+                <p className="text-[13px] text-[#8a8d98]">
+                  {level ? `Jenjang ${level}` : ''}{cls ? ` | ${cls}` : ''}
+                </p>
               </div>
             </div>
 
@@ -284,13 +287,17 @@ function NilaiSiswaContent() {
             <div className="mt-5 flex flex-wrap items-stretch gap-4">
               {/* Pre-Test */}
               <div className="flex items-center gap-3 rounded-2xl border border-[#f0e6d3] bg-[#fffaf2] px-5 py-3.5">
-                <span className="text-[34px] font-semibold leading-none text-[#f39b39]">70</span>
+                <span className="text-[34px] font-semibold leading-none text-[#f39b39]">
+                  {moduleProgress?.pretestScore ?? '-'}
+                </span>
                 <span className="text-[13px] font-medium text-[#555968]">Nilai Pre-Test</span>
               </div>
 
               {/* Post-Test */}
               <div className="flex items-center gap-3 rounded-2xl border border-[#d8d3f0] bg-[#f5f2ff] px-5 py-3.5">
-                <span className="text-[34px] font-semibold leading-none text-[#7054dc]">100</span>
+                <span className="text-[34px] font-semibold leading-none text-[#7054dc]">
+                  {moduleProgress?.posttestScore ?? '-'}
+                </span>
                 <span className="text-[13px] font-medium text-[#555968]">Nilai Post-Test</span>
               </div>
 
@@ -299,16 +306,23 @@ function NilaiSiswaContent() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#eceaf4]">
-                      <div className="h-full rounded-full bg-[#7054dc]" style={{ width: '100%' }} />
+                      <div
+                        className="h-full rounded-full bg-[#7054dc] transition-all"
+                        style={{ width: `${moduleProgress?.progressPercentage || 0}%` }}
+                      />
                     </div>
-                    <span className="text-[14px] font-semibold text-[#232530]">100%</span>
+                    <span className="text-[14px] font-semibold text-[#232530]">
+                      {Math.round(moduleProgress?.progressPercentage || 0)}%
+                    </span>
                   </div>
-                  <p className="mt-1.5 text-[13px] text-[#555968]">10 dari 10 Materi Selesai</p>
+                  <p className="mt-1.5 text-[13px] text-[#555968]">
+                    {moduleProgress?.completedMateri || 0} dari {moduleProgress?.totalMateri || 0} Materi Selesai
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Section heading (not a tab, just the title of the active section) */}
+            {/* Section heading */}
             <h2 className="mt-7 text-[16px] font-bold text-[#232530]">
               {activeView === 'ct' ? 'Analisis Computational Thinking' : 'Rincian Nilai Kuis'}
             </h2>
@@ -316,30 +330,34 @@ function NilaiSiswaContent() {
             {/* CT Analysis View */}
             {activeView === 'ct' && (
               <div className="mt-5 flex flex-col items-center gap-10 md:flex-row md:items-start">
-                {/* Pie Chart */}
                 <div className="shrink-0">
-                  <PieChart />
+                  <PieChart pillars={computationalThinking} />
                 </div>
 
-                {/* CT Skills list */}
                 <div className="flex-1 space-y-5 pt-1">
-                  {ctSkills.map((skill) => (
-                    <div key={skill.label} className="flex items-start gap-3">
-                      <span
-                        className="mt-[7px] h-[10px] w-[10px] shrink-0 rounded-full"
-                        style={{ backgroundColor: skill.dotColor }}
-                      />
-                      <div>
-                        <p className="text-[13px] font-medium text-[#555968]">{skill.fullLabel}</p>
-                        <p className="mt-0.5 text-[20px] font-bold leading-tight text-[#232530]">
-                          {skill.score}/{skill.total}
-                        </p>
-                        <p className="mt-0.5 text-[13px] font-semibold italic" style={{ color: skill.statusColor }}>
-                          {skill.status}
-                        </p>
+                  {Object.entries(PILLAR_META).map(([key, meta]) => {
+                    const pillar = computationalThinking[key as keyof typeof computationalThinking] as { score: number; label: string } | undefined;
+                    const score = pillar?.score ?? 0;
+                    const label = pillar?.label ?? 'Tidak Ada Data';
+                    const color = STATUS_COLORS[label] || meta.color;
+                    return (
+                      <div key={key} className="flex items-start gap-3">
+                        <span
+                          className="mt-[7px] h-[10px] w-[10px] shrink-0 rounded-full"
+                          style={{ backgroundColor: meta.color }}
+                        />
+                        <div>
+                          <p className="text-[13px] font-medium text-[#555968]">{meta.fullLabel}</p>
+                          <p className="mt-0.5 text-[20px] font-bold leading-tight text-[#232530]">
+                            {score}/100
+                          </p>
+                          <p className="mt-0.5 text-[13px] font-semibold italic" style={{ color }}>
+                            {label}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -359,36 +377,44 @@ function NilaiSiswaContent() {
                       </tr>
                     </thead>
                     <tbody>
-                      {quizRows.map((row, index) => (
-                        <tr
-                          key={index}
-                          className="border-t border-[#f0eef6] text-[13px] text-[#232530]"
-                        >
-                          <td className="px-5 py-4">{row.topik}</td>
-                          <td className="px-5 py-4">
-                            {row.kategori === 'Mode CT' ? (
-                              <span className="text-[13px] font-medium text-[#7054dc]">Mode CT</span>
-                            ) : (
-                              <span className="text-[#8a8d98]">-</span>
-                            )}
-                          </td>
-                          <td className="px-5 py-4 text-[#555968]">{row.aktivitas}</td>
-                          <td className="px-5 py-4 font-semibold">{row.nilai}</td>
-                          <td className="px-5 py-4">
-                            {row.status === 'tuntas' ? (
-                              <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#22c55e]">
-                                <HiCheckCircle size={16} />
-                                Tuntas
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#f36e65]">
-                                <HiExclamationCircle size={16} />
-                                Di bawah nilai minimal
-                              </span>
-                            )}
+                      {quizRecords.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-5 py-8 text-center text-[13px] text-[#8a8d98]">
+                            Belum ada data kuis.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        quizRecords.map((row, index) => (
+                          <tr
+                            key={index}
+                            className="border-t border-[#f0eef6] text-[13px] text-[#232530]"
+                          >
+                            <td className="px-5 py-4">{row.topik}</td>
+                            <td className="px-5 py-4">
+                              {row.quizType === 'COMPUTATIONAL_THINKING' ? (
+                                <span className="text-[13px] font-medium text-[#7054dc]">Mode CT</span>
+                              ) : (
+                                <span className="text-[#8a8d98]">-</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-4 text-[#555968]">Kuis</td>
+                            <td className="px-5 py-4 font-semibold">{row.score}</td>
+                            <td className="px-5 py-4">
+                              {row.status === 'tuntas' ? (
+                                <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#22c55e]">
+                                  <HiCheckCircle size={16} />
+                                  Tuntas
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#f36e65]">
+                                  <HiExclamationCircle size={16} />
+                                  Di bawah nilai minimal
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -398,9 +424,56 @@ function NilaiSiswaContent() {
 
           {/* ── RIGHT COLUMN — Student profile ── */}
           <aside className="hidden lg:block">
-            <StudentProfileCard view={activeView} />
+            <div className="flex flex-col items-center">
+              <div className="relative h-[140px] w-[140px]">
+                <div className="absolute inset-0 rounded-full border-[3px] border-[#d8b4fe]" />
+                <div className="absolute inset-[6px] overflow-hidden rounded-full bg-[#f3f4f8]">
+                  {studentInfo.avatarUrl ? (
+                    <Image
+                      src={studentInfo.avatarUrl}
+                      alt={studentInfo.fullName}
+                      width={128}
+                      height={128}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[#7054dc] text-[40px] font-bold text-white">
+                      {studentInfo.fullName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-            {/* View switcher buttons at the bottom */}
+              <h3 className="mt-5 text-[18px] font-semibold text-[#232530]">
+                {studentInfo.fullName}
+              </h3>
+              <p className="mt-1 text-[13px] text-[#8a8d98]">{studentInfo.email}</p>
+
+              <div className="mt-6 w-full rounded-2xl border border-[#e8e6f0] bg-[#fafafe] px-5 py-5 text-center">
+                {activeView === 'ct' ? (
+                  <p className="text-[13px] leading-[1.7] text-[#555968]">
+                    Analisis Computational Thinking pada Kuis Topik{' '}
+                    {moduleName}
+                  </p>
+                ) : (
+                  <>
+                    <div className="mb-3 flex items-center justify-center gap-2">
+                      <FaHandsClapping size={18} className="text-[#f39b39]" />
+                      <span className="text-[14px] font-semibold text-[#f39b39]">{recommendation}</span>
+                    </div>
+                    <p className="text-[13px] leading-[1.7] text-[#555968]">
+                      {recommendation === 'Siap Pengayaan'
+                        ? 'Siswa menunjukkan pemahaman yang sangat baik pada semua topik.'
+                        : recommendation === 'Perlu Remedial'
+                          ? 'Siswa perlu mengulang beberapa topik untuk memperkuat pemahaman.'
+                          : 'Siswa menunjukkan pemahaman yang baik pada sebagian besar topik, namun perlu mengulas kembali topik tertentu karena skor di bawah ambang batas.'}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* View switcher buttons */}
             <div className="mt-8 flex flex-col gap-2">
               <button
                 type="button"
@@ -434,7 +507,7 @@ function NilaiSiswaContent() {
 
 export default function NilaiSiswaPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f4f4f7]" />}>
+    <Suspense fallback={<LoadingState />}>
       <NilaiSiswaContent />
     </Suspense>
   );

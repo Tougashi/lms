@@ -736,7 +736,7 @@ export default function BerandaAdminPage() {
                                                         {activeTab ===
                                                         "siswa" ? (
                                                             <Link
-                                                                href="/admin/nilai-siswa"
+                                                                href={`/admin/nilai-siswa?studentId=${row.id}`}
                                                                 className="truncate hover:text-[#7054dc] hover:underline transition-colors"
                                                             >
                                                                 {row.col1}
@@ -872,7 +872,7 @@ export default function BerandaAdminPage() {
                                                                             {activeTab ===
                                                                                 "siswa" && (
                                                                                 <Link
-                                                                                    href="/admin/nilai-siswa"
+                                                                                    href={`/admin/nilai-siswa?studentId=${row.id}`}
                                                                                     onClick={() =>
                                                                                         setOpenActionMenuId(
                                                                                             null,

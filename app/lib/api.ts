@@ -91,7 +91,9 @@ import type {
     AdminTutorCreatePayload,
     AdminTutorUpdatePayload,
     AdminProgressItem,
+    AdminProgressDetail,
     AdminCTAnalysis,
+    AdminCTAnalysisData,
     AdminProfile,
 } from "./types/admin";
 
@@ -1245,11 +1247,11 @@ export const adminProgressApi = {
     },
 
     getById(studentId: string) {
-        return apiFetch<AdminProgressItem>(`/admin/progress/${studentId}`);
+        return apiFetch<AdminProgressDetail>(`/admin/progress/${studentId}`);
     },
 
     analyze(studentId: string) {
-        return apiFetch<AdminCTAnalysis>(
+        return apiFetch<AdminCTAnalysisData>(
             `/admin/progress/${studentId}/analyze`,
         );
     },

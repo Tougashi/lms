@@ -136,6 +136,30 @@ export interface GuruTopikItem {
 
 export interface GuruTopikWithMateri extends GuruTopikItem {
     materis: GuruMateriItem[];
+    quizzes: GuruTopikQuizItem[];
+}
+
+export interface GuruTopikQuizItem {
+    id: string;
+    topikId: string;
+    quizType: "REGULER" | "COMPUTATIONAL_THINKING";
+    question: string;
+    correctAnswer: string;
+    skor: number;
+    quizImgQuestionUrl?: string | null;
+    quizAnswerOptions: { id: string; quizId: string; option: string; createdAt?: string }[];
+    quizSettings: {
+        id: string;
+        quizId: string;
+        timeLimit: number | null;
+        allowMultipleAttempts: boolean;
+        isComputationalThinkingEnabled: boolean;
+        minScoreTreshold: number | null;
+        standardScorePerQuestion: number;
+        createdAt?: string;
+    }[];
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,7 +271,8 @@ export interface GuruKuisSetting {
 
 export interface GuruKuisItem {
     id: string;
-    materiId: string;
+    topikId: string;
+    quizType: "REGULER" | "COMPUTATIONAL_THINKING";
     question: string;
     correctAnswer: string;
     skor: number;
@@ -260,7 +285,8 @@ export interface GuruKuisItem {
 
 export interface GuruKuisCreatePayload {
     quiz: {
-        materiId: string;
+        topikId: string;
+        quizType: "REGULER" | "COMPUTATIONAL_THINKING";
         quizImgQuestionUrl?: string | null;
         question: string;
         correctAnswer: string;
@@ -278,10 +304,19 @@ export interface GuruKuisCreatePayload {
 }
 
 export interface GuruKuisUpdatePayload {
-    quizImgQuestionUrl?: string | null;
     question?: string;
     correctAnswer?: string;
     skor?: number;
+    quizType?: "REGULER" | "COMPUTATIONAL_THINKING";
+    quizImgQuestionUrl?: string | null;
+    answerOptions?: { option: string }[];
+    setting?: {
+        timeLimit?: number | null;
+        allowMultipleAttempts?: boolean;
+        isComputationalThinkingEnabled?: boolean;
+        minScoreTreshold?: number | null;
+        standardScorePerQuestion?: number;
+    };
 }
 
 // ---------------------------------------------------------------------------
