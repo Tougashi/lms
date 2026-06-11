@@ -179,8 +179,8 @@ export default function TambahSiswaPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  /* ── upload handler ── */
-  const handlePhotoChange = async (file: File | null) => {
+  /* ── photo change: only preview locally, no upload yet ── */
+  const handlePhotoChange = (file: File | null) => {
     setPhotoFile(file);
     setPhotoUrl(null);
     if (photoObjUrlRef.current) {
@@ -191,25 +191,9 @@ export default function TambahSiswaPage() {
       setPhotoPreview(null);
       return;
     }
-
     const localUrl = URL.createObjectURL(file);
     photoObjUrlRef.current = localUrl;
     setPhotoPreview(localUrl);
-    setPhotoUploading(true);
-    try {
-      const res = await uploadApi.upload(file, "PROFILE_IMAGE");
-      setPhotoUrl(res.url);
-      setPhotoPreview(res.url);
-      URL.revokeObjectURL(localUrl);
-      photoObjUrlRef.current = null;
-    } catch {
-      showToast(
-        "error",
-        "Gagal mengunggah foto. Preview lokal tetap ditampilkan.",
-      );
-    } finally {
-      setPhotoUploading(false);
-    }
   };
 
   /* ── jenjang change: reset kelas if out of range ── */

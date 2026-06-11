@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   FiArrowLeft,
@@ -11,7 +11,9 @@ import {
   FiChevronDown,
   FiEye,
   FiEyeOff,
+  FiPaperclip,
   FiUser,
+  FiX,
 } from "react-icons/fi";
 import AdminHeader from "../../../component/admin/AdminHeader";
 import { adminTutorApi, uploadApi } from "../../../lib/api";
@@ -39,7 +41,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* ─── CustomSelect ─── */
+/* ─── CustomSelect — fixed: use mousedown to prevent blur-before-click ─── */
 interface SelectOption {
   label: string;
   value: string;
@@ -59,14 +61,23 @@ function CustomSelect({
   error,
 }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value);
 
-  /* close on outside click */
-  const handleBlur = () => setTimeout(() => setOpen(false), 150);
+  /* Close when clicking outside the component */
+  useEffect(() => {
+    if (!open) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
 
   return (
-    <div ref={ref} className="relative mt-1.5" onBlur={handleBlur}>
+    <div ref={containerRef} className="relative mt-1.5">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -88,15 +99,13 @@ function CustomSelect({
       </button>
 
       {open && (
-        <ul className="absolute z-50 mt-1 w-full rounded-xl border border-[#e2e0ea] bg-white py-1 shadow-[0_8px_24px_rgba(0,0,0,0.1)] overflow-hidden">
-          {/* clear option */}
+        <ul className="absolute z-50 mt-1 w-full rounded-xl border border-[#e2e0ea] bg-white py-1 shadow-[0_8px_24px_rgba(0,0,0,0.12)] overflow-hidden">
+          {/* clear/placeholder option */}
           <li>
             <button
               type="button"
-              onClick={() => {
-                onChange("");
-                setOpen(false);
-              }}
+              onMouseDown={(e) => e.preventDefault()} // prevent blur before click
+              onClick={() => { onChange(""); setOpen(false); }}
               className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] text-[#c0bfca] hover:bg-[#f7f5ff] transition-colors"
             >
               {placeholder}
@@ -106,10 +115,8 @@ function CustomSelect({
             <li key={opt.value}>
               <button
                 type="button"
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
+                onMouseDown={(e) => e.preventDefault()} // prevent blur before click
+                onClick={() => { onChange(opt.value); setOpen(false); }}
                 className={[
                   "flex w-full items-center justify-between px-4 py-2.5 text-[13px] transition-colors",
                   value === opt.value
@@ -148,6 +155,7 @@ export default function TambahGuruPage() {
   const router = useRouter();
   const { toasts, showToast, dismissToast } = useAdminToast();
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const cvInputRef = useRef<HTMLInputElement>(null);
 
   /* akun */
   const [fullName, setFullName] = useState("");
@@ -161,22 +169,24 @@ export default function TambahGuruPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [photoUploading, setPhotoUploading] = useState(false);
   const photoObjUrlRef = useRef<string | null>(null);
+
+  /* cv */
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [cvFileName, setCvFileName] = useState("");
 
   /* profesional */
   const [pekerjaan, setPekerjaan] = useState("");
   const [institution, setInstitution] = useState("");
   const [lastEducation, setLastEducation] = useState("");
   const [prodi, setProdi] = useState("");
-  const [cvPathUrl, setCvPathUrl] = useState("");
   const [biografi, setBiografi] = useState("");
 
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  /* ── upload handler ── */
-  const handlePhotoChange = async (file: File | null) => {
+  /* ── photo change: only preview locally, upload happens on submit ── */
+  const handlePhotoChange = (file: File | null) => {
     setPhotoFile(file);
     setPhotoUrl(null);
     if (photoObjUrlRef.current) {
@@ -187,38 +197,38 @@ export default function TambahGuruPage() {
       setPhotoPreview(null);
       return;
     }
-
     const localUrl = URL.createObjectURL(file);
     photoObjUrlRef.current = localUrl;
     setPhotoPreview(localUrl);
-    setPhotoUploading(true);
-    try {
-      const res = await uploadApi.upload(file, "PROFILE_IMAGE");
-      setPhotoUrl(res.url);
-      setPhotoPreview(res.url);
-      URL.revokeObjectURL(localUrl);
-      photoObjUrlRef.current = null;
-    } catch {
-      showToast(
-        "error",
-        "Gagal mengunggah foto. Preview lokal tetap ditampilkan.",
-      );
-    } finally {
-      setPhotoUploading(false);
-    }
+  };
+
+  /* ── CV file change ── */
+  const handleCvFileChange = (file: File | null) => {
+    if (!file) return;
+    setCvFile(file);
+    setCvFileName(file.name);
+  };
+
+  /* ── strict numeric phone ── */
+  const handlePhoneChange = (v: string) => {
+    // only digits and leading +
+    const cleaned = v.replace(/[^\d+]/g, "");
+    setWhatsappNumber(cleaned);
   };
 
   /* ── validasi ── */
   const validate = () => {
     const e: Record<string, string> = {};
     if (!fullName.trim()) e.fullName = "Nama lengkap wajib diisi.";
-    if (!email.trim()) e.email = "Email wajib diisi.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    if (!email.trim()) {
+      e.email = "Email wajib diisi.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       e.email = "Format email tidak valid.";
+    }
     if (!password || password.length < 6)
       e.password = "Password minimal 6 karakter.";
-    if (cvPathUrl && !/^https?:\/\/.+/.test(cvPathUrl))
-      e.cvPathUrl = "URL CV harus dimulai dengan http:// atau https://";
+    if (whatsappNumber && !/^\+?\d{8,15}$/.test(whatsappNumber))
+      e.whatsappNumber = "Nomor HP harus 8–15 digit angka.";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -228,22 +238,31 @@ export default function TambahGuruPage() {
     if (!validate()) return;
     setIsSaving(true);
     try {
+      /* upload photo */
       let finalPhotoUrl = photoUrl;
       if (!finalPhotoUrl && photoFile) {
         const res = await uploadApi.upload(photoFile, "PROFILE_IMAGE");
         finalPhotoUrl = res.url ?? null;
       }
+
+      /* upload cv file if provided */
+      let finalCvUrl = "";
+      if (cvFile) {
+        const res = await uploadApi.upload(cvFile, "CV_FILE");
+        finalCvUrl = res.url ?? "";
+      }
+
       await adminTutorApi.create({
         fullName: fullName.trim(),
         email: email.trim(),
         password,
-        gender: gender || undefined,
+        gender: (gender as "MALE" | "FEMALE") || undefined,
         whatsappNumber: whatsappNumber.trim() || undefined,
         pekerjaan: pekerjaan.trim() || undefined,
         lastEducation: lastEducation || undefined,
         institution: institution.trim() || undefined,
         prodi: prodi.trim() || undefined,
-        cvPathUrl: cvPathUrl.trim() || undefined,
+        cvPathUrl: finalCvUrl || undefined,
         biografi: biografi.trim() || undefined,
         profileImg: finalPhotoUrl ?? undefined,
       });
@@ -296,29 +315,6 @@ export default function TambahGuruPage() {
                 className="relative shrink-0 h-[88px] w-[88px] cursor-pointer overflow-hidden rounded-full border-2 border-dashed border-[#d0cce8] bg-[#f0eefb] transition-all hover:border-[#7054dc] hover:bg-[#ece8fb]"
                 onClick={() => photoInputRef.current?.click()}
               >
-                {photoUploading && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/35 rounded-full">
-                    <svg
-                      className="animate-spin h-5 w-5 text-white"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                      />
-                    </svg>
-                  </div>
-                )}
                 {photoPreview ? (
                   <Image
                     src={photoPreview}
@@ -427,12 +423,17 @@ export default function TambahGuruPage() {
                 <label className={labelCls}>No. WhatsApp</label>
                 <input
                   type="tel"
+                  inputMode="numeric"
                   value={whatsappNumber}
-                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
                   placeholder="08xxxxxxxxxx"
-                  className={inputCls}
+                  className={`${inputCls} ${errors.whatsappNumber ? "border-[#e8473f]" : ""}`}
                 />
-                <p className={hintCls}>Opsional, untuk komunikasi</p>
+                {errors.whatsappNumber ? (
+                  <p className={errorCls}>{errors.whatsappNumber}</p>
+                ) : (
+                  <p className={hintCls}>Opsional, hanya angka</p>
+                )}
               </div>
             </div>
 
@@ -534,23 +535,40 @@ export default function TambahGuruPage() {
               </div>
             </div>
 
-            {/* URL CV */}
+            {/* CV Portofolio — PDF only */}
             <div className="mb-4">
-              <label className={labelCls}>URL CV / Portofolio</label>
-              <input
-                type="url"
-                value={cvPathUrl}
-                onChange={(e) => setCvPathUrl(e.target.value)}
-                placeholder="https://drive.google.com/..."
-                className={`${inputCls} ${errors.cvPathUrl ? "border-[#e8473f]" : ""}`}
-              />
-              {errors.cvPathUrl ? (
-                <p className={errorCls}>{errors.cvPathUrl}</p>
+              <label className={labelCls}>CV / Portofolio</label>
+              <p className={`${hintCls} mb-2`}>Format PDF. Maks. 10 MB.</p>
+
+              {cvFile ? (
+                <div className="mt-1.5 flex h-[44px] items-center gap-3 rounded-xl border border-[#7054dc] bg-[#f5f2ff] px-4">
+                  <FiPaperclip size={14} className="shrink-0 text-[#7054dc]" />
+                  <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">{cvFileName}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setCvFile(null); setCvFileName(""); if (cvInputRef.current) cvInputRef.current.value = ""; }}
+                    className="text-[#7054dc] hover:text-red-500"
+                  >
+                    <FiX size={14} />
+                  </button>
+                </div>
               ) : (
-                <p className={hintCls}>
-                  Opsional — link CV, LinkedIn, atau portofolio
-                </p>
+                <button
+                  type="button"
+                  onClick={() => cvInputRef.current?.click()}
+                  className="mt-1.5 flex h-[44px] w-full items-center gap-2 rounded-xl border border-dashed border-[#d0cce8] bg-[#fafafa] px-4 text-[13px] font-medium text-[#9b97ad] transition-colors hover:border-[#7054dc] hover:bg-[#f5f2ff] hover:text-[#7054dc]"
+                >
+                  <FiPaperclip size={14} />
+                  Pilih file PDF CV / Portofolio
+                </button>
               )}
+              <input
+                ref={cvInputRef}
+                type="file"
+                accept=".pdf,application/pdf"
+                className="hidden"
+                onChange={(e) => handleCvFileChange(e.target.files?.[0] ?? null)}
+              />
             </div>
 
             {/* Biografi */}
@@ -586,7 +604,7 @@ export default function TambahGuruPage() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isSaving || photoUploading}
+              disabled={isSaving}
               className="inline-flex items-center gap-2 rounded-xl bg-[#7054dc] px-7 py-2.5 text-[13px] font-semibold text-white shadow-[0_6px_20px_rgba(112,84,220,0.3)] transition-all hover:bg-[#5f46cc] disabled:opacity-60"
             >
               {isSaving && (

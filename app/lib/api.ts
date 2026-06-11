@@ -853,19 +853,35 @@ export const guruKuisApi = {
 // ---------------------------------------------------------------------------
 // Upload endpoint
 // ---------------------------------------------------------------------------
+// NOTE: We call /api/upload (Next.js route handler) instead of going through
+// the /api-backend rewrite because Next.js rewrites strip multipart bodies,
+// causing 500s. The route handler at app/api/upload/route.ts proxies
+// the raw FormData directly to the backend with no size limits.
+// ---------------------------------------------------------------------------
 
 export const uploadApi = {
-    upload(file: File, fileType?: string) {
+    async upload(file: File, fileType?: string): Promise<UploadResponse> {
         const type = fileType || "MODULE_IMAGE";
         const formData = new FormData();
         formData.append("file", file);
         formData.append("type", type);
         formData.append("fileType", type);
-        return apiFetch<UploadResponse>("/upload", {
+
+        const res = await fetch("/api/upload", {
             method: "POST",
-            data: formData,
-            headers: { "Content-Type": "multipart/form-data" },
+            body: formData,
+            credentials: "include",
         });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new ApiError(
+                err.message ?? "Upload gagal",
+                res.status,
+                err,
+            );
+        }
+        return res.json() as Promise<UploadResponse>;
     },
 };
 
