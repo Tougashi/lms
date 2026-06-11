@@ -1337,7 +1337,7 @@ function TambahModulKontenPageContent() {
                 <div className="mt-4 rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4 shadow-[0_8px_20px_rgba(20,20,30,0.05)]">
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="text-[12px] font-semibold text-[#232530]">
-                      Topik 1:
+                      Topik {topiks.length + 1}:
                     </p>
                     <input
                       type="text"
@@ -2497,13 +2497,57 @@ function TambahModulKontenPageContent() {
                 )}
                 </div>
                 ))}
-                  <button
-                    type="button"
-                    onClick={() => setIsFormOpen(true)}
-                    className="inline-flex h-[40px] w-[160px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#8e7bff] bg-white text-[12px] font-semibold text-[#7054dc]"
-                  >
-                    Topik <FiPlus size={14} />
-                  </button>
+                  {!isFormOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTopicTitle("");
+                        setTopicError("");
+                        setIsFormOpen(true);
+                      }}
+                      className="inline-flex h-[40px] w-[160px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#8e7bff] bg-white text-[12px] font-semibold text-[#7054dc]"
+                    >
+                      Topik <FiPlus size={14} />
+                    </button>
+                  ) : (
+                    <div className="rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4 shadow-[0_8px_20px_rgba(20,20,30,0.05)]">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <p className="text-[12px] font-semibold text-[#232530]">
+                          Topik {topiks.length + 1}:
+                        </p>
+                        <input
+                          type="text"
+                          value={topicTitle}
+                          onChange={(event) => setTopicTitle(event.target.value)}
+                          placeholder="Masukkan Judul Topik"
+                          className="h-[36px] flex-1 rounded-lg border border-[#8e7bff] bg-white px-3 text-[12px] text-[#232530] outline-none"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleCreateTopic();
+                          }}
+                        />
+                      </div>
+                      <div className="mt-4 flex items-center justify-end gap-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsFormOpen(false);
+                            setTopicError("");
+                          }}
+                          className="cursor-pointer text-[12px] font-semibold text-[#7a7e8a]"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCreateTopic}
+                          disabled={isCreatingTopic}
+                          className="inline-flex h-[36px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-4 text-[12px] font-semibold text-white disabled:opacity-50"
+                        >
+                          {isCreatingTopic ? "Menyimpan..." : "Tambah Topik"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

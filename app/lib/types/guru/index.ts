@@ -327,10 +327,12 @@ export interface TutorProgressItem {
     pretestScore?: number | null;
     posttestScore?: number | null;
     finalScore?: number | null;
+    averageQuizScore: number;
     status: string;
     isGraduated: boolean;
     progressPercentage: number;
     completionRate: number;
+    recommendation: string;
 }
 
 export interface TutorProgressByStudent {
@@ -343,4 +345,18 @@ export interface TutorProgressByStudent {
 export interface TutorProgressPaginatedResponse {
     items: TutorProgressByStudent[];
     next_cursor: string | null;
+}
+
+export interface GuruModuleProgressItem {
+    siswaId: string;
+    siswaName: string;
+    email: string;
+    profileImage?: string | null;
+    pretestScore?: number | null;
+    posttestScore?: number | null;
+    averageQuizScore: number;
+    progressPercentage: number;
+    status: string;
+    isGraduated: boolean;
+    recommendation: string;
 }

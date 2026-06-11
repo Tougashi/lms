@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import {
     FaBookOpen,
     FaListAlt,
@@ -15,23 +15,14 @@ import {
     FaChartLine,
     FaCheck,
     FaStar,
-    FaBullseye,
 } from "react-icons/fa";
-import { MdTimer, MdPlayCircleFilled } from "react-icons/md";
+import { MdTimer } from "react-icons/md";
 import SiswaHeader from "../../component/siswa/SiswaHeader";
+import AccordionMateri from "../../component/siswa/AccordionMateri";
 import { siswaModulApi } from "../../lib/api";
-import type {
-    ModuleDetailResponse,
-    TopikDetail,
-    MateriDetail,
-    QuizDetail,
-} from "../../lib/types/siswa";
+import type { ModuleDetailResponse } from "../../lib/types/siswa";
 import { ApiError } from "../../lib/types/umum";
 import { AxiosError } from "axios";
-
-type CurriculumItem =
-    | { type: "ARTICLE"; data: MateriDetail }
-    | { type: "QUIZ"; data: QuizDetail };
 
 function getAvatarUrl(seed: string) {
     return `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(seed)}`;
@@ -52,31 +43,6 @@ function formatDate(iso: string): string {
         month: "long",
         year: "numeric",
     });
-}
-
-function buildCurriculumItems(topik: TopikDetail): CurriculumItem[] {
-    const sorted = [...topik.topikItems].sort(
-        (a, b) => a.orderNumber - b.orderNumber,
-    );
-    const items: CurriculumItem[] = [];
-    for (const ti of sorted) {
-        if (ti.itemType === "ARTICLE") {
-            const materi = topik.materis.find((m) => m.id === ti.itemId);
-            if (materi) items.push({ type: "ARTICLE", data: materi });
-        } else if (ti.itemType === "QUIZ") {
-            const quiz = topik.materis
-                .flatMap((m) => m.quizzes)
-                .find((q) => q?.id === ti.itemId);
-            if (quiz) items.push({ type: "QUIZ", data: quiz });
-        }
-    }
-    const usedItemIds = new Set(sorted.map((ti) => ti.itemId));
-    for (const materi of topik.materis) {
-        if (!usedItemIds.has(materi.id)) {
-            items.push({ type: "ARTICLE", data: materi });
-        }
-    }
-    return items;
 }
 
 // function cleanSubmateriTitle(title: string, moduleName: string): string {
@@ -104,7 +70,6 @@ export default function ModulDetailPage({
     const [moduleData, setModuleData] = useState<ModuleDetailResponse | null>(
         null,
     );
-    const [openSection, setOpenSection] = useState<string>("");
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isEnrolling, setIsEnrolling] = useState(false);
@@ -118,7 +83,6 @@ export default function ModulDetailPage({
             try {
                 const res = await siswaModulApi.getById(id);
                 setModuleData(res);
-                if (res.topiks.length > 0) setOpenSection(res.topiks[0].id);
             } catch (err: unknown) {
                 console.error("Modul detail fetch error:", err);
                 setError(
@@ -139,15 +103,6 @@ export default function ModulDetailPage({
 
     const isEnrolled = moduleData?.progress != null;
     const priceLabel = moduleData ? getPrice(moduleData) : null;
-
-    const curriculumMap = useMemo(() => {
-        if (!moduleData) return new Map<string, CurriculumItem[]>();
-        const map = new Map<string, CurriculumItem[]>();
-        for (const t of moduleData.topiks) {
-            map.set(t.id, buildCurriculumItems(t));
-        }
-        return map;
-    }, [moduleData]);
 
     const descriptionParagraphs = moduleData
         ? moduleData.description.split("\n").filter(Boolean)
@@ -478,109 +433,12 @@ export default function ModulDetailPage({
                                 </div>
                             )}
 
-                            {moduleData.topiks.map((topik) => {
-                                const isOpen = openSection === topik.id;
-                                const items = curriculumMap.get(topik.id) ?? [];
-                                return (
-                                    <article
-                                        key={topik.id}
-                                        className="overflow-hidden rounded-xl border border-[#dcdae6] bg-white"
-                                    >
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setOpenSection(
-                                                    isOpen ? "" : topik.id,
-                                                )
-                                            }
-                                            className={`flex w-full items-center justify-between px-4 py-6 text-left text-sm font-semibold ${
-                                                isOpen
-                                                    ? "bg-[#efebff] text-[#7054dc]"
-                                                    : "text-[#202126]"
-                                            }`}
-                                        >
-                                            {topik.nama}
-                                            {isOpen ? (
-                                                <FaChevronUp size={12} />
-                                            ) : (
-                                                <FaChevronDown size={12} />
-                                            )}
-                                        </button>
-
-                                        {isOpen && items.length > 0 && (
-                                            <div className="space-y-3 border-t border-[#e7e4f2] px-4 py-3">
-                                                {items.map((item) => {
-                                                    if (
-                                                        item.type === "ARTICLE"
-                                                    ) {
-                                                        const materi =
-                                                            item.data;
-                                                        return materi.submateris.map(
-                                                            (sub) => {
-                                                                const title =
-                                                                    sub.judul;
-                                                                // cleanSubmateriTitle(
-                                                                //     sub.judul,
-                                                                //     moduleData.moduleName,
-                                                                // );
-                                                                return (
-                                                                    <p
-                                                                        key={
-                                                                            sub.id
-                                                                        }
-                                                                        className="flex items-center gap-2 text-sm text-[#3f4454]"
-                                                                    >
-                                                                        {materi.isVideo ? (
-                                                                            <MdPlayCircleFilled
-                                                                                size={
-                                                                                    16
-                                                                                }
-                                                                                className="shrink-0 text-[#f39b39]"
-                                                                            />
-                                                                        ) : (
-                                                                            <FaFileAlt
-                                                                                size={
-                                                                                    14
-                                                                                }
-                                                                                className="shrink-0 text-[#7054dc]"
-                                                                            />
-                                                                        )}
-                                                                        {title}
-                                                                    </p>
-                                                                );
-                                                            },
-                                                        );
-                                                    }
-                                                    const quiz = item.data;
-                                                    return (
-                                                        <p
-                                                            key={quiz.id}
-                                                            className="flex items-center gap-2 text-sm text-[#3f4454]"
-                                                        >
-                                                            <FaBullseye
-                                                                size={14}
-                                                                className="shrink-0 text-[#37b66a]"
-                                                            />
-                                                            <span className="font-medium text-[#202126]">
-                                                                Quiz
-                                                            </span>
-                                                            <span className="text-[#8a8a96]">
-                                                                {quiz.question
-                                                                    .length > 60
-                                                                    ? quiz.question.slice(
-                                                                          0,
-                                                                          60,
-                                                                      ) + "..."
-                                                                    : quiz.question}
-                                                            </span>
-                                                        </p>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </article>
-                                );
-                            })}
+                            <AccordionMateri
+                                topiks={moduleData.topiks}
+                                completedSubmateri={moduleData.progress?.completedSubmateri}
+                                completedContentItems={moduleData.progress?.completedContentItems}
+                                modulId={id}
+                            />
 
                             {moduleData.posttest && (
                                 <div className="flex items-center gap-3 rounded-xl border border-[#dcdae6] bg-[#fcfbff] px-4 py-3 text-sm font-medium text-[#202126]">

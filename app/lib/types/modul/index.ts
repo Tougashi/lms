@@ -28,6 +28,7 @@ export interface ModuleItem {
   totalSiswa?: number;
   thumbnail?: string | null;
   thumbnailUrl?: string | null;
+  moduleImgUrl?: string | null;
 }
 
 export interface TopikItem {

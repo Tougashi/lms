@@ -36,6 +36,7 @@ function getTutorName(item: ModuleItem): string {
 
 function getThumbnail(item: ModuleItem): string {
     return (
+        item.moduleImgUrl ||
         item.thumbnailUrl ||
         item.thumbnail ||
         "/assets/images/beranda-siswa/matapelajaran.png"

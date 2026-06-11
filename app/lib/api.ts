@@ -59,6 +59,7 @@ import type {
     TutorProfile,
     TutorProgressByStudent,
     TutorProgressPaginatedResponse,
+    GuruModuleProgressItem,
 } from "./types/guru";
 import type {
     MateriItem,
@@ -930,6 +931,12 @@ export const guruProgressApi = {
         if (modulId) params.set("modulId", modulId);
         return apiFetch<TutorProgressPaginatedResponse>(
             `/tutor/progress?${params.toString()}`,
+        );
+    },
+
+    getByModule(modulId: string) {
+        return apiFetch<GuruModuleProgressItem[]>(
+            `/tutor/progress/module/${modulId}`,
         );
     },
 
