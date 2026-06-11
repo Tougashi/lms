@@ -10,7 +10,7 @@ import { MdKeyboardArrowLeft, MdKeyboardArrowRight } from 'react-icons/md';
 
 import GuruHeader from '../../component/guru/GuruHeader';
 import { useGuruModules } from '../hooks/useGuruModules';
-import { guruModulApi, guruTopikApi, guruMateriApi, guruProgressApi } from '../../lib/api';
+import { guruModulApi, guruTopikApi, guruMateriApi, guruProgressApi, adminModulApi } from '../../lib/api';
 import { useRoleGuard } from '../../lib/hooks/useRoleGuard';
 import { usePopup } from '../../component/ui/PopupProvider';
 
@@ -106,9 +106,69 @@ function ManajemenModulContent() {
     setIsLoadingStudents(true);
     setErrorStudents('');
     try {
-      // Dapatkan detail modul beserta array progress-nya
-      const detail = await guruModulApi.detail(modulId);
-      const moduleProgressArray = detail?.progress || [];
+      let moduleProgressArray: any[] = [];
+      let isUsingAdminApi = false;
+
+      // Coba gunakan endpoint khusus untuk mendapatkan siswa di modul ini (adminModulApi).
+      // Terkadang backend membolehkan tutor mengaksesnya untuk modul mereka sendiri.
+      try {
+        const adminRes = await adminModulApi.getStudents(modulId, { limit: 100 });
+        if (adminRes && adminRes.items) {
+           moduleProgressArray = adminRes.items;
+           isUsingAdminApi = true;
+        }
+      } catch (err) {
+        console.warn("Tutor does not have access to admin module students endpoint, falling back to guruProgressApi", err);
+      }
+
+      if (!isUsingAdminApi) {
+        // Fallback: Ambil progress dari semua siswa menggunakan endpoint progress guru
+        let allStudents: any[] = [];
+        let cursor: string | null = null;
+        let hasMore = true;
+
+        while (hasMore) {
+          const res = await guruProgressApi.getAll(100, cursor, modulId);
+          allStudents = [...allStudents, ...(res.items || [])];
+          if (res.next_cursor) {
+             cursor = res.next_cursor;
+          } else {
+             hasMore = false;
+          }
+        }
+
+        // Karena user tutor ingin semua siswa terdaftarnya muncul, kita masukkan semuanya.
+        // Jika tidak ada data progres untuk modul ini, set progres ke 0.
+        allStudents.forEach(student => {
+          const progressList = student.progress || student.progresses || [];
+          const prog = progressList.find((p: any) => 
+            p.modulId === modulId || 
+            p.moduleId === modulId || 
+            p.id_modul === modulId ||
+            p.modul_id === modulId ||
+            p.module?.id === modulId ||
+            p.modul?.id === modulId ||
+            p.id === modulId
+          ) || (progressList.length > 0 ? progressList[0] : null);
+          
+          const activeProg = prog || { 
+            progressPercentage: student.progressPercentage ?? 0, 
+            completionRate: student.completionRate ?? 0,
+            pretestScore: student.pretestScore ?? null,
+            posttestScore: student.posttestScore ?? null,
+            finalScore: student.finalScore ?? null
+          };
+
+          moduleProgressArray.push({
+             ...activeProg,
+             siswa: {
+               nama_lengkap: student.siswaName || student.name || 'Siswa',
+               email: student.email || '-',
+             },
+             siswaId: student.siswaId || student.id
+          });
+        });
+      }
 
       if (moduleProgressArray.length === 0) {
         setEnrolledStudents([]);
@@ -152,7 +212,7 @@ function ManajemenModulContent() {
           id: progressData.siswaId,
           name: studentName,
           email: studentEmail,
-          progress: Math.round(progressData.progressPercentage || 0),
+          progress: Math.round(Number(progressData.progressPercentage) || Number(progressData.completionRate) || Number(progressData.progress) || 0),
           preTest: progressData.pretestScore ?? '-',
           postTest: progressData.posttestScore ?? '-',
           rataKuis: progressData.finalScore ?? '-',

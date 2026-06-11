@@ -8,7 +8,6 @@ import { useAuth } from "../context/AuthContext";
 import SiswaHeader from "./siswa/SiswaHeader";
 import GuruHeader from "./guru/GuruHeader";
 import AdminHeader from "./admin/AdminHeader";
-
 const guestMenuItems = [
   { label: "Beranda", href: "/" },
   { label: "Eksplor Modul", href: "/eksplor-modul" },
@@ -67,7 +66,9 @@ export default function Header() {
 
   if (!isLoading && isLoggedIn) {
     if (user?.role === 'admin') return <AdminHeader />;
-    if (user?.role === 'tutor') return <GuruHeader />;
+    if (user?.role === 'tutor' || user?.role === 'guru') {
+      return <GuruHeader />;
+    }
     return <SiswaHeader />;
   }
 

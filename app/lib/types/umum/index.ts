@@ -13,7 +13,7 @@ export class ApiError extends Error {
 export interface UserSession {
   id: string;
   email: string;
-  role: 'siswa' | 'tutor' | 'admin' | 'umum';
+  role: 'siswa' | 'tutor' | 'admin' | 'umum' | 'guru';
   nama_lengkap?: string;
   fullName?: string;
   jenjang?: string;
@@ -22,7 +22,7 @@ export interface UserSession {
 
 export interface LoginResponse {
   user: UserSession;
-  role: 'siswa' | 'tutor' | 'admin';
+  role: 'siswa' | 'tutor' | 'admin' | 'guru';
   accessToken?: string;
   refreshToken?: string;
 }

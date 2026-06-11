@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../../context/AuthContext';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../context/AuthContext";
 
 /**
  * Role-based route guard hook.
@@ -15,37 +15,50 @@ import { useAuth } from '../../context/AuthContext';
  * @returns { isAuthorized, isLoading, user, role }
  */
 export function useRoleGuard(allowedRoles: string[]) {
-  const { user, role, isLoading } = useAuth();
-  const router = useRouter();
+    const { user, role, isLoading } = useAuth();
+    const router = useRouter();
 
-  const isAuthorized = !isLoading && !!user && !!role && allowedRoles.includes(role);
+    const normalizedRole = role === "guru" ? "tutor" : role;
+    const isAuthorized =
+        !isLoading &&
+        !!user &&
+        !!role &&
+        (allowedRoles.includes(role) ||
+            (normalizedRole && allowedRoles.includes(normalizedRole)));
 
-  // Serialize to a stable primitive so inline arrays like ['siswa'] don't re-trigger
-  // the effect on every parent render due to new array reference.
-  const serializedRoles = allowedRoles.join(',');
+    // Serialize to a stable primitive so inline arrays like ['siswa'] don't re-trigger
+    // the effect on every parent render due to new array reference.
+    const serializedRoles = allowedRoles.join(",");
 
-  useEffect(() => {
-    if (isLoading) return;
+    useEffect(() => {
+        if (isLoading) return;
 
-    // Not logged in — AuthContext already handles redirect to /login
-    if (!user || !role) return;
+        // Not logged in — AuthContext already handles redirect to /login
+        if (!user || !role) return;
 
-    // Logged in but wrong role — redirect to their home page
-    if (!serializedRoles.split(',').includes(role)) {
-      switch (role) {
-        case 'admin':
-          router.replace('/admin/dashboard');
-          break;
-        case 'tutor':
-          router.replace('/beranda-guru');
-          break;
-        case 'siswa':
-        default:
-          router.replace('/beranda-siswa');
-          break;
-      }
-    }
-  }, [isLoading, user, role, serializedRoles, router]);
+        // Handle alias guru <-> tutor
+        const currentNormalizedRole = role === "guru" ? "tutor" : role;
+        const isAllowed =
+            allowedRoles.includes(role) ||
+            (currentNormalizedRole &&
+                allowedRoles.includes(currentNormalizedRole));
 
-  return { isAuthorized, isLoading, user, role };
+        // Logged in but wrong role — redirect to their home page
+        if (!isAllowed) {
+            switch (currentNormalizedRole) {
+                case "admin":
+                    router.replace("/admin/dashboard");
+                    break;
+                case "tutor":
+                    router.replace("/beranda-guru");
+                    break;
+                case "siswa":
+                default:
+                    router.replace("/beranda-siswa");
+                    break;
+            }
+        }
+    }, [isLoading, user, role, serializedRoles, router]);
+
+    return { isAuthorized, isLoading, user, role };
 }
