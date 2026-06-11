@@ -173,7 +173,9 @@ function EditGuruContent() {
   /* cv */
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [cvFileName, setCvFileName] = useState("");
+  const [cvPreviewUrl, setCvPreviewUrl] = useState<string | null>(null);
   const [cvPathUrl, setCvPathUrl] = useState(""); // loaded from DB (existing URL)
+  const cvObjUrlRef = useRef<string | null>(null);
 
   /* profesional */
   const [pekerjaan, setPekerjaan] = useState("");
@@ -237,9 +239,26 @@ function EditGuruContent() {
   /* ── CV file change ── */
   const handleCvFileChange = (file: File | null) => {
     if (!file) return;
+    if (cvObjUrlRef.current) {
+      URL.revokeObjectURL(cvObjUrlRef.current);
+      cvObjUrlRef.current = null;
+    }
     setCvFile(file);
     setCvFileName(file.name);
-    // don't clear cvPathUrl here — it's replaced on submit
+    const blobUrl = URL.createObjectURL(file);
+    cvObjUrlRef.current = blobUrl;
+    setCvPreviewUrl(blobUrl);
+  };
+
+  const handleCvRemove = () => {
+    if (cvObjUrlRef.current) {
+      URL.revokeObjectURL(cvObjUrlRef.current);
+      cvObjUrlRef.current = null;
+    }
+    setCvFile(null);
+    setCvFileName("");
+    setCvPreviewUrl(null);
+    if (cvInputRef.current) cvInputRef.current.value = "";
   };
 
   /* strict numeric phone */
@@ -566,16 +585,44 @@ function EditGuruContent() {
                 <p className={`${hintCls} mb-2`}>Format PDF. Maks. 10 MB.</p>
 
                 {cvFile ? (
-                  <div className="mt-1.5 flex h-[44px] items-center gap-3 rounded-xl border border-[#7054dc] bg-[#f5f2ff] px-4">
-                    <FiPaperclip size={14} className="shrink-0 text-[#7054dc]" />
-                    <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">{cvFileName}</span>
-                    <button type="button" onClick={() => { setCvFile(null); setCvFileName(""); if (cvInputRef.current) cvInputRef.current.value = ""; }} className="text-[#7054dc] hover:text-red-500"><FiX size={14} /></button>
+                  <div>
+                    {/* new file badge */}
+                    <div className="flex h-[44px] items-center gap-3 rounded-xl border border-[#7054dc] bg-[#f5f2ff] px-4">
+                      <FiPaperclip size={14} className="shrink-0 text-[#7054dc]" />
+                      <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">{cvFileName}</span>
+                      <button type="button" onClick={handleCvRemove} className="text-[#7054dc] hover:text-red-500"><FiX size={14} /></button>
+                    </div>
+
+                    {/* PDF preview from blob */}
+                    {cvPreviewUrl && (
+                      <div className="mt-3 overflow-hidden rounded-xl border border-[#e5e3ee] bg-[#f7f6fb]">
+                        <iframe
+                          src={cvPreviewUrl}
+                          title="Preview CV"
+                          className="h-[420px] w-full"
+                          style={{ border: 0 }}
+                        />
+                      </div>
+                    )}
                   </div>
                 ) : cvPathUrl ? (
-                  <div className="mt-1.5 flex h-[44px] items-center gap-3 rounded-xl border border-[#e2e0ea] bg-[#f9f8ff] px-4">
-                    <FiPaperclip size={14} className="shrink-0 text-[#7054dc]" />
-                    <a href={cvPathUrl} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-[12px] font-medium text-[#7054dc] hover:underline">Lihat CV saat ini</a>
-                    <button type="button" onClick={() => cvInputRef.current?.click()} className="text-[11px] font-semibold text-[#7a7e8a] hover:text-[#7054dc]">Ganti</button>
+                  <div>
+                    {/* existing CV badge */}
+                    <div className="flex h-[44px] items-center gap-3 rounded-xl border border-[#e2e0ea] bg-[#f9f8ff] px-4">
+                      <FiPaperclip size={14} className="shrink-0 text-[#7054dc]" />
+                      <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">CV tersimpan</span>
+                      <button type="button" onClick={() => cvInputRef.current?.click()} className="text-[11px] font-semibold text-[#7a7e8a] hover:text-[#7054dc]">Ganti</button>
+                    </div>
+
+                    {/* preview CV dari URL (embed) */}
+                    <div className="mt-3 overflow-hidden rounded-xl border border-[#e5e3ee] bg-[#f7f6fb]">
+                      <iframe
+                        src={cvPathUrl}
+                        title="CV saat ini"
+                        className="h-[420px] w-full"
+                        style={{ border: 0 }}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <button
