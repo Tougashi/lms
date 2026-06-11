@@ -886,6 +886,14 @@ export const uploadApi = {
         }
         return res.json() as Promise<UploadResponse>;
     },
+
+    /** Generate Cloudinary signed URL (60 min) for an existing file URL */
+    async getSignedUrl(url: string): Promise<string> {
+        const res = await apiFetch<{ signedUrl: string }>(
+            `/upload/signed-url?url=${encodeURIComponent(url)}`,
+        );
+        return res.signedUrl;
+    },
 };
 
 // ---------------------------------------------------------------------------

@@ -365,7 +365,7 @@ export interface AdminProfile {
   email: string;
   username?: string;
   fullName: string;
-  gender?: "MALE" | "FEMALE" | string;
+  gender?: "L" | "P" | string;
   whatsappNumber?: string;
   profileImg?: string;
   role: "admin";

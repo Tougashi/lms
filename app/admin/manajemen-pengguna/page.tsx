@@ -232,14 +232,14 @@ export default function ManajemenPenggunaPage() {
   const tableColumns =
     activeTab === 'guru'
       ? ['Nama Lengkap', 'Tingkat Pengajar', 'Bidang Pengajar', 'No Wa', 'Email']
-      : ['Nama Lengkap', 'Tingkat Siswa', 'Kelas', 'No Wa', 'Email'];
+      : ['Nama Lengkap', 'Tingkat Siswa', 'Kelas', 'Email'];
 
   function getGuruCols(r: AdminTutorItem) {
     return [r.fullName, 'Guru', r.gender ?? '-', r.whatsappNumber ?? '-', r.email];
   }
 
   function getSiswaCols(r: AdminSiswaItem) {
-    return [r.nama_lengkap, r.jenjang ?? '-', r.kelas_sekolah ?? '-', '-', r.email];
+    return [r.nama_lengkap, r.jenjang ?? '-', r.kelas_sekolah ?? '-', r.email];
   }
 
   return (
@@ -420,10 +420,9 @@ export default function ManajemenPenggunaPage() {
                                   </Link>
                                 ) : cols[0]}
                               </td>
-                              <td className="px-4 py-4 align-middle">{cols[1]}</td>
-                              <td className="px-4 py-4 align-middle">{cols[2]}</td>
-                              <td className="px-4 py-4 align-middle">{cols[3]}</td>
-                              <td className="px-4 py-4 align-middle">{cols[4]}</td>
+                              {cols.slice(1).map((colText, idx) => (
+                                <td key={idx} className="px-4 py-4 align-middle">{colText}</td>
+                              ))}
                               <td className="px-4 py-4 align-middle text-right">
                                 <div className="relative inline-flex">
                                   <button
