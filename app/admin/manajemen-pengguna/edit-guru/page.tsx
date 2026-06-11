@@ -102,7 +102,10 @@ function CustomSelect({
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { onChange(""); setOpen(false); }}
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
               className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] text-[#c0bfca] hover:bg-[#f7f5ff] transition-colors"
             >
               {placeholder}
@@ -113,7 +116,10 @@ function CustomSelect({
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { onChange(opt.value); setOpen(false); }}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
                 className={[
                   "flex w-full items-center justify-between px-4 py-2.5 text-[13px] transition-colors",
                   value === opt.value
@@ -283,7 +289,10 @@ function EditGuruContent() {
     try {
       let finalPhotoUrl = photoUrl;
       if (!finalPhotoUrl && photoFileRef.current) {
-        const res = await uploadApi.upload(photoFileRef.current, "PROFILE_IMAGE");
+        const res = await uploadApi.upload(
+          photoFileRef.current,
+          "PROFILE_IMAGE",
+        );
         finalPhotoUrl = res.url ?? null;
       }
 
@@ -588,9 +597,20 @@ function EditGuruContent() {
                   <div>
                     {/* new file badge */}
                     <div className="flex h-[44px] items-center gap-3 rounded-xl border border-[#7054dc] bg-[#f5f2ff] px-4">
-                      <FiPaperclip size={14} className="shrink-0 text-[#7054dc]" />
-                      <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">{cvFileName}</span>
-                      <button type="button" onClick={handleCvRemove} className="text-[#7054dc] hover:text-red-500"><FiX size={14} /></button>
+                      <FiPaperclip
+                        size={14}
+                        className="shrink-0 text-[#7054dc]"
+                      />
+                      <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">
+                        {cvFileName}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleCvRemove}
+                        className="text-[#7054dc] hover:text-red-500"
+                      >
+                        <FiX size={14} />
+                      </button>
                     </div>
 
                     {/* PDF preview from blob */}
@@ -607,21 +627,30 @@ function EditGuruContent() {
                   </div>
                 ) : cvPathUrl ? (
                   <div>
-                    {/* existing CV badge */}
+                    {/* existing CV badge + open link */}
                     <div className="flex h-[44px] items-center gap-3 rounded-xl border border-[#e2e0ea] bg-[#f9f8ff] px-4">
-                      <FiPaperclip size={14} className="shrink-0 text-[#7054dc]" />
-                      <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">CV tersimpan</span>
-                      <button type="button" onClick={() => cvInputRef.current?.click()} className="text-[11px] font-semibold text-[#7a7e8a] hover:text-[#7054dc]">Ganti</button>
-                    </div>
-
-                    {/* preview CV dari URL (embed) */}
-                    <div className="mt-3 overflow-hidden rounded-xl border border-[#e5e3ee] bg-[#f7f6fb]">
-                      <iframe
-                        src={cvPathUrl}
-                        title="CV saat ini"
-                        className="h-[420px] w-full"
-                        style={{ border: 0 }}
+                      <FiPaperclip
+                        size={14}
+                        className="shrink-0 text-[#7054dc]"
                       />
+                      <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">
+                        {cvPathUrl.split("/").pop() ?? "CV tersimpan"}
+                      </span>
+                      <a
+                        href={cvPathUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-semibold text-[#7054dc] hover:underline"
+                      >
+                        Buka
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => cvInputRef.current?.click()}
+                        className="text-[11px] font-semibold text-[#7a7e8a] hover:text-[#7054dc]"
+                      >
+                        Ganti
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -639,7 +668,9 @@ function EditGuruContent() {
                   type="file"
                   accept=".pdf,application/pdf"
                   className="hidden"
-                  onChange={(e) => handleCvFileChange(e.target.files?.[0] ?? null)}
+                  onChange={(e) =>
+                    handleCvFileChange(e.target.files?.[0] ?? null)
+                  }
                 />
               </div>
 
