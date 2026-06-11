@@ -18,7 +18,6 @@ import {
   MdMoreVert,
   MdPersonAddAlt1,
   MdSupervisorAccount,
-  MdGroupAdd,
 } from 'react-icons/md';
 import AdminHeader from '../../component/admin/AdminHeader';
 import {
@@ -308,18 +307,17 @@ export default function ManajemenModulPage() {
                       <th className="px-4 py-3 text-left font-medium">
                         {activeTab === 'modul' ? 'Jumlah Siswa' : 'Jumlah Quiz'}
                       </th>
-                      <th className="px-4 py-3 text-left font-medium">Sunting Modul</th>
                       <th className="w-[48px] px-4 py-3 text-left font-medium" />
                     </tr>
                   </thead>
                   <tbody>
                     {isLoading ? (
                       <tr>
-                        <td colSpan={6} className="py-32 text-center text-sm text-[#9396a3]">Memuat data...</td>
+                        <td colSpan={5} className="py-32 text-center text-sm text-[#9396a3]">Memuat data...</td>
                       </tr>
                     ) : paginatedRows.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-32 text-center text-sm text-[#9396a3]">Tidak ada data.</td>
+                        <td colSpan={5} className="py-32 text-center text-sm text-[#9396a3]">Tidak ada data.</td>
                       </tr>
                     ) : activeTab === 'modul' ? (
                       (paginatedRows as AdminModulItem[]).map((row) => (
@@ -336,38 +334,6 @@ export default function ManajemenModulPage() {
                           <td className="px-4 py-3 align-middle font-medium text-[#5a5f6a]">{row.moduleName}</td>
                           <td className="px-4 py-3 align-middle">{row.tutor?.fullName ?? '-'}</td>
                           <td className="px-4 py-3 align-middle">{row.totalSiswa ?? 0} siswa</td>
-                          <td className="px-4 py-3 align-middle">
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold">
-                              <Link
-                                href={`/admin/manajemen-modul/edit?id=${row.id}`}
-                                className="inline-flex items-center gap-1 text-[#f39b39]"
-                              >
-                                <FaEdit size={12} />
-                                Edit
-                              </Link>
-                              <Link
-                                href={`/admin/manajemen-modul/siswa?id=${row.id}`}
-                                className="inline-flex items-center gap-1 text-[#7054dc]"
-                              >
-                                <MdSupervisorAccount size={13} />
-                                Management Siswa
-                              </Link>
-                              <Link
-                                href={`/admin/manajemen-modul/siswa?id=${row.id}`}
-                                className="inline-flex items-center gap-1 text-[#7054dc]"
-                              >
-                                <MdGroupAdd size={13} />
-                                Tambah Siswa
-                              </Link>
-                              <button
-                                onClick={() => handleDelete(row.id)}
-                                className="inline-flex items-center gap-1 text-[#f36e65]"
-                              >
-                                <FaTrash size={12} />
-                                Hapus
-                              </button>
-                            </div>
-                          </td>
                           <td className="px-4 py-3 align-middle text-right">
                             <div className="relative inline-flex">
                               <button
@@ -393,13 +359,7 @@ export default function ManajemenModulPage() {
                                     <MdSupervisorAccount size={14} />
                                     Management Siswa
                                   </Link>
-                                  <Link
-                                    href={`/admin/manajemen-modul/siswa?id=${row.id}`}
-                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]"
-                                  >
-                                    <MdGroupAdd size={14} />
-                                    Tambah Siswa
-                                  </Link>
+
                                   <button
                                     onClick={() => handleDelete(row.id)}
                                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]"
@@ -429,21 +389,6 @@ export default function ManajemenModulPage() {
                           <td className="px-4 py-3 align-middle">{row.tutor?.fullName ?? '-'}</td>
                           <td className="px-4 py-3 align-middle">
                             {row.topiks?.reduce((acc, t) => acc + t.materis.reduce((a, m) => a + m.quizzes.length, 0), 0) ?? 0} quiz
-                          </td>
-                          <td className="px-4 py-3 align-middle">
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold">
-                              <Link href={`/admin/manajemen-modul/edit?id=${row.id}`} className="inline-flex items-center gap-1 text-[#f39b39]">
-                                <FaEdit size={12} />
-                                Edit
-                              </Link>
-                              <button
-                                onClick={() => handleDelete(row.id)}
-                                className="inline-flex items-center gap-1 text-[#f36e65]"
-                              >
-                                <FaTrash size={12} />
-                                Hapus
-                              </button>
-                            </div>
                           </td>
                           <td className="px-4 py-3 align-middle text-right">
                             <div className="relative inline-flex">
