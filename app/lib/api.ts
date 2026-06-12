@@ -95,6 +95,9 @@ import type {
     AdminCTAnalysis,
     AdminCTAnalysisData,
     AdminProfile,
+    AdminUserItem,
+    AdminUserCreatePayload,
+    AdminUserUpdatePayload,
 } from "./types/admin";
 
 const API_BASE =
@@ -227,7 +230,7 @@ export const authApi = {
         return apiFetch<UserSession>("/auth/me");
     },
 
-    update(payload: Partial<RegisterPayload>) {
+    update(payload: Partial<RegisterPayload> & { newPassword?: string }) {
         return apiFetch<UserSession>("/auth/update", {
             method: "PUT",
             data: payload,
@@ -886,6 +889,14 @@ export const uploadApi = {
         }
         return res.json() as Promise<UploadResponse>;
     },
+
+    /** Generate Cloudinary signed URL (60 min) for an existing file URL */
+    async getSignedUrl(url: string): Promise<string> {
+        const res = await apiFetch<{ signedUrl: string }>(
+            `/upload/signed-url?url=${encodeURIComponent(url)}`,
+        );
+        return res.signedUrl;
+    },
 };
 
 // ---------------------------------------------------------------------------
@@ -1229,6 +1240,54 @@ export const adminTutorApi = {
             method: "PATCH",
         });
     },
+
+    activate(id: string) {
+        return apiFetch<AdminTutorItem>(`/admin/tutor/${id}/activate`, {
+            method: "PATCH",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Admin Users endpoints
+// ---------------------------------------------------------------------------
+
+export const adminUserApi = {
+    getAll() {
+        return apiFetch<AdminUserItem[]>("/admin/pengelola");
+    },
+
+    create(payload: AdminUserCreatePayload) {
+        return apiFetch<{ message: string; user: AdminUserItem }>("/admin/pengelola", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: AdminUserUpdatePayload) {
+        return apiFetch<AdminUserItem>(`/admin/pengelola/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/admin/pengelola/${id}`, {
+            method: "DELETE",
+        });
+    },
+
+    deactivate(id: string) {
+        return apiFetch<AdminUserItem>(`/admin/pengelola/${id}/deactivate`, {
+            method: "PATCH",
+        });
+    },
+
+    activate(id: string) {
+        return apiFetch<AdminUserItem>(`/admin/pengelola/${id}/activate`, {
+            method: "PATCH",
+        });
+    },
 };
 
 // ---------------------------------------------------------------------------
@@ -1264,6 +1323,12 @@ export const adminProgressApi = {
 export const adminProfileApi = {
     get() {
         return apiFetch<AdminProfile>("/admin/profile/profile");
+    },
+    update(payload: Partial<AdminProfile> & { password?: string; newPassword?: string }) {
+        return apiFetch<AdminProfile>("/auth/update", {
+            method: "PUT",
+            data: { ...payload, role: "admin" },
+        });
     },
 };
 

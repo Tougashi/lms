@@ -139,8 +139,8 @@ function CustomSelect({
 
 /* ─── option lists ─── */
 const genderOptions: SelectOption[] = [
-  { label: "Laki-laki", value: "MALE" },
-  { label: "Perempuan", value: "FEMALE" },
+  { label: "Laki-laki", value: "L" },
+  { label: "Perempuan", value: "P" },
 ];
 const educationOptions: SelectOption[] = [
   { label: "SMA / SMK", value: "SMA/SMK" },
@@ -277,7 +277,7 @@ export default function TambahGuruPage() {
         fullName: fullName.trim(),
         email: email.trim(),
         password,
-        gender: (gender as "MALE" | "FEMALE") || undefined,
+        gender: (gender as "L" | "P") || undefined,
         whatsappNumber: whatsappNumber.trim() || undefined,
         pekerjaan: pekerjaan.trim() || undefined,
         lastEducation: lastEducation || undefined,

@@ -86,6 +86,7 @@ export interface GuruMateriItem {
 
 export interface GuruMateriCreatePayload {
     topik_id: string;
+    judul: string;
     is_video?: boolean;
     video_url?: string | null;
     article?: string | null;

@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FaBookOpen, FaLock, FaSearch } from "react-icons/fa";
 import SiswaHeader from "../component/siswa/SiswaHeader";
 import { siswaModulApi } from "../lib/api";
@@ -60,10 +61,19 @@ function getJenjangKelas(item: ModuleItem): string {
     return jenjang || kelas || "";
 }
 
-export default function EksplorModulPage() {
-    const [activeTab, setActiveTab] = useState<"relevan" | "terdaftar">(
-        "terdaftar",
-    );
+function EksplorModulContent() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
+    const activeTab: "relevan" | "terdaftar" =
+        searchParams.get("tab") === "terdaftar" ? "terdaftar" : "relevan";
+    const setActiveTab = useCallback((tab: "relevan" | "terdaftar") => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (tab === "relevan") params.delete("tab");
+        else params.set("tab", "terdaftar");
+        const q = params.toString();
+        router.replace(`${pathname}${q ? `?${q}` : ""}`, { scroll: false });
+    }, [searchParams, pathname, router]);
     const [activeStatus, setActiveStatus] = useState<StatusFilter>("semua");
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -400,5 +410,13 @@ export default function EksplorModulPage() {
                 )}
             </main>
         </div>
+    );
+}
+
+export default function EksplorModulPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#fafafa]" />}>
+            <EksplorModulContent />
+        </Suspense>
     );
 }

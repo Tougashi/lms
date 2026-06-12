@@ -29,10 +29,11 @@ import {
   adminTutorApi,
   adminSiswaApi,
   adminDashboardApi,
+  adminUserApi,
 } from '../../lib/api';
-import type { AdminTutorItem, AdminSiswaItem } from '../../lib/types/admin';
+import type { AdminTutorItem, AdminSiswaItem, AdminUserItem } from '../../lib/types/admin';
 
-type UserTab = 'guru' | 'siswa';
+type UserTab = 'guru' | 'siswa' | 'admin';
 
 const filterOptions = [
   { id: 'nama-lengkap', label: 'Nama Lengkap' },
@@ -85,7 +86,7 @@ export default function ManajemenPenggunaPage() {
 
   // Toast & confirm
   const { toasts, showToast, dismissToast } = useAdminToast();
-  const [confirmState, setConfirmState] = useState<{ id: string; action: 'delete' | 'deactivate'; bulkIds?: string[] } | null>(null);
+  const [confirmState, setConfirmState] = useState<{ id: string; action: 'delete' | 'deactivate' | 'activate'; bulkIds?: string[] } | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,17 +95,20 @@ export default function ManajemenPenggunaPage() {
   // API state
   const [guruList, setGuruList] = useState<AdminTutorItem[]>([]);
   const [siswaList, setSiswaList] = useState<AdminSiswaItem[]>([]);
+  const [adminList, setAdminList] = useState<AdminUserItem[]>([]);
   const [tutorCount, setTutorCount] = useState(0);
   const [siswaCount, setSiswaCount] = useState(0);
+  const [adminCount, setAdminCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [dashRes, tutorRes, siswaRes] = await Promise.allSettled([
+      const [dashRes, tutorRes, siswaRes, adminRes] = await Promise.allSettled([
         adminDashboardApi.get(),
         adminTutorApi.getAll(),
         adminSiswaApi.getAll(),
+        adminUserApi.getAll(),
       ]);
       if (dashRes.status === 'fulfilled') {
         setTutorCount(dashRes.value.activeTutors);
@@ -112,6 +116,10 @@ export default function ManajemenPenggunaPage() {
       }
       if (tutorRes.status === 'fulfilled') setGuruList(tutorRes.value);
       if (siswaRes.status === 'fulfilled') setSiswaList(siswaRes.value.items ?? []);
+      if (adminRes.status === 'fulfilled') {
+        setAdminList(adminRes.value);
+        setAdminCount(adminRes.value.length);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -128,7 +136,7 @@ export default function ManajemenPenggunaPage() {
           if (activeTab === 'guru') {
             const res = await adminTutorApi.search(trimmed);
             setGuruList(res);
-          } else {
+          } else if (activeTab === 'siswa') {
             const res = await adminSiswaApi.search(trimmed);
             setSiswaList(res);
           }
@@ -140,7 +148,7 @@ export default function ManajemenPenggunaPage() {
     }
   }, [searchQuery, activeTab, fetchData]);
 
-  const currentRows = activeTab === 'guru' ? guruList : siswaList;
+  const currentRows = activeTab === 'guru' ? guruList : activeTab === 'siswa' ? siswaList : adminList;
 
   const filteredRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -150,8 +158,13 @@ export default function ManajemenPenggunaPage() {
         r.fullName.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
       );
     }
-    return (currentRows as AdminSiswaItem[]).filter((r) =>
-      r.nama_lengkap.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
+    if (activeTab === 'siswa') {
+      return (currentRows as AdminSiswaItem[]).filter((r) =>
+        r.nama_lengkap.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
+      );
+    }
+    return (currentRows as AdminUserItem[]).filter((r) =>
+      r.fullName.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
     );
   }, [currentRows, searchQuery, activeTab]);
 
@@ -192,6 +205,11 @@ export default function ManajemenPenggunaPage() {
     setConfirmState({ id, action: 'deactivate' });
   };
 
+  const handleActivate = (id: string) => {
+    setOpenActionMenuId(null);
+    setConfirmState({ id, action: 'activate' });
+  };
+
   const handleDelete = (id: string) => {
     setOpenActionMenuId(null);
     setConfirmState({ id, action: 'delete' });
@@ -206,18 +224,25 @@ export default function ManajemenPenggunaPage() {
       if (action === 'delete') {
         for (const targetId of idsToProcess) {
           if (activeTab === 'guru') await adminTutorApi.delete(targetId);
-          else await adminSiswaApi.delete(targetId);
+          else if (activeTab === 'siswa') await adminSiswaApi.delete(targetId);
+          else await adminUserApi.delete(targetId);
         }
         setSelectedRowIds({});
         showToast('success', `${idsToProcess.length > 1 ? `${idsToProcess.length} data` : 'Data'} berhasil dihapus.`);
-      } else {
+      } else if (action === 'deactivate') {
         if (activeTab === 'guru') await adminTutorApi.deactivate(id);
-        else await adminSiswaApi.deactivate(id);
+        else if (activeTab === 'siswa') await adminSiswaApi.deactivate(id);
+        else await adminUserApi.deactivate(id);
         showToast('success', 'Akun berhasil dinonaktifkan.');
+      } else if (action === 'activate') {
+        if (activeTab === 'guru') await adminTutorApi.activate(id);
+        else if (activeTab === 'siswa') await adminSiswaApi.activate(id);
+        else await adminUserApi.activate(id);
+        showToast('success', 'Akun berhasil diaktifkan.');
       }
       fetchData();
     } catch {
-      showToast('error', action === 'delete' ? 'Gagal menghapus data.' : 'Gagal menonaktifkan akun.');
+      showToast('error', action === 'delete' ? 'Gagal menghapus data.' : `Gagal ${action === 'activate' ? 'mengaktifkan' : 'menonaktifkan'} akun.`);
     }
   };
 
@@ -231,15 +256,24 @@ export default function ManajemenPenggunaPage() {
 
   const tableColumns =
     activeTab === 'guru'
-      ? ['Nama Lengkap', 'Tingkat Pengajar', 'Bidang Pengajar', 'No Wa', 'Email']
-      : ['Nama Lengkap', 'Tingkat Siswa', 'Kelas', 'No Wa', 'Email'];
+      ? ['Nama Lengkap', 'Tingkat Pengajar', 'Bidang Pengajar', 'No Wa', 'Email', 'Status']
+      : activeTab === 'siswa'
+      ? ['Nama Lengkap', 'Tingkat Siswa', 'Kelas', 'Email', 'Status']
+      : ['Nama Lengkap', 'Username', 'Email', 'No Wa', 'Status'];
 
   function getGuruCols(r: AdminTutorItem) {
-    return [r.fullName, 'Guru', r.gender ?? '-', r.whatsappNumber ?? '-', r.email];
+    return [r.fullName, r.pekerjaan || '-', r.prodi || '-', r.whatsappNumber ?? '-', r.email, r.isActive !== false ? 'Aktif' : 'Nonaktif'];
   }
 
   function getSiswaCols(r: AdminSiswaItem) {
-    return [r.nama_lengkap, r.jenjang ?? '-', r.kelas_sekolah ?? '-', '-', r.email];
+    if (r.role === 'umum' || r.studentType === 'UMUM') {
+      return [r.nama_lengkap, 'Umum', 'Umum', r.email, r.isActive !== false ? 'Aktif' : 'Nonaktif'];
+    }
+    return [r.nama_lengkap, r.jenjang ?? '-', r.kelas_sekolah ?? '-', r.email, r.isActive !== false ? 'Aktif' : 'Nonaktif'];
+  }
+
+  function getAdminCols(r: AdminUserItem) {
+    return [r.fullName, r.username, r.email, r.whatsappNumber ?? '-', r.isActive !== false ? 'Aktif' : 'Nonaktif'];
   }
 
   return (
@@ -265,27 +299,38 @@ export default function ManajemenPenggunaPage() {
       <AdminHeader />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
 
-          <div className="mt-3 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="flex items-center gap-2 px-2 pt-1 xl:pt-2">
-              <button
-                type="button"
-                onClick={() => { setActiveTab('guru'); setSearchQuery(''); }}
-                className={`rounded-full px-7 py-2 text-sm font-semibold transition-colors ${activeTab === 'guru' ? 'bg-[#7054dc] text-white' : 'bg-[#ece7ff] text-[#7054dc]'}`}
-              >
-                Guru
-              </button>
-              <button
-                type="button"
-                onClick={() => { setActiveTab('siswa'); setSearchQuery(''); }}
-                className={`rounded-full px-7 py-2 text-sm font-semibold transition-colors ${activeTab === 'siswa' ? 'bg-[#7054dc] text-white' : 'bg-[#ece7ff] text-[#7054dc]'}`}
-              >
-                Siswa
-              </button>
+          <div className="mt-3 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="px-2">
+              <h1 className="mb-4 text-4xl font-bold text-[#7054dc]">Manajemen Pengguna</h1>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('guru'); setSearchQuery(''); }}
+                  className={`rounded-full px-14 py-3.5 text-lg font-semibold transition-colors ${activeTab === 'guru' ? 'bg-[#7054dc] text-white shadow-md' : 'bg-[#ece7ff] text-[#7054dc] hover:bg-[#e2d8ff]'}`}
+                >
+                  Guru
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('siswa'); setSearchQuery(''); }}
+                  className={`rounded-full px-14 py-3.5 text-lg font-semibold transition-colors ${activeTab === 'siswa' ? 'bg-[#7054dc] text-white shadow-md' : 'bg-[#ece7ff] text-[#7054dc] hover:bg-[#e2d8ff]'}`}
+                >
+                  Siswa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('admin'); setSearchQuery(''); }}
+                  className={`rounded-full px-14 py-3.5 text-lg font-semibold transition-colors ${activeTab === 'admin' ? 'bg-[#7054dc] text-white shadow-md' : 'bg-[#ece7ff] text-[#7054dc] hover:bg-[#e2d8ff]'}`}
+                >
+                  Admin
+                </button>
+              </div>
             </div>
 
-            <div className="grid w-full max-w-[420px] shrink-0 gap-3 sm:grid-cols-2 xl:ml-auto">
+            <div className="grid w-full max-w-[540px] shrink-0 gap-3 sm:grid-cols-3 xl:ml-auto">
               <StatCard label="Guru" value={tutorCount} accent="purple" />
               <StatCard label="Siswa" value={siswaCount} accent="orange" />
+              <StatCard label="Admin" value={adminCount} accent="purple" />
             </div>
           </div>
 
@@ -293,11 +338,11 @@ export default function ManajemenPenggunaPage() {
             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-3">
                 <Link
-                  href={activeTab === 'guru' ? '/admin/manajemen-pengguna/tambah-guru' : '/admin/manajemen-pengguna/tambah-siswa'}
+                  href={activeTab === 'guru' ? '/admin/manajemen-pengguna/tambah-guru' : activeTab === 'siswa' ? '/admin/manajemen-pengguna/tambah-siswa' : '/admin/manajemen-pengguna/tambah-admin'}
                   className="inline-flex items-center gap-2 rounded-full bg-[#f39b39] px-4 py-2 text-sm font-semibold text-white shadow-sm"
                 >
                   <MdPersonAddAlt1 size={14} />
-                  {activeTab === 'guru' ? 'Tambah Guru' : 'Tambah Siswa'}
+                  {activeTab === 'guru' ? 'Tambah Guru' : activeTab === 'siswa' ? 'Tambah Siswa' : 'Tambah Admin'}
                 </Link>
                 <label className="flex h-8 w-full max-w-[340px] items-center gap-2 rounded-full border border-[#c8c9d0] bg-white px-3 text-sm text-[#8a8a96] sm:w-[320px]">
                   <FaSearch size={12} className="text-[#a0a3b0]" />
@@ -401,7 +446,9 @@ export default function ManajemenPenggunaPage() {
                         {paginatedRows.map((row) => {
                           const cols = activeTab === 'guru'
                             ? getGuruCols(row as AdminTutorItem)
-                            : getSiswaCols(row as AdminSiswaItem);
+                            : activeTab === 'siswa'
+                            ? getSiswaCols(row as AdminSiswaItem)
+                            : getAdminCols(row as AdminUserItem);
                           return (
                             <tr key={row.id} className="border-t border-[#eef0f5] text-sm text-[#4d5260]">
                               <td className="px-4 py-4 align-middle">
@@ -420,10 +467,17 @@ export default function ManajemenPenggunaPage() {
                                   </Link>
                                 ) : cols[0]}
                               </td>
-                              <td className="px-4 py-4 align-middle">{cols[1]}</td>
-                              <td className="px-4 py-4 align-middle">{cols[2]}</td>
-                              <td className="px-4 py-4 align-middle">{cols[3]}</td>
-                              <td className="px-4 py-4 align-middle">{cols[4]}</td>
+                              {cols.slice(1).map((colText, idx) => (
+                                <td key={idx} className="px-4 py-4 align-middle">
+                                  {colText === 'Aktif' || colText === 'Nonaktif' ? (
+                                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${colText === 'Aktif' ? 'bg-[#e4f8ec] text-[#16a34a]' : 'bg-[#fee2e2] text-[#ef4444]'}`}>
+                                      {colText}
+                                    </span>
+                                  ) : (
+                                    colText
+                                  )}
+                                </td>
+                              ))}
                               <td className="px-4 py-4 align-middle text-right">
                                 <div className="relative inline-flex">
                                   <button
@@ -436,7 +490,7 @@ export default function ManajemenPenggunaPage() {
                                   {openActionMenuId === row.id && (
                                     <div className="absolute right-0 top-9 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
                                       <Link
-                                        href={activeTab === 'guru' ? `/admin/manajemen-pengguna/edit-guru?id=${row.id}` : `/admin/manajemen-pengguna/edit-siswa?id=${row.id}`}
+                                        href={activeTab === 'guru' ? `/admin/manajemen-pengguna/edit-guru?id=${row.id}` : activeTab === 'siswa' ? `/admin/manajemen-pengguna/edit-siswa?id=${row.id}` : `/admin/manajemen-pengguna/edit-admin?id=${row.id}`}
                                         className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]"
                                       >
                                         <FaEdit size={13} />
@@ -451,13 +505,23 @@ export default function ManajemenPenggunaPage() {
                                           Lihat Nilai
                                         </Link>
                                       )}
-                                      <button
-                                        onClick={() => handleDeactivate(row.id)}
-                                        className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#60636d] hover:bg-[#f7f6ff]"
-                                      >
-                                        <FaUsers size={13} />
-                                        Nonaktifkan
-                                      </button>
+                                      {(row as any).isActive !== false ? (
+                                        <button
+                                          onClick={() => handleDeactivate(row.id)}
+                                          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#60636d] hover:bg-[#f7f6ff]"
+                                        >
+                                          <FaUsers size={13} />
+                                          Nonaktifkan
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleActivate(row.id)}
+                                          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#16a34a] hover:bg-[#e4f8ec]"
+                                        >
+                                          <FaCheckSquare size={13} />
+                                          Aktifkan
+                                        </button>
+                                      )}
                                       <button
                                         onClick={() => handleDelete(row.id)}
                                         className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f36e65] hover:bg-[#fff3f2]"

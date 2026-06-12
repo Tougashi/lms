@@ -254,19 +254,41 @@ function RichTextEditor({ placeholder }: { placeholder: string }) {
   );
 }
 
-function QuizMiniEditor({ placeholder }: { placeholder: string }) {
+function QuizMiniEditor({
+  placeholder,
+  value = "",
+  onChange,
+}: {
+  placeholder: string;
+  value?: string;
+  onChange?: (html: string) => void;
+}) {
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEmpty, setIsEmpty] = useState(true);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value;
+      setIsEmpty(!value || editorRef.current.textContent?.trim() === "");
+    }
+  }, [value]);
+
   const updateEmptyState = () => {
     setIsEmpty((editorRef.current?.textContent?.trim() ?? "").length === 0);
   };
+
+  const handleInput = () => {
+    updateEmptyState();
+    onChange?.(editorRef.current?.innerHTML ?? "");
+  };
+
   const applyCommand = (cmd: string) => {
     if (!editorRef.current) return;
     editorRef.current.focus();
     document.execCommand(cmd);
-    updateEmptyState();
+    handleInput();
   };
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -278,7 +300,7 @@ function QuizMiniEditor({ placeholder }: { placeholder: string }) {
       if (editorRef.current) {
         editorRef.current.focus();
         document.execCommand("insertImage", false, res.url);
-        updateEmptyState();
+        handleInput();
       }
     } catch {
       // upload failed silently
@@ -346,7 +368,7 @@ function QuizMiniEditor({ placeholder }: { placeholder: string }) {
         <div
           ref={editorRef}
           contentEditable
-          onInput={updateEmptyState}
+          onInput={handleInput}
           onBlur={updateEmptyState}
           className="min-h-[80px] outline-none"
         />
@@ -457,6 +479,7 @@ function TambahModulKontenPageContent() {
     {},
   );
   const [quizApiIds, setQuizApiIds] = useState<Record<number, string>>({});
+  const [subQuizApiIds, setSubQuizApiIds] = useState<Record<number, string>>({});
   const [isSavingMaterial, setIsSavingMaterial] = useState<number | null>(null);
   const [isDeletingMaterial, setIsDeletingMaterial] = useState<number | null>(
     null,
@@ -754,6 +777,7 @@ function TambahModulKontenPageContent() {
     try {
       const created = await guruMateriApi.create({
         topik_id: topicId,
+        judul: trimmedTitle,
         is_video: isVideo,
         video_url: null,
         article: isVideo ? null : "",
@@ -965,7 +989,7 @@ function TambahModulKontenPageContent() {
       const created = await guruKuisApi.create({
         quiz: {
           topikId: topicId,
-          quizType: "REGULER",
+          quizType: isTopicCT ? "COMPUTATIONAL_THINKING" : "REGULER",
           question: "Soal Kuis 1",
           correctAnswer: "A",
           skor: 10,
@@ -974,7 +998,7 @@ function TambahModulKontenPageContent() {
         setting: {
           timeLimit: 90,
           allowMultipleAttempts: false,
-          isComputationalThinkingEnabled: false,
+          isComputationalThinkingEnabled: isTopicCT,
           minScoreTreshold: 0,
           standardScorePerQuestion: 100,
         },
@@ -995,7 +1019,7 @@ function TambahModulKontenPageContent() {
         id: nextId,
         title: "Untitled",
         isExpanded: true,
-        ctMode: false,
+        ctMode: isTopicCT,
         duration: 90,
         minScore: 0,
         scorePerQuestion: 10,
@@ -1179,7 +1203,11 @@ function TambahModulKontenPageContent() {
     );
   };
 
+  const activeTopik = topiks.find(t => t.id === activeTopikId);
+  const isTopicCT = activeTopik?.isComputationalThinking ?? false;
+
   const handleToggleCTMode = (quizId: number, enabled: boolean) => {
+    if (isTopicCT) return;
     setQuizzes((prev) =>
       prev.map((q) => (q.id === quizId ? { ...q, ctMode: enabled } : q)),
     );
@@ -1202,20 +1230,24 @@ function TambahModulKontenPageContent() {
 
   const handleDeleteQuiz = async (quizId: number) => {
     const apiId = quizApiIds[quizId];
-    if (apiId) {
-      try {
-        await guruKuisApi.delete(apiId);
-        setQuizApiIds((prev) => {
-          const next = { ...prev };
-          delete next[quizId];
-          return next;
-        });
-      } catch (err) {
-        console.error("Delete quiz error:", err);
-        toast("Gagal menghapus kuis.", "error");
-        return;
-      }
+    const quiz = quizzes.find((q) => q.id === quizId);
+    const subIds = quiz?.ctStories.flatMap((s) =>
+      s.subQuestions.map((sq) => subQuizApiIds[sq.id]).filter(Boolean),
+    ) ?? [];
+
+    try {
+      if (apiId) await guruKuisApi.delete(apiId);
+      for (const sid of subIds) await guruKuisApi.delete(sid);
+    } catch (err) {
+      console.error("Delete quiz error:", err);
+      toast("Gagal menghapus kuis.", "error");
+      return;
     }
+    setQuizApiIds((prev) => {
+      const next = { ...prev };
+      delete next[quizId];
+      return next;
+    });
     setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
   };
 
@@ -1281,6 +1313,13 @@ function TambahModulKontenPageContent() {
     if (!quiz) return;
 
     if (quiz.ctMode) {
+      const hasEmptyQuestion = quiz.ctStories.some((s) =>
+        s.subQuestions.some((sq) => !sq.label.trim()),
+      );
+      if (hasEmptyQuestion) {
+        toast("Masukkan teks soal untuk setiap sub-soal CT.", "warning");
+        return;
+      }
       const hasEmpty = quiz.ctStories.some((s) =>
         s.subQuestions.some((sq) =>
           sq.answers.some((a) => !a.text.trim()),
@@ -1315,55 +1354,122 @@ function TambahModulKontenPageContent() {
       }
     }
 
-    const question = quiz.ctMode
-      ? quiz.ctStories[0]?.subQuestions[0]?.label || "Soal CT"
-      : quiz.questions[0]?.label || "Soal Kuis";
-    const answers = quiz.ctMode
-      ? quiz.ctStories[0]?.subQuestions[0]?.answers || []
-      : quiz.questions[0]?.answers || [];
-    const correctAnswer =
-      answers.find((a) => a.isCorrect)?.text || answers[0]?.text || "";
-    const answerOptions = answers.map((a) => ({ option: a.text }));
-
     setIsSavingQuiz(true);
     try {
-      const apiId = quizApiIds[quizId];
-      if (apiId) {
-        await guruKuisApi.update(apiId, {
-          question,
-          correctAnswer,
-          skor: quiz.scorePerQuestion || 10,
-          quizType: quiz.ctMode ? "COMPUTATIONAL_THINKING" : "REGULER",
-          answerOptions,
-          setting: {
-            timeLimit: quiz.duration * 60,
-            allowMultipleAttempts: false,
-            isComputationalThinkingEnabled: quiz.ctMode,
-            minScoreTreshold: quiz.minScore,
-            standardScorePerQuestion: quiz.scorePerQuestion,
-          },
-        });
-        toast("Kuis berhasil diperbarui.", "success");
+      if (quiz.ctMode) {
+        let firstSaved = false;
+        const newSubIds: Record<number, string> = {};
+
+        for (const story of quiz.ctStories) {
+          for (const sq of story.subQuestions) {
+            const payload = {
+              question: sq.label || "Soal CT",
+              correctAnswer:
+                sq.answers.find((a) => a.isCorrect)?.text ||
+                sq.answers[0]?.text ||
+                "",
+              skor: quiz.scorePerQuestion || 10,
+              quizType: "COMPUTATIONAL_THINKING" as const,
+              answerOptions: sq.answers.map((a) => ({ option: a.text })),
+              setting: {
+                timeLimit: quiz.duration * 60,
+                allowMultipleAttempts: false,
+                isComputationalThinkingEnabled: true,
+                minScoreTreshold: quiz.minScore,
+                standardScorePerQuestion: quiz.scorePerQuestion,
+              },
+            };
+
+            if (!firstSaved) {
+              const apiId = quizApiIds[quizId];
+              if (apiId) {
+                await guruKuisApi.update(apiId, payload);
+              } else {
+                const created = await guruKuisApi.create({
+                  quiz: {
+                    topikId: topicId!,
+                    question: payload.question,
+                    correctAnswer: payload.correctAnswer,
+                    skor: payload.skor,
+                    quizType: "COMPUTATIONAL_THINKING",
+                  },
+                  answerOptions: payload.answerOptions,
+                  setting: payload.setting,
+                });
+                setQuizApiIds((prev) => ({ ...prev, [quizId]: created.id }));
+              }
+              firstSaved = true;
+            } else {
+              const existingApiId = subQuizApiIds[sq.id];
+              if (existingApiId) {
+                await guruKuisApi.update(existingApiId, payload);
+              } else {
+                const created = await guruKuisApi.create({
+                  quiz: {
+                    topikId: topicId!,
+                    question: payload.question,
+                    correctAnswer: payload.correctAnswer,
+                    skor: payload.skor,
+                    quizType: "COMPUTATIONAL_THINKING",
+                  },
+                  answerOptions: payload.answerOptions,
+                  setting: payload.setting,
+                });
+                newSubIds[sq.id] = created.id;
+              }
+            }
+          }
+        }
+
+        if (Object.keys(newSubIds).length > 0) {
+          setSubQuizApiIds((prev) => ({ ...prev, ...newSubIds }));
+        }
+        toast("Kuis CT berhasil disimpan.", "success");
       } else {
-        const created = await guruKuisApi.create({
-          quiz: {
-            topikId: topicId!,
-            quizType: quiz.ctMode ? "COMPUTATIONAL_THINKING" : "REGULER",
+        const question = quiz.questions[0]?.label || "Soal Kuis";
+        const answers = quiz.questions[0]?.answers || [];
+        const correctAnswer =
+          answers.find((a) => a.isCorrect)?.text || answers[0]?.text || "";
+        const answerOptions = answers.map((a) => ({ option: a.text }));
+
+        const apiId = quizApiIds[quizId];
+        if (apiId) {
+          await guruKuisApi.update(apiId, {
             question,
             correctAnswer,
             skor: quiz.scorePerQuestion || 10,
-          },
-          answerOptions,
-          setting: {
-            timeLimit: quiz.duration * 60,
-            allowMultipleAttempts: false,
-            isComputationalThinkingEnabled: quiz.ctMode,
-            minScoreTreshold: quiz.minScore,
-            standardScorePerQuestion: quiz.scorePerQuestion,
-          },
-        });
-        setQuizApiIds((prev) => ({ ...prev, [quizId]: created.id }));
-        toast("Kuis berhasil disimpan.", "success");
+            quizType: "REGULER",
+            answerOptions,
+            setting: {
+              timeLimit: quiz.duration * 60,
+              allowMultipleAttempts: false,
+              isComputationalThinkingEnabled: false,
+              minScoreTreshold: quiz.minScore,
+              standardScorePerQuestion: quiz.scorePerQuestion,
+            },
+          });
+          toast("Kuis berhasil diperbarui.", "success");
+        } else {
+          const created = await guruKuisApi.create({
+            quiz: {
+              topikId: topicId!,
+              quizType: "REGULER",
+              question,
+              correctAnswer,
+              skor: quiz.scorePerQuestion || 10,
+            },
+            answerOptions,
+            setting: {
+              timeLimit: quiz.duration * 60,
+              allowMultipleAttempts: false,
+              isComputationalThinkingEnabled: false,
+              minScoreTreshold: quiz.minScore,
+              standardScorePerQuestion: quiz.scorePerQuestion,
+            },
+          });
+          setQuizApiIds((prev) => ({ ...prev, [quizId]: created.id }));
+          toast("Kuis berhasil disimpan.", "success");
+        }
       }
     } catch (err) {
       console.error("Submit quiz error:", err);
@@ -2492,6 +2598,41 @@ function TambahModulKontenPageContent() {
 
                         {quiz.isExpanded && (
                           <div className="mt-4">
+                            {isTopicCT ? (
+                              <div className="mb-4 inline-flex items-center gap-1.5 rounded-lg bg-[#f1ecff] px-3 py-1.5 text-[12px] font-semibold text-[#7054dc]">
+                                Computational Thinking
+                              </div>
+                            ) : (
+                              <div className="mb-4 flex items-center gap-1 rounded-lg border border-[#e5e3ee] bg-white p-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleCTMode(quiz.id, false)
+                                  }
+                                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                                    !quiz.ctMode
+                                      ? "bg-[#7054dc] text-white"
+                                      : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
+                                  }`}
+                                >
+                                  Reguler
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleCTMode(quiz.id, true)
+                                  }
+                                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                                    quiz.ctMode
+                                      ? "bg-[#7054dc] text-white"
+                                      : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
+                                  }`}
+                                >
+                                  Computational Thinking
+                                </button>
+                              </div>
+                            )}
+
                             {quiz.ctMode ? (
                               <>
                                 {quiz.ctStories.map((story, sIdx) => (
@@ -2502,7 +2643,25 @@ function TambahModulKontenPageContent() {
                                         <p className="mb-2 text-[12px] font-semibold text-[#232530]">
                                           {sq.label}
                                         </p>
-                                        <QuizMiniEditor placeholder="Masukkan soal ..." />
+                                        <QuizMiniEditor
+                                          placeholder="Masukkan soal ..."
+                                          value={sq.label}
+                                          onChange={(html) => setQuizzes((p) =>
+                                            p.map((q) =>
+                                              q.id !== quiz.id ? q : {
+                                                ...q,
+                                                ctStories: q.ctStories.map((s) =>
+                                                  s.id !== story.id ? s : {
+                                                    ...s,
+                                                    subQuestions: s.subQuestions.map((sub) =>
+                                                      sub.id !== sq.id ? sub : { ...sub, label: html }
+                                                    ),
+                                                  }
+                                                ),
+                                              }
+                                            )
+                                          )}
+                                        />
                                         <div className="mt-3 space-y-2">
                                           {sq.answers.map((ans, aIdx) => (
                                             <div
@@ -2625,7 +2784,20 @@ function TambahModulKontenPageContent() {
                                     <p className="mb-2 text-[12px] font-semibold text-[#232530]">
                                       {question.label}
                                     </p>
-                                    <QuizMiniEditor placeholder="Masukkan soal ..." />
+                                    <QuizMiniEditor
+                                      placeholder="Masukkan soal ..."
+                                      value={question.label}
+                                      onChange={(html) => setQuizzes((p) =>
+                                        p.map((q) =>
+                                          q.id !== quiz.id ? q : {
+                                            ...q,
+                                            questions: q.questions.map((qn) =>
+                                              qn.id !== question.id ? qn : { ...qn, label: html }
+                                            ),
+                                          }
+                                        )
+                                      )}
+                                    />
                                     <div className="mt-3 space-y-2">
                                       {question.answers.map((ans, aIdx) => (
                                         <div
@@ -2855,27 +3027,29 @@ function TambahModulKontenPageContent() {
                   </button>
                 </div>
 
-                <div className="mt-5 rounded-xl border border-[#e5e3ee] px-4 py-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[13px] font-semibold text-[#232530]">
-                      Aktifkan Mode Computational Thinking
+                {!isTopicCT && (
+                  <div className="mt-5 rounded-xl border border-[#e5e3ee] px-4 py-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-semibold text-[#232530]">
+                        Aktifkan Mode Computational Thinking
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCTMode(quiz.id, !quiz.ctMode)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${quiz.ctMode ? "bg-[#7054dc]" : "bg-[#d1d5db]"}`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${quiz.ctMode ? "translate-x-6" : "translate-x-1"}`}
+                        />
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-[1.6] text-[#7a7e8a]">
+                      Kuis akan disajikan dalam bentuk studi kasus. Setiap satu
+                      cerita akan memiliki 4 pertanyaan turunan berdasarkan pilar
+                      pemikiran komputasional.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleCTMode(quiz.id, !quiz.ctMode)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${quiz.ctMode ? "bg-[#7054dc]" : "bg-[#d1d5db]"}`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${quiz.ctMode ? "translate-x-6" : "translate-x-1"}`}
-                      />
-                    </button>
                   </div>
-                  <p className="mt-2 text-[11px] leading-[1.6] text-[#7a7e8a]">
-                    Kuis akan disajikan dalam bentuk studi kasus. Setiap satu
-                    cerita akan memiliki 4 pertanyaan turunan berdasarkan pilar
-                    pemikiran komputasional.
-                  </p>
-                </div>
+                )}
 
                 <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
                   <p className="text-[13px] font-semibold text-[#232530]">

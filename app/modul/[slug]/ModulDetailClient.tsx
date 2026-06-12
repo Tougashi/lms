@@ -127,6 +127,11 @@ export default function ModulDetailPage({
                     return;
                 }
 
+                if (err instanceof ApiError && err.status === 403) {
+                    window.location.href = `/pembayaran/${id}`;
+                    return;
+                }
+
                 const res = await siswaModulApi
                     .getById(id)
                     .catch((checkErr: unknown) => {
@@ -143,7 +148,9 @@ export default function ModulDetailPage({
 
                 if (res?.progress) {
                     window.location.href = `/modul/${id}/materi`;
+                    return;
                 }
+                setIsEnrolling(false);
             });
     };
 

@@ -13,6 +13,40 @@ export interface AdminDashboardStats {
   inactiveUserPercentage: number;
 }
 
+// ── Admin Pengelola ──────────────────────────────────────────────────────────
+
+export interface AdminUserItem {
+  id: string;
+  fullName: string;
+  username: string;
+  email: string;
+  gender?: string;
+  whatsappNumber?: string;
+  profileImg?: string | null;
+  role?: string;
+  isActive?: boolean;
+  createdAt?: string;
+}
+
+export interface AdminUserCreatePayload {
+  fullName: string;
+  username?: string;
+  email: string;
+  password?: string;
+  gender?: string;
+  whatsappNumber?: string;
+}
+
+export interface AdminUserUpdatePayload {
+  fullName?: string;
+  username?: string;
+  email?: string;
+  password?: string;
+  gender?: string;
+  whatsappNumber?: string;
+}
+
+
 // ── Modul ────────────────────────────────────────────────────────────────────
 
 export interface AdminModulItem {
@@ -233,8 +267,11 @@ export interface AdminSiswaCreatePayload {
 
 export interface AdminSiswaUpdatePayload {
   nama_lengkap?: string;
+  email?: string;
+  password?: string;
   kelas_sekolah?: string;
   jenjang?: string;
+  role?: "siswa" | "umum";
   studentType?: "SISWA" | "GURU";
   profileImage?: string | null;
 }
@@ -275,6 +312,8 @@ export interface AdminTutorCreatePayload {
 
 export interface AdminTutorUpdatePayload {
   fullName?: string;
+  email?: string;
+  password?: string;
   gender?: string;
   pekerjaan?: string;
   whatsappNumber?: string;
@@ -365,7 +404,7 @@ export interface AdminProfile {
   email: string;
   username?: string;
   fullName: string;
-  gender?: "MALE" | "FEMALE" | string;
+  gender?: "L" | "P" | string;
   whatsappNumber?: string;
   profileImg?: string;
   role: "admin";

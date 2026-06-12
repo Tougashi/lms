@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import SiswaHeader from "../component/siswa/SiswaHeader";
 import GuruHeader from "../component/guru/GuruHeader";
 import { useRoleGuard } from "../lib/hooks/useRoleGuard";
-import { siswaProfileApi, siswaCertificateApi, authApi, guruProfileApi, guruSignatureApi } from "../lib/api";
+import { siswaProfileApi, siswaCertificateApi, authApi, guruProfileApi, guruSignatureApi, uploadApi } from "../lib/api";
 import type { SiswaProfile, CertificateItem } from "../lib/types/siswa";
 import type { TutorProfile } from "../lib/types/guru";
 
@@ -61,6 +61,13 @@ export default function ProfilPage() {
   const [sigMsg, setSigMsg] = useState('');
   const sigInputRef = useRef<HTMLInputElement>(null);
 
+  // Profile photo upload state
+  const [profileFile, setProfileFile] = useState<File | null>(null);
+  const [isProfileUploading, setIsProfileUploading] = useState(false);
+  const [profileUploadMsg, setProfileUploadMsg] = useState("");
+  const [profilePreview, setProfilePreview] = useState("");
+  const profileInputRef = useRef<HTMLInputElement>(null);
+
   // Certificate state
   const [certificates, setCertificates] = useState<CertificateItem[]>([]);
   const [isCertLoading, setIsCertLoading] = useState(false);
@@ -88,6 +95,7 @@ export default function ProfilPage() {
       jenjang: user.jenjang || "-",
       kelas_sekolah: user.kelas_sekolah || "-",
       role: user.role,
+      profileImage: ('profileImage' in user ? (user as { profileImage?: string | null }).profileImage : null) || null,
     });
     setEditName(user.nama_lengkap || user.fullName || "");
     setEditJenjang(user.jenjang || "");
@@ -153,20 +161,61 @@ export default function ProfilPage() {
     }
   }, [sigFile]);
 
-  const handleSaveProfile = useCallback(async () => {
-    if (!profile) return;
-    setIsSaving(true);
-    setSaveMsg("");
+  const handleProfileFileSelect = useCallback((file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { setProfileUploadMsg("Hanya file gambar yang diizinkan."); return; }
+    if (file.size > 5 * 1024 * 1024) { setProfileUploadMsg("Ukuran file melebihi 5MB."); return; }
+    setProfileUploadMsg("");
+    setProfileFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (typeof result === 'string') setProfilePreview(result);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleProfileUpload = useCallback(async () => {
+    if (!profileFile) return;
+    setIsProfileUploading(true);
+    setProfileUploadMsg("");
     try {
-      await authApi.update({
+      const res = await uploadApi.upload(profileFile, "PROFILE_IMAGE");
+      await (authApi.update as (p: Record<string, unknown>) => Promise<unknown>)({
         role: (user?.role as "siswa" | "tutor") || "siswa",
         nama_lengkap: editName,
         jenjang: editJenjang,
         kelas_sekolah: editKelas,
+        email: profile?.email || "",
+        password: "",
+        profileImage: res.url,
+      });
+      setProfile((prev) => prev ? { ...prev, profileImage: res.url } : prev);
+      setProfileFile(null);
+      setProfilePreview("");
+      setProfileUploadMsg("Foto profil berhasil diperbarui!");
+    } catch (err: unknown) {
+      setProfileUploadMsg(err instanceof Error ? err.message : "Gagal mengunggah foto profil.");
+    } finally {
+      setIsProfileUploading(false);
+    }
+  }, [profileFile, user, editName, editJenjang, editKelas, profile]);
+
+  const handleSaveProfile = useCallback(async () => {
+    if (!profile) return;
+    if (!editKelas.trim()) { setSaveMsg("Pilih tingkat kelas terlebih dahulu"); return; }
+    setIsSaving(true);
+    setSaveMsg("");
+    try {
+      const isTutor = user?.role === "tutor";
+      await authApi.update({
+        role: (user?.role as "siswa" | "tutor") || "siswa",
+        nama_lengkap: editName,
+        ...(isTutor ? {} : { jenjang: editJenjang, kelas_sekolah: editKelas }),
         email: profile.email,
         password: "",
       });
-      setProfile((prev) => prev ? { ...prev, nama_lengkap: editName, jenjang: editJenjang, kelas_sekolah: editKelas } : prev);
+      setProfile((prev) => prev ? { ...prev, nama_lengkap: editName, ...(isTutor ? {} : { jenjang: editJenjang, kelas_sekolah: editKelas }) } : prev);
       setSaveMsg("Profil berhasil disimpan!");
       setIsEditing(false);
     } catch (err: unknown) {
@@ -192,7 +241,8 @@ export default function ProfilPage() {
         role: (user?.role as "siswa" | "tutor") || "siswa",
         nama_lengkap: profile?.nama_lengkap || "",
         email: profile?.email || "",
-        password: newPassword,
+        password: oldPassword,
+        newPassword: newPassword,
         jenjang: profile?.jenjang || "",
         kelas_sekolah: profile?.kelas_sekolah || "",
       });
@@ -280,18 +330,41 @@ export default function ProfilPage() {
                         <div className="flex items-center gap-3">
                           <div className="relative">
                             <img
-                              src={profile?.profileImage || getAvatarUrl(displayName)}
+                              src={profilePreview || profile?.profileImage || getAvatarUrl(displayName)}
                               alt={`Foto profil ${displayName}`}
-                              className="h-14 w-14 rounded-full border border-[#e9e7f2] bg-[#f4f2ff]"
+                              className="h-14 w-14 rounded-full border border-[#e9e7f2] bg-[#f4f2ff] object-cover"
                             />
                             <button
                               type="button"
                               aria-label="Edit foto profil"
+                              onClick={() => profileInputRef.current?.click()}
                               className="absolute -bottom-1 -right-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#dfdbef] bg-white text-[#7054dc] shadow-sm transition-colors hover:bg-[#f7f6ff]"
                             >
                               <FaRegEdit size={12} />
                             </button>
+                            <input
+                              ref={profileInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleProfileFileSelect(e.target.files?.[0] ?? null)}
+                            />
                           </div>
+                          {profileUploadMsg && (
+                            <p className={`mt-2 text-xs ${profileUploadMsg.includes("berhasil") ? "text-green-600" : "text-red-500"}`}>
+                              {profileUploadMsg}
+                            </p>
+                          )}
+                          {profileFile && (
+                            <button
+                              type="button"
+                              disabled={isProfileUploading}
+                              onClick={handleProfileUpload}
+                              className="rounded-lg bg-[#7054dc] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                            >
+                              {isProfileUploading ? "Mengunggah..." : "Simpan Foto"}
+                            </button>
+                          )}
                           <div>
                             <p className="text-base font-semibold text-[#202126]">{displayName}</p>
                             <p className="mt-1 inline-flex items-center gap-1 text-sm text-[#6d7383]">
@@ -329,29 +402,50 @@ export default function ProfilPage() {
                                 className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2.5 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
                               />
                             </div>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                              <div>
-                                <label className="mb-1.5 block text-xs text-[#7d8291]">Jenjang</label>
-                                <select
-                                  value={editJenjang}
-                                  onChange={(e) => setEditJenjang(e.target.value)}
-                                  className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2.5 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
-                                >
-                                  <option value="SD">SD</option>
-                                  <option value="SMP">SMP</option>
-                                  <option value="SMK">SMK</option>
-                                </select>
+                            {user?.role === "siswa" && (
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                  <label className="mb-1.5 block text-xs text-[#7d8291]">Jenjang</label>
+                                  <select
+                                    value={editJenjang}
+                                    onChange={(e) => setEditJenjang(e.target.value)}
+                                    className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2.5 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
+                                  >
+                                    <option value="SD">SD</option>
+                                    <option value="SMP">SMP</option>
+                                    <option value="SMK">SMK</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="mb-1.5 block text-xs text-[#7d8291]">Tingkat Kelas</label>
+                                  <select
+                                    value={editKelas}
+                                    onChange={(e) => setEditKelas(e.target.value)}
+                                    className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2.5 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
+                                  >
+                                    <option value="">Pilih Tingkat Kelas</option>
+                                    <optgroup label="SD">
+                                      <option value="1">Kelas 1</option>
+                                      <option value="2">Kelas 2</option>
+                                      <option value="3">Kelas 3</option>
+                                      <option value="4">Kelas 4</option>
+                                      <option value="5">Kelas 5</option>
+                                      <option value="6">Kelas 6</option>
+                                    </optgroup>
+                                    <optgroup label="SMP">
+                                      <option value="7">Kelas 7</option>
+                                      <option value="8">Kelas 8</option>
+                                      <option value="9">Kelas 9</option>
+                                    </optgroup>
+                                    <optgroup label="SMA/SMK">
+                                      <option value="10">Kelas 10</option>
+                                      <option value="11">Kelas 11</option>
+                                      <option value="12">Kelas 12</option>
+                                    </optgroup>
+                                  </select>
+                                </div>
                               </div>
-                              <div>
-                                <label className="mb-1.5 block text-xs text-[#7d8291]">Tingkat Kelas</label>
-                                <input
-                                  type="text"
-                                  value={editKelas}
-                                  onChange={(e) => setEditKelas(e.target.value)}
-                                  className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2.5 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
-                                />
-                              </div>
-                            </div>
+                            )}
                             <button
                               type="button"
                               onClick={handleSaveProfile}
@@ -371,14 +465,51 @@ export default function ProfilPage() {
                               <p className="text-xs text-[#7d8291]">Email</p>
                               <p className="mt-1 font-medium text-[#202126]">{profile?.email ?? "-"}</p>
                             </div>
-                            <div>
-                              <p className="text-xs text-[#7d8291]">Jenjang</p>
-                              <p className="mt-1 font-medium text-[#202126]">{profile?.jenjang ?? "-"}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-[#7d8291]">Tingkat Kelas</p>
-                              <p className="mt-1 font-medium text-[#202126]">Kelas {profile?.kelas_sekolah ?? "-"}</p>
-                            </div>
+                            {user?.role === "tutor" ? (
+                              <>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Jenis Kelamin</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.gender ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Pekerjaan</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.pekerjaan ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Institusi</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.institution ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Program Studi</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.prodi ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Pendidikan Terakhir</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.lastEducation ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">No. WhatsApp</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.whatsappNumber ?? "-"}</p>
+                                </div>
+                                {tutorProfile?.biografi && (
+                                  <div className="sm:col-span-2">
+                                    <p className="text-xs text-[#7d8291]">Biografi</p>
+                                    <p className="mt-1 font-medium text-[#202126]">{tutorProfile.biografi}</p>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Jenjang</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{profile?.jenjang ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Tingkat Kelas</p>
+                                  <p className="mt-1 font-medium text-[#202126]">Kelas {profile?.kelas_sekolah ?? "-"}</p>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>

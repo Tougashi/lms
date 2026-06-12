@@ -1,42 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  'https://lms-express-api-o5uk.vercel.app';
+const BACKEND_URL =
+  (process.env.NEXT_PUBLIC_API_URL ||
+    "https://lms-express-api-o5uk.vercel.app/api/v1") + "/upload";
 
-// Normalise: ensure we always append /api/v1 exactly once
-const getApiBase = () => {
-  const base = API_BASE.replace(/\/$/, '');
-  return base.endsWith('/api/v1') ? base : `${base}/api/v1`;
-};
-
-export async function POST(request: NextRequest) {
+/**
+ * Proxy upload ke backend Express tanpa melewati Next.js rewrites.
+ * Next.js rewrites (next.config.js) meng-strip body multipart/form-data,
+ * menyebabkan multer di backend tidak menerima file (file undefined → 400/500).
+ * Route handler ini meneruskan FormData secara langsung ke backend.
+ */
+export async function POST(req: NextRequest) {
   try {
-    const apiUrl = `${getApiBase()}/upload`;
+    // Ambil cookie dari request untuk dikirim ke backend (auth)
+    const cookie = req.headers.get("cookie") ?? "";
 
-    // Forward the raw FormData body to the backend
-    const formData = await request.formData();
+    // Forward body as-is (FormData stream)
+    const body = await req.blob();
+    const contentType = req.headers.get("content-type") ?? "";
 
-    // Build headers — forward cookies for auth, but let fetch set Content-Type
-    const headers: Record<string, string> = {};
-    const cookie = request.headers.get('cookie');
-    if (cookie) headers['cookie'] = cookie;
-
-    const backendRes = await fetch(apiUrl, {
-      method: 'POST',
-      headers,
-      body: formData,
-      // @ts-expect-error — Node18 fetch supports duplex
-      duplex: 'half',
+    const backendRes = await fetch(BACKEND_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": contentType,
+        Cookie: cookie,
+      },
+      body,
     });
 
     const data = await backendRes.json().catch(() => ({}));
 
     return NextResponse.json(data, { status: backendRes.status });
-  } catch (err: unknown) {
-    console.error('[upload proxy] error:', err);
+  } catch (err) {
+    console.error("[API/UPLOAD] Proxy error:", err);
     return NextResponse.json(
-      { message: err instanceof Error ? err.message : 'Upload gagal' },
+      { message: "Upload proxy gagal.", detail: String(err) },
       { status: 500 },
     );
   }

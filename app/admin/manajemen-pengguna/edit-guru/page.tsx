@@ -15,6 +15,7 @@ import {
 } from "react-icons/fi";
 import AdminHeader from "../../../component/admin/AdminHeader";
 import { adminTutorApi, uploadApi } from "../../../lib/api";
+import type { AdminTutorUpdatePayload } from "../../../lib/types/admin";
 import {
   AdminToastContainer,
   useAdminToast,
@@ -23,30 +24,33 @@ import {
 /* ─── helpers ─── */
 
 /**
- * Ubah Cloudinary raw URL menjadi inline-viewable:
- * Sisipkan fl_attachment:false setelah /upload/
- * Misal: .../raw/upload/v123/lms/cv/budi.pdf
- *     → .../raw/upload/fl_attachment:false/v123/lms/cv/budi.pdf
+ * Buat URL yang bisa di-embed di iframe untuk PDF Cloudinary.
+ * File lama di DB mungkin punya access_mode=authenticated (401 langsung).
+ * Google Docs Viewer bisa serve sebagai proxy: dia fetch PDF lalu render ke iframe.
+ * Untuk blob URL (file baru yang dipilih) tidak perlu diproxy.
  */
-function toInlinePdfUrl(url: string): string {
+function toEmbedUrl(url: string): string {
   if (!url) return "";
-  // Sudah ada flag → kembalikan apa adanya
-  if (url.includes("fl_attachment")) return url;
-  // Cloudinary URL
+  // Blob URL (file baru dipilih lokal) — langsung pakai
+  if (url.startsWith("blob:")) return url;
+  // Cloudinary URL → wrap ke Google Docs Viewer agar bypass 401
   if (url.includes("res.cloudinary.com")) {
-    return url.replace("/upload/", "/upload/fl_attachment:false/");
+    // Pastikan URL tidak punya fl_attachment agar Google bisa fetch
+    const clean = url
+      .replace(/\/fl_attachment[^/]*\//g, "/")
+      .replace(/\/fl_inline[^/]*\//g, "/");
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(clean)}&embedded=true`;
   }
-  // URL lain → wrap ke Google Docs Viewer
+  // URL lain → Google Docs Viewer juga
   return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
 }
 
-/** Ambil nama file dari URL, misal budi.pdf dari path panjang */
+/** Ambil nama file dari URL */
 function fileNameFromUrl(url: string): string {
   if (!url) return "CV tersimpan";
   try {
     const decoded = decodeURIComponent(url);
     const last = decoded.split("/").pop() ?? "";
-    // Hilangkan query string
     return last.split("?")[0] || "CV tersimpan";
   } catch {
     return "CV tersimpan";
@@ -175,8 +179,8 @@ function CustomSelect({
 
 /* ─── option lists ─── */
 const genderOptions: SelectOption[] = [
-  { label: "Laki-laki", value: "MALE" },
-  { label: "Perempuan", value: "FEMALE" },
+  { label: "Laki-laki", value: "L" },
+  { label: "Perempuan", value: "P" },
 ];
 const educationOptions: SelectOption[] = [
   { label: "SMA / SMK", value: "SMA/SMK" },
@@ -198,6 +202,7 @@ function EditGuruContent() {
   /* akun */
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [gender, setGender] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
 
@@ -208,12 +213,12 @@ function EditGuruContent() {
   const photoFileRef = useRef<File | null>(null);
   const photoObjUrlRef = useRef<string | null>(null);
 
-  /* profesional */
   /* cv */
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [cvFileName, setCvFileName] = useState("");
-  const [cvPreviewUrl, setCvPreviewUrl] = useState<string | null>(null);
-  const [cvPathUrl, setCvPathUrl] = useState(""); // loaded from DB (existing URL)
+  const [cvPreviewUrl, setCvPreviewUrl] = useState<string | null>(null); // blob URL for new file
+  const [cvEmbedUrl, setCvEmbedUrl] = useState<string | null>(null);    // signed URL for existing file
+  const [cvPathUrl, setCvPathUrl] = useState(""); // raw URL stored in DB
   const cvObjUrlRef = useRef<string | null>(null);
 
   /* profesional */
@@ -233,7 +238,7 @@ function EditGuruContent() {
     if (!id) return;
     adminTutorApi
       .getAll()
-      .then((list) => {
+      .then(async (list) => {
         const tutor = list.find((t) => t.id === id);
         if (!tutor) {
           setNotFound(true);
@@ -246,11 +251,21 @@ function EditGuruContent() {
           setLastEducation(tutor.lastEducation ?? "");
           setInstitution(tutor.institution ?? "");
           setProdi(tutor.prodi ?? "");
-          setCvPathUrl(tutor.cvPathUrl ?? "");
           setBiografi(tutor.biografi ?? "");
           if (tutor.profileImg) {
             setPhotoPreview(tutor.profileImg);
             setPhotoUrl(tutor.profileImg);
+          }
+          if (tutor.cvPathUrl) {
+            setCvPathUrl(tutor.cvPathUrl);
+            // Fetch signed URL so iframe can load the PDF without 401
+            try {
+              const signed = await uploadApi.getSignedUrl(tutor.cvPathUrl);
+              setCvEmbedUrl(signed);
+            } catch {
+              // Fallback: use raw URL (might work if file is public)
+              setCvEmbedUrl(tutor.cvPathUrl);
+            }
           }
         }
       })
@@ -336,8 +351,10 @@ function EditGuruContent() {
         finalCvUrl = res.url ?? "";
       }
 
-      await adminTutorApi.update(id, {
+      const payload: AdminTutorUpdatePayload = {
         fullName: fullName.trim(),
+        email: email.trim(),
+        ...(newPassword ? { password: newPassword } : {}),
         gender: gender || undefined,
         whatsappNumber: whatsappNumber.trim() || undefined,
         pekerjaan: pekerjaan.trim() || undefined,
@@ -347,7 +364,9 @@ function EditGuruContent() {
         cvPathUrl: finalCvUrl || undefined,
         biografi: biografi.trim() || undefined,
         profileImg: finalPhotoUrl ?? undefined,
-      });
+      };
+
+      await adminTutorApi.update(id, payload);
       showToast("success", "Data guru berhasil diperbarui.");
       setTimeout(() => router.push("/admin/manajemen-pengguna"), 1200);
     } catch (err: unknown) {
@@ -527,17 +546,36 @@ function EditGuruContent() {
                 )}
               </div>
 
-              {/* Email — read-only */}
+              {/* Email — editable */}
               <div className="mb-4">
                 <label className={labelCls}>
-                  Email{" "}
-                  <span className="font-normal text-[#a0a3af]">
-                    (tidak dapat diubah)
-                  </span>
+                  Email <span className="text-[#e8473f]">*</span>
                 </label>
-                <div className="mt-1.5 flex h-[44px] items-center rounded-xl border border-[#e2e0ea] bg-[#f4f3f8] px-4">
-                  <span className="text-[13px] text-[#9396a3]">{email}</span>
-                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Password Baru (Opsional) */}
+              <div className="mb-4">
+                <label className={labelCls}>
+                  Ganti Kata Sandi{" "}
+                  <span className="font-normal text-[#a0a3af]">(Opsional)</span>
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Minimal 6 karakter"
+                  className={inputCls}
+                />
+                <p className={hintCls}>
+                  Isi hanya jika ingin mengganti kata sandi guru ini. Jika dibiarkan kosong, kata sandi lama tetap berlaku.
+                </p>
               </div>
 
               {/* No WA + Jenis Kelamin */}
@@ -660,15 +698,20 @@ function EditGuruContent() {
                   </div>
                 ) : cvPathUrl ? (
                   <div>
-                    {/* existing CV — badge + inline preview */}
+                    {/* existing CV — badge + actions */}
                     <div className="flex h-[44px] items-center gap-3 rounded-xl border border-[#e2e0ea] bg-[#f9f8ff] px-4">
-                      <FiPaperclip
-                        size={14}
-                        className="shrink-0 text-[#7054dc]"
-                      />
+                      <FiPaperclip size={14} className="shrink-0 text-[#7054dc]" />
                       <span className="flex-1 truncate text-[12px] font-medium text-[#7054dc]">
                         {fileNameFromUrl(cvPathUrl)}
                       </span>
+                      <a
+                        href={cvEmbedUrl ?? cvPathUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 text-[11px] font-semibold text-[#9b97ad] hover:text-[#7054dc] mr-2"
+                      >
+                        Buka
+                      </a>
                       <button
                         type="button"
                         onClick={() => cvInputRef.current?.click()}
@@ -678,15 +721,21 @@ function EditGuruContent() {
                       </button>
                     </div>
 
-                    {/* Preview inline via fl_attachment:false */}
-                    <div className="mt-3 overflow-hidden rounded-xl border border-[#e5e3ee] bg-[#f7f6fb]">
-                      <iframe
-                        src={toInlinePdfUrl(cvPathUrl)}
-                        title="Preview CV"
-                        className="h-[480px] w-full"
-                        style={{ border: 0 }}
-                      />
-                    </div>
+                    {/* PDF preview via signed URL */}
+                    {cvEmbedUrl ? (
+                      <div className="mt-3 overflow-hidden rounded-xl border border-[#e5e3ee] bg-[#f7f6fb]">
+                        <iframe
+                          src={cvEmbedUrl}
+                          title="Preview CV"
+                          className="h-[480px] w-full"
+                          style={{ border: 0 }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex h-[60px] items-center justify-center rounded-xl border border-dashed border-[#e5e3ee] bg-[#f7f6fb]">
+                        <span className="text-[12px] text-[#9b97ad]">Memuat preview...</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <button

@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import {
   FiArrowLeft,
   FiCamera,
-  FiCheck,
   FiChevronDown,
   FiEye,
   FiEyeOff,
@@ -39,93 +38,52 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* ─── CustomSelect ─── */
+/* ─── StyledSelect (native select + custom chevron) ─── */
 interface SelectOption {
   label: string;
   value: string;
 }
-interface CustomSelectProps {
+interface StyledSelectProps {
   value: string;
   onChange: (v: string) => void;
   options: SelectOption[];
   placeholder?: string;
+  disabled?: boolean;
   error?: boolean;
 }
-function CustomSelect({
+function StyledSelect({
   value,
   onChange,
   options,
   placeholder = "— Pilih —",
+  disabled,
   error,
-}: CustomSelectProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const selected = options.find((o) => o.value === value);
-
-  /* close on outside click */
-  const handleBlur = () => setTimeout(() => setOpen(false), 150);
-
+}: StyledSelectProps) {
   return (
-    <div ref={ref} className="relative mt-1.5" onBlur={handleBlur}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
+    <div className="relative mt-1.5">
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
         className={[
-          "flex h-[44px] w-full items-center justify-between rounded-xl border px-4 text-[13px] transition-colors outline-none",
-          open
-            ? "border-[#7054dc] bg-white"
-            : error
-              ? "border-[#e8473f] bg-[#fafafa]"
-              : "border-[#e2e0ea] bg-[#fafafa] hover:border-[#c8c4db]",
-          value ? "text-[#232530]" : "text-[#c0bfca]",
+          "h-[44px] w-full appearance-none rounded-xl border bg-[#fafafa] pl-4 pr-10 text-[13px] outline-none transition-colors",
+          "focus:border-[#7054dc] focus:bg-white",
+          error ? "border-[#e8473f]" : "border-[#e2e0ea]",
+          disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-[#c8c4db]",
+          !value ? "text-[#c0bfca]" : "text-[#232530]",
         ].join(" ")}
       >
-        <span>{selected ? selected.label : placeholder}</span>
-        <FiChevronDown
-          size={15}
-          className={`text-[#9b97ad] transition-transform duration-150 ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-
-      {open && (
-        <ul className="absolute z-50 mt-1 w-full rounded-xl border border-[#e2e0ea] bg-white py-1 shadow-[0_8px_24px_rgba(0,0,0,0.1)] overflow-hidden">
-          {/* clear option */}
-          <li>
-            <button
-              type="button"
-              onClick={() => {
-                onChange("");
-                setOpen(false);
-              }}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-[13px] text-[#c0bfca] hover:bg-[#f7f5ff] transition-colors"
-            >
-              {placeholder}
-            </button>
-          </li>
-          {options.map((opt) => (
-            <li key={opt.value}>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                className={[
-                  "flex w-full items-center justify-between px-4 py-2.5 text-[13px] transition-colors",
-                  value === opt.value
-                    ? "bg-[#f0edfb] text-[#7054dc] font-semibold"
-                    : "text-[#232530] hover:bg-[#f7f5ff]",
-                ].join(" ")}
-              >
-                {opt.label}
-                {value === opt.value && (
-                  <FiCheck size={13} className="text-[#7054dc]" />
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+        <option value="">{placeholder}</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <FiChevronDown
+        size={15}
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#9b97ad]"
+      />
     </div>
   );
 }
@@ -167,7 +125,7 @@ export default function TambahSiswaPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [jenjang, setJenjang] = useState("");
   const [kelasSekolah, setKelasSekolah] = useState("");
-  const [studentType, setStudentType] = useState<"SISWA" | "GURU">("SISWA");
+  const [role, setRole] = useState<"siswa" | "umum">("siswa");
 
   /* foto profil */
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -234,9 +192,9 @@ export default function TambahSiswaPage() {
         nama_lengkap: namaLengkap.trim(),
         email: email.trim(),
         password,
-        jenjang: jenjang || undefined,
-        kelas_sekolah: kelasSekolah || undefined,
-        studentType,
+        jenjang: role === "umum" ? undefined : jenjang || undefined,
+        kelas_sekolah: role === "umum" ? undefined : kelasSekolah || undefined,
+        role,
         profileImage: finalPhotoUrl ?? undefined,
       });
       showToast("success", "Siswa berhasil ditambahkan.");
@@ -451,29 +409,35 @@ export default function TambahSiswaPage() {
             </div>
 
             {/* Jenjang + Kelas */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className={labelCls}>Jenjang Sekolah</label>
-                <CustomSelect
-                  value={jenjang}
-                  onChange={handleJenjangChange}
-                  options={jenjangOptions}
-                  placeholder="— Pilih Jenjang —"
-                />
-                <p className={hintCls}>
-                  Sesuaikan dengan jenjang pendidikan siswa
-                </p>
+            {role === "siswa" && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelCls}>Jenjang Sekolah</label>
+                  <StyledSelect
+                    value={jenjang}
+                    onChange={handleJenjangChange}
+                    options={jenjangOptions}
+                    placeholder="— Pilih Jenjang —"
+                  />
+                  <p className={hintCls}>
+                    Sesuaikan dengan jenjang pendidikan siswa
+                  </p>
+                </div>
+                <div>
+                  <label className={labelCls}>Kelas</label>
+                  <StyledSelect
+                    value={kelasSekolah}
+                    onChange={setKelasSekolah}
+                    options={getKelasOptions(jenjang)}
+                    placeholder="— Pilih Kelas —"
+                    disabled={!jenjang}
+                  />
+                  <p className={hintCls}>
+                    {jenjang ? "Pilih kelas sesuai jenjang" : "Pilih jenjang terlebih dahulu"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <label className={labelCls}>Kelas</label>
-                <CustomSelect
-                  value={kelasSekolah}
-                  onChange={setKelasSekolah}
-                  options={getKelasOptions(jenjang)}
-                  placeholder="— Pilih Kelas —"
-                />
-              </div>
-            </div>
+            )}
           </div>
 
           {/* ══ CARD: Tipe Akses ══ */}
@@ -483,17 +447,17 @@ export default function TambahSiswaPage() {
             <div className="flex items-center gap-3">
               {(
                 [
-                  { label: "Siswa", value: "SISWA" },
-                  { label: "Umum", value: "GURU" },
-                ] as { label: string; value: "SISWA" | "GURU" }[]
+                  { label: "Siswa", value: "siswa" },
+                  { label: "Umum", value: "umum" },
+                ] as { label: string; value: "siswa" | "umum" }[]
               ).map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setStudentType(opt.value)}
+                  onClick={() => setRole(opt.value)}
                   className={[
                     "rounded-xl px-5 py-2 text-[13px] font-semibold transition-colors",
-                    studentType === opt.value
+                    role === opt.value
                       ? "bg-[#7054dc] text-white shadow-[0_4px_14px_rgba(112,84,220,0.3)]"
                       : "border border-[#e2e0ea] text-[#6b6880] hover:border-[#c8c4db] hover:bg-[#fafafa]",
                   ].join(" ")}

@@ -21,7 +21,6 @@ export default function BerandaSiswaPage() {
   const { user, isLoading: authLoading } = useAuth();
   const { isAuthorized } = useRoleGuard(['siswa']);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showProgress, setShowProgress] = useState(true);
   const [dashboard, setDashboard] = useState<SiswaDashboard | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
@@ -50,13 +49,16 @@ export default function BerandaSiswaPage() {
 
         if (unresolvedIds.size > 0) {
           const resolvedNames: Record<string, string> = {};
+          const resolvedImgs: Record<string, string | null> = {};
           await Promise.all(
             Array.from(unresolvedIds).map(async (mid) => {
               try {
                 const m = await siswaModulApi.getById(mid);
                 resolvedNames[mid] = m.moduleName;
+                resolvedImgs[mid] = m.moduleImgUrl ?? null;
               } catch {
                 resolvedNames[mid] = 'Modul';
+                resolvedImgs[mid] = null;
               }
             })
           );
@@ -65,11 +67,11 @@ export default function BerandaSiswaPage() {
 
           for (const p of progressItems) {
             if ((!p.modul?.moduleName && !p.modul?.nama_modul) && p.modulId && resolvedNames[p.modulId]) {
-              p.modul = { ...p.modul, id: p.modulId, moduleName: resolvedNames[p.modulId] } as ProgressItem['modul'];
+              p.modul = { ...p.modul, id: p.modulId, moduleName: resolvedNames[p.modulId], moduleImgUrl: resolvedImgs[p.modulId] } as ProgressItem['modul'];
             }
           }
           if (data.lastActivity && (!data.lastActivity.modul?.moduleName && !data.lastActivity.modul?.nama_modul) && data.lastActivity.modulId && resolvedNames[data.lastActivity.modulId]) {
-            data.lastActivity.modul = { ...data.lastActivity.modul, id: data.lastActivity.modulId, moduleName: resolvedNames[data.lastActivity.modulId] } as ProgressItem['modul'];
+            data.lastActivity.modul = { ...data.lastActivity.modul, id: data.lastActivity.modulId, moduleName: resolvedNames[data.lastActivity.modulId], moduleImgUrl: resolvedImgs[data.lastActivity.modulId] } as ProgressItem['modul'];
           }
         }
 
@@ -250,12 +252,12 @@ export default function BerandaSiswaPage() {
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-[#21212b]">Progres Belajar Terbaru</h3>
-              <button
-                onClick={() => setShowProgress(!showProgress)}
+              <Link
+                href="/eksplor-modul?tab=terdaftar"
                 className="rounded-full border border-[#7054dc] px-4 py-2 text-sm font-medium text-[#7054dc] transition-colors hover:bg-[#f4efff]"
               >
-                {showProgress ? 'Sembunyikan' : 'Lihat Semua'}
-              </button>
+                Lihat Semua
+              </Link>
             </div>
 
             <div className="overflow-hidden rounded-xl bg-white">
@@ -267,12 +269,18 @@ export default function BerandaSiswaPage() {
               </div>
 
               {/* Body */}
-              {showProgress && progressData.length > 0 ? (
+              {progressData.length > 0 ? (
                 progressData.map((item) => (
                   <Link key={item.id} href={`/modul/${item.modulId || item.modul?.id}/materi`} className="flex border-b border-[#f0f0f0] last:border-b-0 hover:bg-[#fafafa] transition-colors py-4 px-6">
                     <div className="flex-1 flex items-center gap-3">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#f1ecff]">
-                        <FaBookOpen size={24} className="text-[#7054dc]" />
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg">
+                        {item.modul?.moduleImgUrl ? (
+                          <Image src={item.modul.moduleImgUrl} alt={getModuleName(item)} fill className="object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-[#f1ecff]">
+                            <FaBookOpen size={24} className="text-[#7054dc]" />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <span className="font-medium text-[#21212b]">{getModuleName(item)}</span>
@@ -299,21 +307,9 @@ export default function BerandaSiswaPage() {
                     </div>
                   </Link>
                 ))
-              ) : showProgress && progressData.length === 0 ? (
-                <div className="flex justify-center px-4 py-8">
-                  <div className="flex flex-col items-center justify-center gap-3 mt-10">
-                    <Image
-                      src="/assets/images/beranda-siswa/belum-ada.png"
-                      alt="No progress"
-                      width={150}
-                      height={150}
-                    />
-                    <p className="text-sm text-[#8a8a96]">Belum ada progres belajar</p>
-                  </div>
-                </div>
               ) : (
                 <div className="flex justify-center px-4 py-8">
-                  <div className="flex flex-col items-center justify-center gap-3 mt-20">
+                  <div className="flex flex-col items-center justify-center gap-3 mt-10">
                     <Image
                       src="/assets/images/beranda-siswa/belum-ada.png"
                       alt="No progress"

@@ -388,7 +388,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   }, [isModuleSidebarOpen]);
 
   // ─── Derived values ───────────────────────────────────────────────────────
-  const currentSoal = assessmentType === "posttest" ? posttestSoal : assessmentType === "kuis" ? pretestSoal : pretestSoal;
+  const currentSoal = assessmentType === "posttest" ? posttestSoal : pretestSoal;
   const activeQuestion = currentSoal[activeQuestionIndex];
   const answeredCount = Object.keys(selectedAnswers).length;
   const elapsedSeconds = testDurationSeconds - remainingSeconds;
@@ -500,7 +500,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     try {
       let result: TestSubmitResult | null = null;
       if (assessmentType === "posttest") {
-        result = await siswaPosttestApi.submit(modulId, { answers });
+        result = await siswaPosttestApi.submit(modulId, { answers, timeSpent: elapsed });
         setIsPosttestFinished(true);
         // Optimistic: mark posttest as completed immediately
         setCompletedContentItemMap((prev) => ({ ...prev, posttest: true }));
@@ -509,7 +509,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
           setCertificate(result.certificate);
         }
       } else if (assessmentType === "pretest") {
-        result = await siswaPretestApi.submit(modulId, { answers });
+        result = await siswaPretestApi.submit(modulId, { answers, timeSpent: elapsed });
         setIsPretestFinished(true);
         // Optimistic: mark pretest as completed immediately
         setCompletedContentItemMap((prev) => ({ ...prev, pretest: true }));
@@ -546,14 +546,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         if (updated.certificate) setCertificate(updated.certificate);
       } catch { /* study-room refetch failed, non-critical */ }
 
-      // Calculate totalBenar and totalSalah manually (since new API only returns score)
-      const totalBenar = currentSoal.reduce((acc, soal, idx) => {
-        const selectedIdx = selectedAnswers[idx] ?? -1;
-        if (selectedIdx === -1) return acc;
-        const answerText = [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d][selectedIdx] || "";
-        return answerText === soal.kunci_jawaban ? acc + 1 : acc;
-      }, 0);
-      const totalSalah = currentSoal.length - totalBenar;
+      const totalBenar =
+        result?.totalBenar ??
+        currentSoal.reduce((acc, soal, idx) => {
+          const selectedIdx = selectedAnswers[idx] ?? -1;
+          if (selectedIdx === -1) return acc;
+          return acc;
+        }, 0);
+      const totalSalah =
+        result?.totalSalah ?? (currentSoal.length - totalBenar);
 
       setTestResult({
         score: result?.score ?? 0,
@@ -1258,10 +1259,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         </span>
                       </p>
                       <p className="mt-2 text-2xl font-bold text-[#202126]">
-                        {testResult?.totalBenar ?? (() => {
-                          const score = assessmentType === "posttest" ? progress?.posttestScore : progress?.pretestScore;
-                          return score != null ? Math.floor(score / 10) : "-";
-                        })()}
+                        {testResult?.totalBenar ?? (assessmentType === "posttest" ? progress?.posttestCorrectCount : progress?.pretestCorrectCount) ?? "-"}
                       </p>
                     </div>
                     <div>
@@ -1272,10 +1270,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         </span>
                       </p>
                       <p className="mt-2 text-2xl font-bold text-[#202126]">
-                        {testResult?.totalSalah ?? (() => {
-                          const score = assessmentType === "posttest" ? progress?.posttestScore : progress?.pretestScore;
-                          return score != null ? Math.max(0, currentSoal.length - Math.floor(score / 10)) : "-";
-                        })()}
+                        {testResult?.totalSalah ?? (assessmentType === "posttest" ? progress?.posttestWrongCount : progress?.pretestWrongCount) ?? "-"}
                       </p>
                     </div>
                     <div>
@@ -1286,7 +1281,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         </span>
                       </p>
                       <p className="mt-2 text-2xl font-bold text-[#202126]">
-                        {testResult ? formatRemainingTime(displayedElapsedSeconds) : "-"}
+                        {testResult ? formatRemainingTime(displayedElapsedSeconds) : formatRemainingTime(assessmentType === "posttest" ? (progress?.posttestTimeSpent ?? 0) : (progress?.pretestTimeSpent ?? 0))}
                       </p>
                     </div>
                     <div>

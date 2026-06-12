@@ -1092,7 +1092,7 @@ export default function BerandaAdminPage() {
 
                             <div className="rounded-2xl border border-[#f39b39] bg-white p-4">
                                 <h3 className="text-center text-2xl font-semibold text-[#202126]">
-                                    Statistik Penggunaan Sistem
+                                    Statistik Status Pengguna
                                 </h3>
                                 <div className="relative mx-auto mt-4 h-[250px] w-[250px]">
                                     {(() => {
