@@ -122,7 +122,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
             if (item.itemType === "MATERI") {
                 seq.push({
                     id: item.id,
-                    title: item.judul,
+                    title: item.judul || "Materi",
                     type: "materi",
                     topikId: topik.id,
                     topikName: topik.nama,
@@ -156,7 +156,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
 
     if (modul.curriculum.rangkumanAkhir) {
         seq.push({
-            id: modul.curriculum.rangkumanAkhir.itemId,
+            id: "rangkuman-akhir",
             title: modul.curriculum.rangkumanAkhir.title,
             type: "rangkuman-akhir",
         });
@@ -661,7 +661,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         () =>
             sequence.filter(
                 (item) =>
-                    item.type !== "summary" && item.type !== "rangkuman-akhir",
+                    item.type !== "summary" &&
+                    item.type !== "rangkuman-akhir" &&
+                    item.type !== "rating",
             ).length,
         [sequence],
     );
@@ -671,7 +673,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 (item) =>
                     completedContentItemMap[item.id] &&
                     item.type !== "summary" &&
-                    item.type !== "rangkuman-akhir",
+                    item.type !== "rangkuman-akhir" &&
+                    item.type !== "rating",
             ).length,
         [sequence, completedContentItemMap],
     );
@@ -757,6 +760,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     ...prev,
                     posttest: true,
                 }));
+                // Reflect graduation in local progress so certificate pill unlocks
+                if (result?.isGraduated) {
+                    setProgress((prev) =>
+                        prev
+                            ? { ...prev, isGraduated: true, status: "COMPLETED" }
+                            : prev,
+                    );
+                }
                 // Save certificate from posttest response if returned
                 if (result?.certificate) {
                     setCertificate(result.certificate);

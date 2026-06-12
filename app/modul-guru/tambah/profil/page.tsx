@@ -68,6 +68,7 @@ function TambahModulProfilPageContent() {
     const [targetTimeUnit, setTargetTimeUnit] = useState<"bulan" | "minggu">(
         "bulan",
     );
+    const [hasCertificate, setHasCertificate] = useState(false);
 
     // Load existing module data if editing
     useEffect(() => {
@@ -95,6 +96,7 @@ function TambahModulProfilPageContent() {
                     setCoverUrl(data.moduleImgUrl);
                     setCoverPreview(data.moduleImgUrl);
                 }
+                setHasCertificate(data.hasCertificate ?? false);
                 setIsExpanded(true);
             } catch (err) {
                 console.error("Load module error:", err);
@@ -167,6 +169,7 @@ function TambahModulProfilPageContent() {
                 level: level || undefined,
                 class: kelas || undefined,
                 modulType: accessType,
+                hasCertificate,
             };
 
             if (modulId) {
@@ -754,6 +757,35 @@ function TambahModulProfilPageContent() {
                                         Durasi pembelajaran modul yang diakses
                                         siswa merupakan materi selama beberapa
                                         waktu
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-[12px] font-semibold text-[#232530]">
+                                        Sertifikat
+                                    </p>
+                                    <div className="mt-3 flex items-center gap-6 text-[12px] text-[#6e7280]">
+                                        <label className="flex items-center gap-2">
+                                            <input
+                                                type="radio"
+                                                name="hasCertificate"
+                                                checked={hasCertificate}
+                                                onChange={() => setHasCertificate(true)}
+                                            />
+                                            Ya
+                                        </label>
+                                        <label className="flex items-center gap-2">
+                                            <input
+                                                type="radio"
+                                                name="hasCertificate"
+                                                checked={!hasCertificate}
+                                                onChange={() => setHasCertificate(false)}
+                                            />
+                                            Tidak
+                                        </label>
+                                    </div>
+                                    <p className="mt-1 text-[11px] text-[#7e8290]">
+                                        Apakah modul ini memberikan sertifikat kepada siswa yang lulus
                                     </p>
                                 </div>
                             </div>

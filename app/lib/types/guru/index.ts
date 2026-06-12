@@ -22,6 +22,7 @@ export interface GuruModuleItem {
     difficulty?: string;
     isPaid?: boolean;
     modulPrice?: number | null;
+    hasCertificate?: boolean;
     level?: string | null;
     class?: string | null;
     modulType?: string;
@@ -47,6 +48,7 @@ export interface GuruModuleCreatePayload {
     difficulty: string;
     isPaid?: boolean;
     modulPrice?: number | null;
+    hasCertificate?: boolean;
     level?: string;
     class?: string;
     modulType?: string;
@@ -62,6 +64,7 @@ export interface GuruModuleUpdatePayload {
     difficulty?: string;
     isPaid?: boolean;
     modulPrice?: number | null;
+    hasCertificate?: boolean;
     level?: string;
     class?: string;
     modulType?: string;

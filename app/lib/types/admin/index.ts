@@ -211,6 +211,7 @@ export interface AdminKuisTopik {
   id: string;
   nama: string;
   materis: AdminKuisMateri[];
+  quizzes?: AdminKuizQuizEntry[];
 }
 
 export interface AdminKuisTutor {

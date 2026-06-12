@@ -85,6 +85,7 @@ export interface TestSubmitResult {
   totalBenar?: number;
   totalSalah?: number;
   message?: string;
+  isGraduated?: boolean;
   certificate?: CertificateItem | null;
 }
 
