@@ -777,6 +777,7 @@ function TambahModulKontenPageContent() {
     try {
       const created = await guruMateriApi.create({
         topik_id: topicId,
+        judul: trimmedTitle,
         is_video: isVideo,
         video_url: null,
         article: isVideo ? null : "",
@@ -919,7 +920,7 @@ function TambahModulKontenPageContent() {
       const created = await guruKuisApi.create({
         quiz: {
           topikId: topicId,
-          quizType: "REGULER",
+          quizType: isTopicCT ? "COMPUTATIONAL_THINKING" : "REGULER",
           question: "Soal Kuis 1",
           correctAnswer: "A",
           skor: 10,
@@ -928,7 +929,7 @@ function TambahModulKontenPageContent() {
         setting: {
           timeLimit: 90,
           allowMultipleAttempts: false,
-          isComputationalThinkingEnabled: false,
+          isComputationalThinkingEnabled: isTopicCT,
           minScoreTreshold: 0,
           standardScorePerQuestion: 100,
         },
@@ -949,7 +950,7 @@ function TambahModulKontenPageContent() {
         id: nextId,
         title: "Untitled",
         isExpanded: true,
-        ctMode: false,
+        ctMode: isTopicCT,
         duration: 90,
         minScore: 0,
         scorePerQuestion: 10,
@@ -1133,7 +1134,11 @@ function TambahModulKontenPageContent() {
     );
   };
 
+  const activeTopik = topiks.find(t => t.id === activeTopikId);
+  const isTopicCT = activeTopik?.isComputationalThinking ?? false;
+
   const handleToggleCTMode = (quizId: number, enabled: boolean) => {
+    if (isTopicCT) return;
     setQuizzes((prev) =>
       prev.map((q) => (q.id === quizId ? { ...q, ctMode: enabled } : q)),
     );
@@ -2524,34 +2529,40 @@ function TambahModulKontenPageContent() {
 
                         {quiz.isExpanded && (
                           <div className="mt-4">
-                            <div className="mb-4 flex items-center gap-1 rounded-lg border border-[#e5e3ee] bg-white p-1">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleToggleCTMode(quiz.id, false)
-                                }
-                                className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                                  !quiz.ctMode
-                                    ? "bg-[#7054dc] text-white"
-                                    : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
-                                }`}
-                              >
-                                Reguler
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleToggleCTMode(quiz.id, true)
-                                }
-                                className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                                  quiz.ctMode
-                                    ? "bg-[#7054dc] text-white"
-                                    : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
-                                }`}
-                              >
+                            {isTopicCT ? (
+                              <div className="mb-4 inline-flex items-center gap-1.5 rounded-lg bg-[#f1ecff] px-3 py-1.5 text-[12px] font-semibold text-[#7054dc]">
                                 Computational Thinking
-                              </button>
-                            </div>
+                              </div>
+                            ) : (
+                              <div className="mb-4 flex items-center gap-1 rounded-lg border border-[#e5e3ee] bg-white p-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleCTMode(quiz.id, false)
+                                  }
+                                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                                    !quiz.ctMode
+                                      ? "bg-[#7054dc] text-white"
+                                      : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
+                                  }`}
+                                >
+                                  Reguler
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleToggleCTMode(quiz.id, true)
+                                  }
+                                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                                    quiz.ctMode
+                                      ? "bg-[#7054dc] text-white"
+                                      : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
+                                  }`}
+                                >
+                                  Computational Thinking
+                                </button>
+                              </div>
+                            )}
 
                             {quiz.ctMode ? (
                               <>
@@ -3016,27 +3027,29 @@ function TambahModulKontenPageContent() {
                   </button>
                 </div>
 
-                <div className="mt-5 rounded-xl border border-[#e5e3ee] px-4 py-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[13px] font-semibold text-[#232530]">
-                      Aktifkan Mode Computational Thinking
+                {!isTopicCT && (
+                  <div className="mt-5 rounded-xl border border-[#e5e3ee] px-4 py-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-semibold text-[#232530]">
+                        Aktifkan Mode Computational Thinking
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCTMode(quiz.id, !quiz.ctMode)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${quiz.ctMode ? "bg-[#7054dc]" : "bg-[#d1d5db]"}`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${quiz.ctMode ? "translate-x-6" : "translate-x-1"}`}
+                        />
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-[1.6] text-[#7a7e8a]">
+                      Kuis akan disajikan dalam bentuk studi kasus. Setiap satu
+                      cerita akan memiliki 4 pertanyaan turunan berdasarkan pilar
+                      pemikiran komputasional.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleCTMode(quiz.id, !quiz.ctMode)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${quiz.ctMode ? "bg-[#7054dc]" : "bg-[#d1d5db]"}`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${quiz.ctMode ? "translate-x-6" : "translate-x-1"}`}
-                      />
-                    </button>
                   </div>
-                  <p className="mt-2 text-[11px] leading-[1.6] text-[#7a7e8a]">
-                    Kuis akan disajikan dalam bentuk studi kasus. Setiap satu
-                    cerita akan memiliki 4 pertanyaan turunan berdasarkan pilar
-                    pemikiran komputasional.
-                  </p>
-                </div>
+                )}
 
                 <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
                   <p className="text-[13px] font-semibold text-[#232530]">

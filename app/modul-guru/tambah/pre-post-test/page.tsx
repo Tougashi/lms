@@ -14,7 +14,7 @@ function MiniEditor({ placeholder, value, onChange }: { placeholder: string; val
   const up = () => {
     const text = ref.current?.textContent?.trim() ?? '';
     setEmpty(text.length === 0);
-    onChange?.(ref.current?.innerHTML || '');
+    onChange?.(ref.current?.textContent?.trim() || '');
   };
   const cmd = (c: string) => { ref.current?.focus(); document.execCommand(c); up(); };
 

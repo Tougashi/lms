@@ -230,7 +230,7 @@ export const authApi = {
         return apiFetch<UserSession>("/auth/me");
     },
 
-    update(payload: Partial<RegisterPayload>) {
+    update(payload: Partial<RegisterPayload> & { newPassword?: string }) {
         return apiFetch<UserSession>("/auth/update", {
             method: "PUT",
             data: payload,

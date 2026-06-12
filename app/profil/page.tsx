@@ -95,7 +95,7 @@ export default function ProfilPage() {
       jenjang: user.jenjang || "-",
       kelas_sekolah: user.kelas_sekolah || "-",
       role: user.role,
-      profileImage: (user as Record<string, unknown>).profileImage as string | null | undefined || null,
+      profileImage: ('profileImage' in user ? (user as { profileImage?: string | null }).profileImage : null) || null,
     });
     setEditName(user.nama_lengkap || user.fullName || "");
     setEditJenjang(user.jenjang || "");
@@ -207,15 +207,15 @@ export default function ProfilPage() {
     setIsSaving(true);
     setSaveMsg("");
     try {
+      const isTutor = user?.role === "tutor";
       await authApi.update({
         role: (user?.role as "siswa" | "tutor") || "siswa",
         nama_lengkap: editName,
-        jenjang: editJenjang,
-        kelas_sekolah: editKelas,
+        ...(isTutor ? {} : { jenjang: editJenjang, kelas_sekolah: editKelas }),
         email: profile.email,
         password: "",
       });
-      setProfile((prev) => prev ? { ...prev, nama_lengkap: editName, jenjang: editJenjang, kelas_sekolah: editKelas } : prev);
+      setProfile((prev) => prev ? { ...prev, nama_lengkap: editName, ...(isTutor ? {} : { jenjang: editJenjang, kelas_sekolah: editKelas }) } : prev);
       setSaveMsg("Profil berhasil disimpan!");
       setIsEditing(false);
     } catch (err: unknown) {
@@ -241,7 +241,8 @@ export default function ProfilPage() {
         role: (user?.role as "siswa" | "tutor") || "siswa",
         nama_lengkap: profile?.nama_lengkap || "",
         email: profile?.email || "",
-        password: newPassword,
+        password: oldPassword,
+        newPassword: newPassword,
         jenjang: profile?.jenjang || "",
         kelas_sekolah: profile?.kelas_sekolah || "",
       });
@@ -401,48 +402,50 @@ export default function ProfilPage() {
                                 className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2.5 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
                               />
                             </div>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                              <div>
-                                <label className="mb-1.5 block text-xs text-[#7d8291]">Jenjang</label>
-                                <select
-                                  value={editJenjang}
-                                  onChange={(e) => setEditJenjang(e.target.value)}
-                                  className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2.5 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
-                                >
-                                  <option value="SD">SD</option>
-                                  <option value="SMP">SMP</option>
-                                  <option value="SMK">SMK</option>
-                                </select>
+                            {user?.role === "siswa" && (
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                  <label className="mb-1.5 block text-xs text-[#7d8291]">Jenjang</label>
+                                  <select
+                                    value={editJenjang}
+                                    onChange={(e) => setEditJenjang(e.target.value)}
+                                    className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2.5 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
+                                  >
+                                    <option value="SD">SD</option>
+                                    <option value="SMP">SMP</option>
+                                    <option value="SMK">SMK</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="mb-1.5 block text-xs text-[#7d8291]">Tingkat Kelas</label>
+                                  <select
+                                    value={editKelas}
+                                    onChange={(e) => setEditKelas(e.target.value)}
+                                    className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2.5 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
+                                  >
+                                    <option value="">Pilih Tingkat Kelas</option>
+                                    <optgroup label="SD">
+                                      <option value="1">Kelas 1</option>
+                                      <option value="2">Kelas 2</option>
+                                      <option value="3">Kelas 3</option>
+                                      <option value="4">Kelas 4</option>
+                                      <option value="5">Kelas 5</option>
+                                      <option value="6">Kelas 6</option>
+                                    </optgroup>
+                                    <optgroup label="SMP">
+                                      <option value="7">Kelas 7</option>
+                                      <option value="8">Kelas 8</option>
+                                      <option value="9">Kelas 9</option>
+                                    </optgroup>
+                                    <optgroup label="SMA/SMK">
+                                      <option value="10">Kelas 10</option>
+                                      <option value="11">Kelas 11</option>
+                                      <option value="12">Kelas 12</option>
+                                    </optgroup>
+                                  </select>
+                                </div>
                               </div>
-                              <div>
-                                <label className="mb-1.5 block text-xs text-[#7d8291]">Tingkat Kelas</label>
-                                <select
-                                  value={editKelas}
-                                  onChange={(e) => setEditKelas(e.target.value)}
-                                  className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2.5 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
-                                >
-                                  <option value="">Pilih Tingkat Kelas</option>
-                                  <optgroup label="SD">
-                                    <option value="1">Kelas 1</option>
-                                    <option value="2">Kelas 2</option>
-                                    <option value="3">Kelas 3</option>
-                                    <option value="4">Kelas 4</option>
-                                    <option value="5">Kelas 5</option>
-                                    <option value="6">Kelas 6</option>
-                                  </optgroup>
-                                  <optgroup label="SMP">
-                                    <option value="7">Kelas 7</option>
-                                    <option value="8">Kelas 8</option>
-                                    <option value="9">Kelas 9</option>
-                                  </optgroup>
-                                  <optgroup label="SMA/SMK">
-                                    <option value="10">Kelas 10</option>
-                                    <option value="11">Kelas 11</option>
-                                    <option value="12">Kelas 12</option>
-                                  </optgroup>
-                                </select>
-                              </div>
-                            </div>
+                            )}
                             <button
                               type="button"
                               onClick={handleSaveProfile}
@@ -462,14 +465,51 @@ export default function ProfilPage() {
                               <p className="text-xs text-[#7d8291]">Email</p>
                               <p className="mt-1 font-medium text-[#202126]">{profile?.email ?? "-"}</p>
                             </div>
-                            <div>
-                              <p className="text-xs text-[#7d8291]">Jenjang</p>
-                              <p className="mt-1 font-medium text-[#202126]">{profile?.jenjang ?? "-"}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-[#7d8291]">Tingkat Kelas</p>
-                              <p className="mt-1 font-medium text-[#202126]">Kelas {profile?.kelas_sekolah ?? "-"}</p>
-                            </div>
+                            {user?.role === "tutor" ? (
+                              <>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Jenis Kelamin</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.gender ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Pekerjaan</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.pekerjaan ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Institusi</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.institution ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Program Studi</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.prodi ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Pendidikan Terakhir</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.lastEducation ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">No. WhatsApp</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.whatsappNumber ?? "-"}</p>
+                                </div>
+                                {tutorProfile?.biografi && (
+                                  <div className="sm:col-span-2">
+                                    <p className="text-xs text-[#7d8291]">Biografi</p>
+                                    <p className="mt-1 font-medium text-[#202126]">{tutorProfile.biografi}</p>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Jenjang</p>
+                                  <p className="mt-1 font-medium text-[#202126]">{profile?.jenjang ?? "-"}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-[#7d8291]">Tingkat Kelas</p>
+                                  <p className="mt-1 font-medium text-[#202126]">Kelas {profile?.kelas_sekolah ?? "-"}</p>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>

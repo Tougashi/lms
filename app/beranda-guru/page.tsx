@@ -250,13 +250,12 @@ function BerandaGuruPageContent() {
         <section className="mt-6 overflow-hidden rounded-2xl border border-[#e8e9ef] bg-white shadow-[0_4px_14px_rgba(19,23,31,0.05)]">
           <div className="flex items-center justify-between border-b border-[#f0f1f6] px-5 py-4">
             <h2 className="text-lg font-semibold leading-none tracking-[-0.01em] text-[#252834] sm:text-2xl">Penilaian dan Ulasan dari Siswa</h2>
-            <button
-              type="button"
-              onClick={() => toast('Fitur lihat semua ulasan akan segera hadir.', 'info')}
+            <Link
+              href="/modul-guru/ulasan"
               className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-none text-[#7557ea] sm:text-[16px] hover:bg-[#f0ebff] transition-colors"
             >
               Lihat Semua
-            </button>
+            </Link>
           </div>
 
           {reviews.length === 0 ? (
