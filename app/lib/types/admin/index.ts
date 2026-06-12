@@ -13,6 +13,40 @@ export interface AdminDashboardStats {
   inactiveUserPercentage: number;
 }
 
+// ── Admin Pengelola ──────────────────────────────────────────────────────────
+
+export interface AdminUserItem {
+  id: string;
+  fullName: string;
+  username: string;
+  email: string;
+  gender?: string;
+  whatsappNumber?: string;
+  profileImg?: string | null;
+  role?: string;
+  isActive?: boolean;
+  createdAt?: string;
+}
+
+export interface AdminUserCreatePayload {
+  fullName: string;
+  username?: string;
+  email: string;
+  password?: string;
+  gender?: string;
+  whatsappNumber?: string;
+}
+
+export interface AdminUserUpdatePayload {
+  fullName?: string;
+  username?: string;
+  email?: string;
+  password?: string;
+  gender?: string;
+  whatsappNumber?: string;
+}
+
+
 // ── Modul ────────────────────────────────────────────────────────────────────
 
 export interface AdminModulItem {
