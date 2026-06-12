@@ -927,7 +927,7 @@ function TambahModulKontenPageContent() {
         },
         answerOptions: [{ option: "A" }, { option: "B" }, { option: "C" }],
         setting: {
-          timeLimit: 90,
+          timeLimit: 90 * 60,
           allowMultipleAttempts: false,
           isComputationalThinkingEnabled: isTopicCT,
           minScoreTreshold: 0,

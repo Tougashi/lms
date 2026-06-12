@@ -227,10 +227,22 @@ export interface GuruPosttestQuestion {
     skor: number;
 }
 
+export interface GuruPosttestSetting {
+    id: string;
+    posttestId: string;
+    duration: number;
+    createdAt?: string;
+}
+
+export interface GuruPosttestSettingsPayload {
+    duration: number;
+}
+
 export interface GuruPosttestItem {
     id: string;
     modulId?: string;
     soals: GuruPosttestQuestion[];
+    posttestSettings?: GuruPosttestSetting[];
     createdAt?: string;
     updatedAt?: string;
 }

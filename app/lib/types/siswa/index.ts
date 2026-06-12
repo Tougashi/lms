@@ -175,6 +175,7 @@ export interface QuizSubmitPayload {
   quizId: string;
   answer: string;
   knowledgeComponentId: string;
+  timeSpent?: number;
 }
 
 export interface QuizSubmitResult {
@@ -228,6 +229,7 @@ export interface SubmateriDetail {
 export interface MateriDetail {
   id: string;
   tutorId: string;
+  judul: string;
   isVideo: boolean;
   videoUrl: string | null;
   article: string | null;
@@ -318,6 +320,7 @@ export interface StudyRoomAssessment {
   id: string;
   title: string;
   questions: StudyRoomQuestion[];
+  timeLimit: number | null;
 }
 
 export interface StudyRoomMateri {
@@ -341,6 +344,7 @@ export interface StudyRoomItem {
   skor?: number;
   quizImgQuestionUrl?: string | null;
   quizAnswerOptions?: { id: string; option: string }[];
+  timeLimit?: number | null;
 }
 
 export interface StudyRoomTopik {

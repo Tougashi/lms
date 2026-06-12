@@ -364,20 +364,25 @@ function PrePostTestPageContent() {
     }
   }, [activeBank, activeBankId]);
 
-  // Save settings to API (pretest only, as only pretest has settings endpoint)
+  // Save settings to API
   const handleSaveSettings = useCallback(async () => {
     const targetBank = settingsTargetBank;
-    if (!targetBank?.apiId || targetBank.type !== 'pretest') {
-      toast('Pengaturan hanya tersedia untuk Pre Test.', 'warning');
+    if (!targetBank?.apiId) {
       setIsSettingsOpen(false);
       return;
     }
     setIsSaving(true);
     try {
-      await guruPretestApi.updateSettings(targetBank.apiId, {
-        duration: settingsDuration,
-        countShownQuestions: settingsSoalTampil,
-      });
+      if (targetBank.type === 'pretest') {
+        await guruPretestApi.updateSettings(targetBank.apiId, {
+          duration: settingsDuration,
+          countShownQuestions: settingsSoalTampil,
+        });
+      } else {
+        await guruPosttestApi.updateSettings(targetBank.apiId, {
+          duration: settingsDuration,
+        });
+      }
       toast('Pengaturan berhasil disimpan!', 'success');
       setIsSettingsOpen(false);
       setSettingsTargetBankId(null);
@@ -453,7 +458,7 @@ function PrePostTestPageContent() {
                   <span className={`inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold ${activeBank.type === 'pretest' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
                     {activeBank.type === 'pretest' ? 'Pre Test' : 'Post Test'}
                   </span>
-                  {activeBank.type === 'pretest' && <button type="button" onClick={() => openSettings(activeBank.id)} className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"><FiSettings size={14}/></button>}
+                  <button type="button" onClick={() => openSettings(activeBank.id)} className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"><FiSettings size={14}/></button>
                   <button type="button" onClick={() => { handleDeleteBank(activeBank.id); setActiveBankId(null); }} className="cursor-pointer text-[#7a7e8a] hover:text-[#e04e4e]"><FiTrash2 size={14}/></button>
                 </div>
               </div>
@@ -540,8 +545,8 @@ function PrePostTestPageContent() {
                     <button type="button" onClick={() => setIsSettingsOpen(false)} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#e5e3ee] text-[#7a7e8a] hover:bg-[#f5f4fb]"><FiX size={16}/></button>
                   </div>
                   <div className="mt-5 flex items-center justify-between border-b border-[#f0eff5] pb-4"><div><p className="text-[13px] font-semibold text-[#232530]">Durasi Pengerjaan (Menit)</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Batas waktu siswa untuk menyelesaikan kuis</p></div><div className="flex items-center gap-2"><input type="number" value={settingsDuration} onChange={(e) => setSettingsDuration(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"/><span className="text-[12px] text-[#7a7e8a]">Menit</span></div></div>
-                  <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4"><div><p className="text-[13px] font-semibold text-[#232530]">Jumlah Soal Tampil</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Jumlah soal yang akan muncul secara acak dari bank soal</p></div><div className="flex items-center gap-2"><input type="number" value={settingsSoalTampil} onChange={(e) => setSettingsSoalTampil(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"/><span className="text-[12px] text-[#7a7e8a]">Soal</span></div></div>
-                  <div className="mt-4"><p className="text-[13px] font-semibold text-[#232530]">Atur Akses Materi Otomatis</p><div className="mt-3 rounded-xl border border-dashed border-[#8e7bff] bg-[#fbfaff] px-4 py-4">{aksesRules.map((rule) => (<div key={rule.id} className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-[#d9d7df] bg-white px-3 py-2.5 last:mb-0"><span className="text-[12px] text-[#232530]">Jika nilai minimal</span><input type="number" value={rule.minScore} onChange={(e) => { const v = parseInt(e.target.value) || 0; setAksesRules((p) => p.map((r) => r.id === rule.id ? { ...r, minScore: v } : r)); }} className="h-[30px] w-[50px] rounded-lg border border-[#d9d7df] bg-white px-1 text-center text-[12px] text-[#232530] outline-none"/><span className="text-[12px] text-[#232530]">Buka akses</span><select value={rule.topik} onChange={(e) => { const v = e.target.value; setAksesRules((p) => p.map((r) => r.id === rule.id ? { ...r, topik: v } : r)); }} className="h-[30px] rounded-lg border border-[#d9d7df] bg-white px-2 text-[12px] text-[#7a7e8a] outline-none"><option value="">Pilih Topik</option><option value="topik1-2">Topik 1 - 2</option><option value="topik3">Topik 3</option></select></div>))}<button type="button" onClick={() => setAksesRules((p) => [...p, { id: Date.now(), minScore: 30, topik: '' }])} className="mt-2 text-[12px] font-semibold text-[#7054dc]">Tambahkan aturan lain &nbsp;+</button></div></div>
+                  {settingsTargetBank?.type === 'pretest' && (<><div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4"><div><p className="text-[13px] font-semibold text-[#232530]">Jumlah Soal Tampil</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Jumlah soal yang akan muncul secara acak dari bank soal</p></div><div className="flex items-center gap-2"><input type="number" value={settingsSoalTampil} onChange={(e) => setSettingsSoalTampil(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"/><span className="text-[12px] text-[#7a7e8a]">Soal</span></div></div>
+                  <div className="mt-4"><p className="text-[13px] font-semibold text-[#232530]">Atur Akses Materi Otomatis</p><div className="mt-3 rounded-xl border border-dashed border-[#8e7bff] bg-[#fbfaff] px-4 py-4">{aksesRules.map((rule) => (<div key={rule.id} className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-[#d9d7df] bg-white px-3 py-2.5 last:mb-0"><span className="text-[12px] text-[#232530]">Jika nilai minimal</span><input type="number" value={rule.minScore} onChange={(e) => { const v = parseInt(e.target.value) || 0; setAksesRules((p) => p.map((r) => r.id === rule.id ? { ...r, minScore: v } : r)); }} className="h-[30px] w-[50px] rounded-lg border border-[#d9d7df] bg-white px-1 text-center text-[12px] text-[#232530] outline-none"/><span className="text-[12px] text-[#232530]">Buka akses</span><select value={rule.topik} onChange={(e) => { const v = e.target.value; setAksesRules((p) => p.map((r) => r.id === rule.id ? { ...r, topik: v } : r)); }} className="h-[30px] rounded-lg border border-[#d9d7df] bg-white px-2 text-[12px] text-[#7a7e8a] outline-none"><option value="">Pilih Topik</option><option value="topik1-2">Topik 1 - 2</option><option value="topik3">Topik 3</option></select></div>))}<button type="button" onClick={() => setAksesRules((p) => [...p, { id: Date.now(), minScore: 30, topik: '' }])} className="mt-2 text-[12px] font-semibold text-[#7054dc]">Tambahkan aturan lain &nbsp;+</button></div></div></>)}
                   <div className="mt-5 flex items-center justify-end gap-3"><button type="button" onClick={() => setIsSettingsOpen(false)} className="text-[12px] font-semibold text-[#7a7e8a]">Batal</button><button type="button" onClick={handleSaveSettings} disabled={isSaving} className="inline-flex h-[32px] items-center justify-center rounded-lg bg-[#7054dc] px-5 text-[12px] font-semibold text-white hover:bg-[#5f46cc] disabled:opacity-50">{isSaving ? 'Menyimpan...' : 'Simpan'}</button></div>
                 </div>
               </div>
@@ -562,6 +567,7 @@ function PrePostTestPageContent() {
           <div className="flex items-center gap-3">
             <h1 className="text-[18px] font-semibold text-[#232530]">Bank Soal Pree Test dan Post Test Modul</h1>
             {banks.filter(b => b.type === 'pretest').length > 0 && <button type="button" onClick={() => { const pretestBank = banks.find(b => b.type === 'pretest'); if (pretestBank) openSettings(pretestBank.id); }} className="text-[#7a7e8a] hover:text-[#7054dc]" title="Pengaturan Pre Test"><FiSettings size={18}/></button>}
+            {banks.filter(b => b.type === 'posttest').length > 0 && <button type="button" onClick={() => { const posttestBank = banks.find(b => b.type === 'posttest'); if (posttestBank) openSettings(posttestBank.id); }} className="text-[#7a7e8a] hover:text-[#7054dc]" title="Pengaturan Post Test"><FiSettings size={18}/></button>}
           </div>
           <p className="mt-2 max-w-[620px] text-[12px] leading-[1.6] text-[#7e8290]">Buatlah Pree test dan Post Test Modul anda. anda bisa menggunakan setiap Quis dari Topik yang anda buat di konten modul atau bisa membuat yang baru untuk soal ini.</p>
 

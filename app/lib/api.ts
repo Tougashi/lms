@@ -50,6 +50,7 @@ import type {
     GuruPretestSoalUpdatePayload,
     GuruPretestSettingsPayload,
     GuruPosttestItem,
+    GuruPosttestSettingsPayload,
     GuruPosttestSoalPayload,
     GuruPosttestSoalUpdatePayload,
     GuruKuisItem,
@@ -807,6 +808,13 @@ export const guruPosttestApi = {
     deleteSoal(soalId: string) {
         return apiFetch<{ message: string }>(`/tutor/posttest/soal/${soalId}`, {
             method: "DELETE",
+        });
+    },
+
+    updateSettings(posttestId: string, payload: GuruPosttestSettingsPayload) {
+        return apiFetch<unknown>(`/tutor/posttest/settings/${posttestId}`, {
+            method: "PUT",
+            data: payload,
         });
     },
 };

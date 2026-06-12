@@ -39,8 +39,26 @@ import { calculateProgress } from "../../../lib/utils/progress";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const PRETEST_DURATION_SECONDS = 15 * 60;
-const POSTTEST_DURATION_SECONDS = 15 * 60;
+function getDurationForAssessment(
+  modul: StudyRoomResponse | null,
+  type: "pretest" | "posttest",
+): number | null {
+  if (type === "pretest") return modul?.curriculum.pretest?.timeLimit ?? null;
+  return modul?.curriculum.posttest?.timeLimit ?? null;
+}
+
+function getDurationForQuiz(
+  modul: StudyRoomResponse | null,
+  quizItemId: string | null,
+): number | null {
+  if (!modul || !quizItemId) return null;
+  for (const topik of modul.curriculum.topiks) {
+    for (const item of topik.items) {
+      if (item.id === quizItemId && item.timeLimit != null) return item.timeLimit;
+    }
+  }
+  return null;
+}
 
 function formatRemainingTime(totalSeconds: number) {
   const safeValue = Math.max(0, totalSeconds);
@@ -238,8 +256,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
-  const [remainingSeconds, setRemainingSeconds] = useState(PRETEST_DURATION_SECONDS);
-  const [testDurationSeconds, setTestDurationSeconds] = useState(PRETEST_DURATION_SECONDS);
+  const [remainingSeconds, setRemainingSeconds] = useState(900);
+  const [testDurationSeconds, setTestDurationSeconds] = useState(900);
   const [finishedElapsedSeconds, setFinishedElapsedSeconds] = useState<number | null>(null);
 
   const [isMaterialMode, setIsMaterialMode] = useState(false);
@@ -252,6 +270,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   const [reviewText, setReviewText] = useState("");
   const [isRatingSubmitted, setIsRatingSubmitted] = useState(false);
   const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
+  const [wasTimeUp, setWasTimeUp] = useState(false);
 
   useEffect(() => {
     if (modulId && progress?.siswaId) {
@@ -345,10 +364,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     load();
   }, [modulId]);
 
-  // ─── Timer (works for both pretest and posttest) ────────────────────────
+  // ─── Timer (works for pretest, posttest, and quiz) ──────────────────────
   const isTimerActive = (
     (isPretestStarted && !isPretestFinished && assessmentType === "pretest") ||
-    (isPosttestStarted && !isPosttestFinished && assessmentType === "posttest")
+    (isPosttestStarted && !isPosttestFinished && assessmentType === "posttest") ||
+    (assessmentType === "kuis" && !isSubmitting)
   );
   useEffect(() => {
     if (!isTimerActive) return;
@@ -361,11 +381,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
   // Auto-submit when timer runs out
   useEffect(() => {
-    if (isTimerActive && remainingSeconds === 0) {
-      handleSubmitTest();
-    }
+    if (remainingSeconds !== 0) return;
+    setWasTimeUp(true);
+    handleSubmitTest();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingSeconds, isTimerActive]);
+  }, [remainingSeconds, isTimerActive, assessmentType]);
 
   // ─── Sidebar events ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -527,6 +547,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 quizId: soal.id,
                 answer: answerText,
                 knowledgeComponentId: soal.knowledgeComponentId ?? "unknown",
+                timeSpent: elapsed,
               });
             } catch (e) {
               console.error("Failed to submit kuis answer", e);
@@ -631,14 +652,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         const nextItem = sequence[nextIdx];
         setCurrentSeqIndex(nextIdx);
         if (nextItem?.type === "posttest") {
+          const duration = getDurationForAssessment(modulDetail, "posttest") ?? 900;
           setAssessmentType("posttest");
           setCurrentView("pretest-intro");
           setIsMaterialMode(false);
           setIsFinalSummaryView(false);
           setActiveQuestionIndex(0);
           setSelectedAnswers({});
-          setRemainingSeconds(POSTTEST_DURATION_SECONDS);
-          setTestDurationSeconds(POSTTEST_DURATION_SECONDS);
+          setRemainingSeconds(duration);
+          setTestDurationSeconds(duration);
           setTestResult(null);
           setIsPosttestStarted(false);
           setIsPosttestFinished(false);
@@ -748,6 +770,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     setActiveQuizItemId(null);
                     setIsMaterialMode(false);
                     setIsFinalSummaryView(false);
+                    setWasTimeUp(false);
                     if (isCompleted) {
                       setTestResult(null);
                       setCurrentView("pretest-result");
@@ -844,7 +867,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                 setIsFinalSummaryView(false);
                                 setActiveQuestionIndex(0);
                                 setSelectedAnswers({});
-                                setRemainingSeconds(PRETEST_DURATION_SECONDS);
+                                setWasTimeUp(false);
+                                setRemainingSeconds(900);
                                 return;
                               }
                               setActiveQuizItemId(null);
@@ -862,23 +886,31 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                           >
                             <span className="inline-flex items-start gap-2">
                               {isItemCompleted ? (
-                                <span className={`inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#7054dc] ${isQuizItem ? "" : "mt-1.5"}`}>
+                                <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#7054dc]">
                                   <FaCheck size={8} className="text-white" />
                                 </span>
                               ) : isItemLocked ? (
-                                <FaLock size={10} className="mt-2 text-[#8f95a3]" />
+                                <FaLock size={10} className="mt-1.5 text-[#8f95a3]" />
                               ) : (
                                 <span className="inline-flex h-4 w-4" />
                               )}
-                              {item.hasVideo ? (
-                                <FaPlay size={9} className={`mt-2 ${isItemLocked ? "text-[#8f95a3]" : isSelected ? "text-[#7054dc]" : "text-[#202126]"}`} />
-                              ) : isQuizItem ? (
-                                <span className="mt-2 inline-flex h-3 w-3 items-center justify-center rounded-full border border-current text-[8px] font-bold leading-none">?</span>
+                              {isQuizItem ? (
+                                <PiMedalFill size={14} className={`mt-0.5 shrink-0 ${isItemLocked ? "text-[#8f95a3]" : isSelected ? "text-[#7054dc]" : "text-[#37b66a]"}`} />
+                              ) : item.hasVideo ? (
+                                <FaPlay size={9} className={`mt-1.5 ${isItemLocked ? "text-[#8f95a3]" : isSelected ? "text-[#7054dc]" : "text-[#f39b39]"}`} />
                               ) : (
-                                <FaBookOpen size={10} className={`mt-2 ${isItemLocked ? "text-[#8f95a3]" : isSelected ? "text-[#7054dc]" : "text-[#202126]"}`} />
+                                <FaBookOpen size={10} className={`mt-1.5 ${isItemLocked ? "text-[#8f95a3]" : isSelected ? "text-[#7054dc]" : "text-[#7054dc]"}`} />
                               )}
                               <span>
-                                <span className="block">{item.title}</span>
+                                <span className="block text-xs font-medium leading-tight">
+                                  {isQuizItem ? (
+                                    <>Kuis Reguler - {item.title}</>
+                                  ) : item.hasVideo ? (
+                                    <>Materi Video - {item.title}</>
+                                  ) : (
+                                    <>Materi Teks - {item.title}</>
+                                  )}
+                                </span>
                               </span>
                             </span>
                           </button>
@@ -963,6 +995,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     setIsModuleSidebarOpen(false);
                     setAssessmentType("posttest");
                     setActiveQuizItemId(null);
+                    setWasTimeUp(false);
                     if (isCompleted) {
                       setTestResult(null);
                       setCurrentView("pretest-result");
@@ -974,8 +1007,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                       setIsFinalSummaryView(false);
                       setActiveQuestionIndex(0);
                       setSelectedAnswers({});
-                      setRemainingSeconds(POSTTEST_DURATION_SECONDS);
-                      setTestDurationSeconds(POSTTEST_DURATION_SECONDS);
+                      const duration = getDurationForAssessment(modulDetail, "posttest") ?? 900;
+                      setRemainingSeconds(duration);
+                      setTestDurationSeconds(duration);
                       setTestResult(null);
                       setIsPosttestStarted(false);
                       setIsPosttestFinished(false);
@@ -1120,15 +1154,19 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     <button
                       type="button"
                       onClick={() => {
-                        if (assessmentType === "posttest") {
-                          setIsPosttestStarted(true);
-                          setRemainingSeconds(POSTTEST_DURATION_SECONDS);
-                          setTestDurationSeconds(POSTTEST_DURATION_SECONDS);
-                        } else {
+                        let duration: number;
+                        if (assessmentType === "pretest") {
+                          duration = getDurationForAssessment(modulDetail, "pretest") ?? 900;
                           setIsPretestStarted(true);
-                          setRemainingSeconds(PRETEST_DURATION_SECONDS);
-                          setTestDurationSeconds(PRETEST_DURATION_SECONDS);
+                        } else if (assessmentType === "posttest") {
+                          duration = getDurationForAssessment(modulDetail, "posttest") ?? 900;
+                          setIsPosttestStarted(true);
+                        } else {
+                          duration = getDurationForQuiz(modulDetail, activeQuizItemId) ?? 900;
                         }
+                        setWasTimeUp(false);
+                        setRemainingSeconds(duration);
+                        setTestDurationSeconds(duration);
                         setCurrentView("pretest-quiz");
                       }}
                       className="mx-auto mt-6 inline-flex w-fit min-w-[170px] shrink-0 items-center justify-center rounded-xl bg-[#7054dc] px-5 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
@@ -1238,6 +1276,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
               {/* Test Result */}
               {currentView === "pretest-result" && (
                 <div className="m-auto flex min-h-[580px] w-full max-w-5xl flex-col justify-center rounded-2xl border border-[#e6e4ed] bg-white px-6 py-10 text-center">
+                  {wasTimeUp && (
+                    <div className="mx-auto mb-4 flex w-full max-w-[540px] items-center gap-2 rounded-xl border border-[#e35f5f]/30 bg-[#fff5f5] px-4 py-3 text-sm font-medium text-[#e35f5f]">
+                      <FaRegClock size={16} />
+                      Waktu pengerjaan telah habis, jawaban Anda telah disimpan otomatis
+                    </div>
+                  )}
                   <Image
                     src="/assets/images/materi/selesai.png"
                     alt="Hasil test"
