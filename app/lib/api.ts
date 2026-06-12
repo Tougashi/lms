@@ -1273,6 +1273,12 @@ export const adminProfileApi = {
     get() {
         return apiFetch<AdminProfile>("/admin/profile/profile");
     },
+    update(payload: Partial<AdminProfile> & { password?: string; newPassword?: string }) {
+        return apiFetch<AdminProfile>("/auth/update", {
+            method: "PUT",
+            data: { ...payload, role: "admin" },
+        });
+    },
 };
 
 // ---------------------------------------------------------------------------
