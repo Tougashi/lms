@@ -151,7 +151,11 @@ function createResponseInterceptor(client: typeof apiClient) {
                     await refreshAccessToken();
                     return client(originalRequest);
                 } catch {
-                    // fall through to the original 401 error
+                    // Refresh also failed — session is fully expired.
+                    // Dispatch a custom event so AuthContext can auto-logout.
+                    if (typeof window !== "undefined") {
+                        window.dispatchEvent(new Event("auth:session-expired"));
+                    }
                 }
             }
 

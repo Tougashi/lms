@@ -25,6 +25,7 @@ import {
   siswaStudyRoomApi,
   siswaCertificateApi,
   siswaKuisApi,
+  siswaModulApi,
 } from "../../../lib/api";
 import type {
     SoalItem,
@@ -33,6 +34,7 @@ import type {
     StudyRoomCertificate,
     TestSubmitResult,
     CertificateItem,
+    QuizItem,
 } from "../../../lib/types/siswa";
 import { calculateProgress } from "../../../lib/utils/progress";
 
@@ -124,7 +126,7 @@ function buildSequence(
                     videoUrl: item.videoUrl ?? undefined,
                     konten: item.article ?? undefined,
                 });
-            } else if (item.itemType === "QUIZ") {
+            } else if (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") {
                 seq.push({
                     id: item.id,
                     title: item.judul || "Kuis",
@@ -183,7 +185,7 @@ function buildContentTree(
                     videoUrl: item.videoUrl ?? undefined,
                     konten: item.article ?? undefined,
                 });
-            } else if (item.itemType === "QUIZ") {
+            } else if (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") {
                 items.push({
                     id: item.id,
                     title: item.judul || "Kuis",
@@ -291,8 +293,74 @@ export default function MateriClient({ modulId }: { modulId: string }) {
       setIsLoadingData(true);
       setDataError("");
       try {
-        // Single consolidated call: module metadata, curriculum, questions, progress, certificate
         const res: StudyRoomResponse = await siswaStudyRoomApi.getByModul(modulId);
+
+        // The study-room endpoint does NOT include quiz data in topik.items.
+        // We must fetch it from the module detail endpoint which has topiks → materis → quizzes.
+        try {
+          const detail = await siswaModulApi.getById(modulId);
+          if (detail?.topiks) {
+            // Build a map: topikId → QuizDetail[] (from all materis in that topik)
+            const quizByTopik = new Map<string, any[]>();
+            for (const t of detail.topiks) {
+              const quizzes: any[] = [];
+              if (t.materis) {
+                for (const m of t.materis) {
+                  if (m.quizzes && Array.isArray(m.quizzes)) {
+                    for (const q of m.quizzes) {
+                      quizzes.push(q);
+                    }
+                  }
+                }
+              }
+              
+              // If quizzes are directly on the topik (as created by Guru without materi)
+              const topikQuizzesRaw = (t as any).quizzes;
+              if (topikQuizzesRaw && Array.isArray(topikQuizzesRaw)) {
+                for (const q of topikQuizzesRaw) {
+                  quizzes.push(q);
+                }
+              }
+
+              // Also check topikItems for QUIZ / ARTICLE ordering
+              if (t.topikItems) {
+                for (const ti of t.topikItems) {
+                  if (ti.itemType === "QUIZ" || (ti.itemType as string) === "ARTICLE") {
+                    // topikItems might reference quiz IDs already covered above
+                  }
+                }
+              }
+              if (quizzes.length > 0) {
+                quizByTopik.set(t.id, quizzes);
+              }
+            }
+
+            // Inject quizzes into study-room topik items
+            res.curriculum.topiks.forEach((topik) => {
+              if (!topik.items) topik.items = [];
+              const usedIds = new Set(topik.items.map((i) => i.id));
+              const quizzes = quizByTopik.get(topik.id) || [];
+              for (const q of quizzes) {
+                if (q && q.id && !usedIds.has(q.id)) {
+                  usedIds.add(q.id);
+                  topik.items.push({
+                    id: q.id,
+                    itemType: "QUIZ",
+                    judul: q.question || "Kuis",
+                    question: q.question,
+                    correctAnswer: q.correctAnswer,
+                    quizImgQuestionUrl: q.quizImgQuestionUrl || null,
+                    quizAnswerOptions: q.quizAnswerOptions || [],
+                    timeLimit: q.quizSettings?.[0]?.timeLimit || null,
+                  });
+                }
+              }
+            });
+          }
+        } catch (err) {
+          console.warn("[MateriClient] Could not fetch module detail for quiz enrichment:", err);
+        }
+
         setModulDetail(res);
 
         // Build content tree & sequence from curriculum topiks
@@ -327,25 +395,28 @@ export default function MateriClient({ modulId }: { modulId: string }) {
           console.log("[MateriClient] Progress loaded:", JSON.stringify(prog, null, 2));
           setProgress(prog);
 
-          if (prog.pretestScore != null) {
-            setIsPretestFinished(true);
+          // Restore completed Map REGARDLESS of pretestScore
+          const completedMap: Record<string, boolean> = {};
+          const completedIds = prog.completedContentItems ?? [];
+          completedIds.forEach((sid) => { completedMap[sid] = true; });
+
+          if (prog.pretestScore != null) completedMap["pretest"] = true;
+          if (prog.posttestScore != null) completedMap["posttest"] = true;
+          
+          setCompletedContentItemMap(completedMap);
+
+          // If pretest is finished OR if there is NO pretest, show materi
+          const hasPretest = !!res.curriculum.pretest;
+          if (!hasPretest || prog.pretestScore != null) {
+            if (hasPretest) setIsPretestFinished(true);
             setIsMaterialMode(true);
             setCurrentView("materi");
-
-            const completedMap: Record<string, boolean> = {};
-            const completedIds = prog.completedContentItems ?? [];
-            completedIds.forEach((sid) => { completedMap[sid] = true; });
-
-            if (prog.pretestScore != null) completedMap["pretest"] = true;
-            if (prog.posttestScore != null) completedMap["posttest"] = true;
 
             const firstUncompletedIdx = seq.findIndex(
               (item) => !completedMap[item.id] && item.type !== "summary" && item.type !== "rangkuman-akhir",
             );
             const startIdx = firstUncompletedIdx >= 0 ? firstUncompletedIdx : 0;
             setCurrentSeqIndex(startIdx);
-
-            setCompletedContentItemMap(completedMap);
           }
         }
 
@@ -407,8 +478,28 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isModuleSidebarOpen]);
 
-  // ─── Derived values ───────────────────────────────────────────────────────
-  const currentSoal = assessmentType === "posttest" ? posttestSoal : pretestSoal;
+  const kuisSoal = useMemo(() => {
+    if (assessmentType !== "kuis" || !activeQuizItemId || !modulDetail) return [];
+    for (const topik of modulDetail.curriculum.topiks) {
+      const item = topik.items.find(i => i.id === activeQuizItemId);
+      if (item && (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") && item.question) {
+        return [{
+          id: item.id,
+          pertanyaan: item.question,
+          pilihan_a: item.quizAnswerOptions?.[0]?.option || "A",
+          pilihan_b: item.quizAnswerOptions?.[1]?.option || "B",
+          pilihan_c: item.quizAnswerOptions?.[2]?.option || "C",
+          pilihan_d: item.quizAnswerOptions?.[3]?.option || "D",
+          kunci_jawaban: item.correctAnswer,
+          gambar_url: item.quizImgQuestionUrl || null,
+          knowledgeComponentId: undefined
+        }] as SoalItem[];
+      }
+    }
+    return [];
+  }, [assessmentType, activeQuizItemId, modulDetail]);
+
+  const currentSoal = assessmentType === "posttest" ? posttestSoal : assessmentType === "kuis" ? kuisSoal : pretestSoal;
   const activeQuestion = currentSoal[activeQuestionIndex];
   const answeredCount = Object.keys(selectedAnswers).length;
   const elapsedSeconds = testDurationSeconds - remainingSeconds;
@@ -1148,7 +1239,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                       ? "Kerjakan kuis untuk menguji pemahaman materi yang sudah dipelajari"
                       : "Kerjakan post-test untuk menguji pemahaman setelah menyelesaikan semua materi"}
                   </p>
-                  {(assessmentType === "pretest" ? pretestSoal : posttestSoal).length === 0 ? (
+                  {currentSoal.length === 0 ? (
                     <p className="mx-auto mt-6 text-sm text-[#8a8a96]">Soal belum tersedia saat ini.</p>
                   ) : (
                     <button

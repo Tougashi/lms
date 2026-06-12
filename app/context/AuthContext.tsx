@@ -70,6 +70,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, isLoading, pathname, router]);
 
+  // ── Auto-logout on session expiry (token + refresh both expired) ──────
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      localStorage.removeItem('user');
+      localStorage.removeItem('role');
+      setUser(null);
+      setRole(null);
+      router.replace('/login');
+    };
+
+    window.addEventListener('auth:session-expired', handleSessionExpired);
+    return () => {
+      window.removeEventListener('auth:session-expired', handleSessionExpired);
+    };
+  }, [router]);
+
   // ── Login ─────────────────────────────────────────────────────────────
   const login = useCallback(
     async (email: string, password: string) => {

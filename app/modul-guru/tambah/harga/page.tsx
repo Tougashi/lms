@@ -22,7 +22,7 @@ function TambahModulHargaPageContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const { toast, confirm } = usePopup();
+  const { toast, confirm, showLoading, hideLoading } = usePopup();
   const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clear any pending navigation timer on unmount
@@ -69,6 +69,7 @@ function TambahModulHargaPageContent() {
     setIsSaving(true);
     setError('');
     setSuccessMsg('');
+    showLoading('Menyimpan harga modul...');
 
     try {
       const priceValue = isPaid ? Number(modulPrice.replace(/\./g, '')) : null;
@@ -84,6 +85,7 @@ function TambahModulHargaPageContent() {
       console.error('Save price error:', err);
       setError(err instanceof Error ? err.message : 'Gagal menyimpan harga modul.');
     } finally {
+      hideLoading();
       setIsSaving(false);
     }
   }, [modulId, isPaid, modulPrice, router]);
@@ -92,12 +94,15 @@ function TambahModulHargaPageContent() {
     if (!modulId) return;
     const ok = await confirm({ message: 'Apakah Anda yakin ingin menerbitkan modul ini?', confirmText: 'Terbitkan' });
     if (!ok) return;
+    showLoading('Menerbitkan modul...');
     try {
       await guruModulApi.update(modulId, { isDraft: false });
       router.push('/modul-guru?tab=published');
     } catch (err: unknown) {
       console.error('Publish error:', err);
       toast(err instanceof Error ? err.message : 'Gagal menerbitkan modul.', 'error');
+    } finally {
+      hideLoading();
     }
   }, [modulId, router]);
 

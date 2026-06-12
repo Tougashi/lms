@@ -28,6 +28,7 @@ import type { GuruModuleUpdatePayload } from "../../../lib/types/guru";
 import { AxiosError } from "axios";
 
 import { useAuth } from "../../../context/AuthContext";
+import { usePopup } from "../../../component/ui/PopupProvider";
 
 const inputClassName =
     "mt-2 h-[40px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[13px] text-[#232530] outline-none focus:border-[#7054dc]";
@@ -49,6 +50,7 @@ function TambahModulProfilPageContent() {
     const [coverUploading, setCoverUploading] = useState(false);
     const coverObjectUrlRef = useRef<string | null>(null);
     const { user } = useAuth();
+    const { showLoading, hideLoading, toast } = usePopup();
 
     const [isLoading, setIsLoading] = useState(!!modulId);
     const [isSaving, setIsSaving] = useState(false);
@@ -152,6 +154,7 @@ function TambahModulProfilPageContent() {
         setIsSaving(true);
         setError("");
         setSuccessMsg("");
+        showLoading("Menyimpan profil modul...");
 
         try {
             const payload = {
@@ -195,6 +198,7 @@ function TambahModulProfilPageContent() {
                 err instanceof Error ? err.message : "Gagal menyimpan modul.",
             );
         } finally {
+            hideLoading();
             setIsSaving(false);
         }
     };
@@ -507,6 +511,7 @@ function TambahModulProfilPageContent() {
                                             coverObjectUrlRef.current = localUrl;
                                             setCoverPreview(localUrl);
                                             setCoverUploading(true);
+                                            showLoading("Mengunggah cover modul...");
                                             try {
                                                 const res =
                                                     await uploadApi.upload(
@@ -519,7 +524,9 @@ function TambahModulProfilPageContent() {
                                                 coverObjectUrlRef.current = null;
                                             } catch {
                                                 // preview lokal tetap dipakai
+                                                toast("Gagal mengunggah gambar", "error");
                                             } finally {
+                                                hideLoading();
                                                 setCoverUploading(false);
                                             }
                                         }}

@@ -22,7 +22,7 @@ function ModulGuruPageContent() {
     const [searchQuery, setSearchQuery] = useState("");
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
-    const { toast, confirm } = usePopup();
+    const { toast, confirm, showLoading, hideLoading } = usePopup();
 
     const isDraftTab = tabParam === "draft";
 
@@ -86,6 +86,7 @@ function ModulGuruPageContent() {
         });
         if (!ok) return;
         setDeletingId(modulId);
+        showLoading("Menghapus modul...");
         try {
             await guruModulApi.delete(modulId);
             setOpenMenuId(null);
@@ -94,6 +95,7 @@ function ModulGuruPageContent() {
             console.error("Delete module error:", err);
             toast("Gagal menghapus modul.", "error");
         } finally {
+            hideLoading();
             setDeletingId(null);
         }
     };

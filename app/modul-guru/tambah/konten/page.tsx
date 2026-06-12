@@ -397,8 +397,9 @@ function TambahModulKontenPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const modulId = searchParams.get("modulId");
-  const { toast, confirm } = usePopup();
+  const { toast, confirm, showLoading, hideLoading } = usePopup();
 
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isTopicAdded, setIsTopicAdded] = useState(false);
   const [topicTitle, setTopicTitle] = useState("");
@@ -581,6 +582,8 @@ function TambahModulKontenPageContent() {
         }
       } catch (err) {
         console.error("Load content error:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadContent();
@@ -699,6 +702,7 @@ function TambahModulKontenPageContent() {
     const apiId = materialApiIds[materialId];
     if (apiId) {
       setIsDeletingMaterial(materialId);
+      showLoading("Menghapus materi...");
       try {
         await guruMateriApi.delete(apiId);
         setMaterialApiIds((prev) => {
@@ -709,9 +713,11 @@ function TambahModulKontenPageContent() {
       } catch (err) {
         console.error("Delete material error:", err);
         toast("Gagal menghapus materi.", "error");
+        hideLoading();
         setIsDeletingMaterial(null);
         return;
       } finally {
+        hideLoading();
         setIsDeletingMaterial(null);
       }
     }
@@ -774,6 +780,7 @@ function TambahModulKontenPageContent() {
     const isVideo = newMaterialType === "video";
 
     // Create in API first
+    showLoading("Menambahkan materi...");
     try {
       const created = await guruMateriApi.create({
         topik_id: topicId,
@@ -786,7 +793,10 @@ function TambahModulKontenPageContent() {
     } catch (err) {
       console.error("Create material error:", err);
       toast("Gagal membuat materi. Pastikan topik sudah tersimpan.", "error");
+      hideLoading();
       return;
+    } finally {
+      hideLoading();
     }
 
     setMaterials((prev) => [
@@ -824,6 +834,7 @@ function TambahModulKontenPageContent() {
     const apiId = materialApiIds[materialId];
     if (material && apiId) {
       setIsSavingMaterial(materialId);
+      showLoading("Menyimpan materi...");
       try {
         await guruMateriApi.update(apiId, {
           is_video: material.type === "video",
@@ -838,9 +849,11 @@ function TambahModulKontenPageContent() {
       } catch (err) {
         console.error("Save material error:", err);
         toast("Gagal menyimpan materi.", "error");
+        hideLoading();
         setIsSavingMaterial(null);
         return;
       } finally {
+        hideLoading();
         setIsSavingMaterial(null);
       }
     }
@@ -985,6 +998,7 @@ function TambahModulKontenPageContent() {
 
     // Create quiz in API
     setIsSavingQuiz(true);
+    showLoading("Membuat kuis...");
     try {
       const created = await guruKuisApi.create({
         quiz: {
@@ -1007,9 +1021,11 @@ function TambahModulKontenPageContent() {
     } catch (err) {
       console.error("Create quiz error:", err);
       toast("Gagal membuat kuis.", "error");
+      hideLoading();
       setIsSavingQuiz(false);
       return;
     } finally {
+      hideLoading();
       setIsSavingQuiz(false);
     }
 
@@ -1235,14 +1251,17 @@ function TambahModulKontenPageContent() {
       s.subQuestions.map((sq) => subQuizApiIds[sq.id]).filter(Boolean),
     ) ?? [];
 
+    showLoading("Menghapus kuis...");
     try {
       if (apiId) await guruKuisApi.delete(apiId);
       for (const sid of subIds) await guruKuisApi.delete(sid);
     } catch (err) {
       console.error("Delete quiz error:", err);
       toast("Gagal menghapus kuis.", "error");
+      hideLoading();
       return;
     }
+    hideLoading();
     setQuizApiIds((prev) => {
       const next = { ...prev };
       delete next[quizId];
@@ -1355,6 +1374,7 @@ function TambahModulKontenPageContent() {
     }
 
     setIsSavingQuiz(true);
+    showLoading("Menyimpan kuis...");
     try {
       if (quiz.ctMode) {
         let firstSaved = false;
@@ -1475,6 +1495,7 @@ function TambahModulKontenPageContent() {
       console.error("Submit quiz error:", err);
       toast("Gagal menyimpan kuis.", "error");
     } finally {
+      hideLoading();
       setIsSavingQuiz(false);
     }
   };
@@ -1488,6 +1509,7 @@ function TambahModulKontenPageContent() {
     }
     setIsCreatingTopic(true);
     setTopicError("");
+    showLoading("Membuat topik...");
     try {
       const created = await guruTopikApi.create({
         modul_id: modulId,
@@ -1505,6 +1527,7 @@ function TambahModulKontenPageContent() {
         err instanceof Error ? err.message : "Gagal membuat topik.",
       );
     } finally {
+      hideLoading();
       setIsCreatingTopic(false);
     }
   }, [topicTitle, modulId]);
@@ -1512,6 +1535,7 @@ function TambahModulKontenPageContent() {
   // Edit topic via API
   const handleSaveEditTopic = useCallback(async () => {
     if (!topicId || editTopicTitle.trim().length === 0) return;
+    showLoading("Menyimpan perubahan topik...");
     try {
       await guruTopikApi.update(topicId, { nama: editTopicTitle.trim() });
       setTopicTitle(editTopicTitle.trim());
@@ -1527,6 +1551,8 @@ function TambahModulKontenPageContent() {
         err instanceof Error ? err.message : "Gagal memperbarui topik.",
         "error",
       );
+    } finally {
+      hideLoading();
     }
   }, [topicId, editTopicTitle]);
 
@@ -1540,6 +1566,7 @@ function TambahModulKontenPageContent() {
       confirmText: "Hapus",
     });
     if (!ok) return;
+    showLoading("Menghapus topik...");
     try {
       await guruTopikApi.delete(targetId);
       setTopicTitle("");
@@ -1555,6 +1582,8 @@ function TambahModulKontenPageContent() {
         err instanceof Error ? err.message : "Gagal menghapus topik.",
         "error",
       );
+    } finally {
+      hideLoading();
     }
   }, [topicId]);
 
@@ -1566,6 +1595,7 @@ function TambahModulKontenPageContent() {
       confirmText: "Terbitkan",
     });
     if (!ok2) return;
+    showLoading("Menerbitkan modul...");
     try {
       await guruModulApi.update(modulId, { isDraft: false });
       router.push("/modul-guru?tab=published");
@@ -1575,22 +1605,22 @@ function TambahModulKontenPageContent() {
         err instanceof Error ? err.message : "Gagal menerbitkan modul.",
         "error",
       );
+    } finally {
+      hideLoading();
     }
   }, [modulId, router]);
 
-  if (!isAuthorized) {
+  if (!isAuthorized || isLoading) {
     return (
-      <Suspense
-        fallback={
-          <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
-            <div className="flex items-center justify-center py-20">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent" />
-            </div>
+      <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
+        <GuruHeader />
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
+            <p className="text-sm text-[#8a8d98]">{isLoading ? 'Memuat data konten...' : 'Memeriksa otorisasi...'}</p>
           </div>
-        }
-      >
-        <TambahModulKontenPageContent />
-      </Suspense>
+        </div>
+      </div>
     );
   }
 
@@ -2598,40 +2628,6 @@ function TambahModulKontenPageContent() {
 
                         {quiz.isExpanded && (
                           <div className="mt-4">
-                            {isTopicCT ? (
-                              <div className="mb-4 inline-flex items-center gap-1.5 rounded-lg bg-[#f1ecff] px-3 py-1.5 text-[12px] font-semibold text-[#7054dc]">
-                                Computational Thinking
-                              </div>
-                            ) : (
-                              <div className="mb-4 flex items-center gap-1 rounded-lg border border-[#e5e3ee] bg-white p-1">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleToggleCTMode(quiz.id, false)
-                                  }
-                                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                                    !quiz.ctMode
-                                      ? "bg-[#7054dc] text-white"
-                                      : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
-                                  }`}
-                                >
-                                  Reguler
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleToggleCTMode(quiz.id, true)
-                                  }
-                                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                                    quiz.ctMode
-                                      ? "bg-[#7054dc] text-white"
-                                      : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
-                                  }`}
-                                >
-                                  Computational Thinking
-                                </button>
-                              </div>
-                            )}
 
                             {quiz.ctMode ? (
                               <>
