@@ -189,22 +189,25 @@ export default function ManajemenModulPage() {
       <AdminHeader />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
 
-          <div className="mt-3 grid gap-4 xl:grid-cols-[1fr_420px] xl:items-start">
-            <div className="flex items-center gap-2 px-2 pt-1 xl:pt-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab('modul')}
-                className={`rounded-full px-7 py-2 text-sm font-semibold transition-colors ${activeTab === 'modul' ? 'bg-[#7054dc] text-white' : 'bg-[#ece7ff] text-[#7054dc]'}`}
-              >
-                Modul
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('kuis')}
-                className={`rounded-full px-7 py-2 text-sm font-semibold transition-colors ${activeTab === 'kuis' ? 'bg-[#7054dc] text-white' : 'bg-[#ece7ff] text-[#7054dc]'}`}
-              >
-                Kuis
-              </button>
+          <div className="mt-3 flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="px-2">
+              <h1 className="mb-4 text-4xl font-bold text-[#7054dc]">Manajemen Modul</h1>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('modul')}
+                  className={`rounded-full px-14 py-3.5 text-lg font-semibold transition-colors ${activeTab === 'modul' ? 'bg-[#7054dc] text-white shadow-md' : 'bg-[#ece7ff] text-[#7054dc] hover:bg-[#e2d8ff]'}`}
+                >
+                  Modul
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('kuis')}
+                  className={`rounded-full px-14 py-3.5 text-lg font-semibold transition-colors ${activeTab === 'kuis' ? 'bg-[#7054dc] text-white shadow-md' : 'bg-[#ece7ff] text-[#7054dc] hover:bg-[#e2d8ff]'}`}
+                >
+                  Kuis
+                </button>
+              </div>
             </div>
 
             <div className="grid w-full max-w-[420px] shrink-0 gap-3 sm:grid-cols-2 xl:ml-auto">
