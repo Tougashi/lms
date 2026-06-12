@@ -70,7 +70,7 @@ export default function TentangKamiPage() {
                 </section>
 
                 <footer className="w-full bg-[#2f2941] py-6 text-center text-sm font-medium text-white/80">
-                    Copyright NAMA WEB 2026
+                    Copyright DigiClass 2026
                 </footer>
             </main>
         </div>

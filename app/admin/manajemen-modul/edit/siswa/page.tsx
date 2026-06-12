@@ -19,7 +19,7 @@ import type { AdminModulSiswaItem, AdminSiswaItem } from '../../../../lib/types/
 /* ─── action menu ─── */
 function ActionMenu({ onKeluarkan }: { onKeluarkan: () => void }) {
   return (
-    <div className="absolute right-0 top-7 z-30 w-[140px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
+    <div className="absolute right-full mr-2 top-0 z-30 w-[140px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
       <button onClick={onKeluarkan} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] text-[#7054dc] hover:bg-[#f7f6ff]">
         <FiUsers size={12} /> Keluarkan
       </button>

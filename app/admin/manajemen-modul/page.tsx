@@ -352,7 +352,7 @@ export default function ManajemenModulPage() {
                                 <MdMoreVert size={18} />
                               </button>
                               {openActionMenuId === row.id && (
-                                <div className="absolute right-0 top-9 z-30 w-[168px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
+                                <div className="absolute right-full mr-2 top-0 z-30 w-[168px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
                                   <Link
                                     href={`/admin/manajemen-modul/edit?id=${row.id}`}
                                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
@@ -408,7 +408,7 @@ export default function ManajemenModulPage() {
                                 <MdMoreVert size={18} />
                               </button>
                               {openActionMenuId === row.id && (
-                                <div className="absolute right-0 top-9 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
+                                <div className="absolute right-full mr-2 top-0 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
                                   <Link
                                     href={`/admin/manajemen-modul/edit?id=${row.id}`}
                                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"

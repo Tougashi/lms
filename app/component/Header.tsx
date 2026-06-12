@@ -75,13 +75,12 @@ export default function Header() {
   return (
     <>
       <header
-        className={`fixed top-0 z-50 w-full bg-[#FFFFFF] shadow-md shadow-[#1f1f2e1a] shadow-[inset_0_-1px_0_#dcdbe4] transition-transform duration-300 ${
-          isVisible ? "translate-y-0" : "-translate-y-full"
-        }`}
+        className={`fixed top-0 z-50 w-full bg-[#FFFFFF] shadow-md shadow-[#1f1f2e1a] shadow-[inset_0_-1px_0_#dcdbe4] transition-transform duration-300 ${isVisible ? "translate-y-0" : "-translate-y-full"
+          }`}
       >
         <div className="relative mx-auto flex min-h-[80px] w-full max-w-[1360px] items-center justify-between px-4 py-3 md:px-7 md:py-0">
           <Link href="/" className="whitespace-nowrap text-xl font-bold tracking-wide text-[#202126] md:text-2xl">
-            NAMA WEB
+            DigiClass
           </Link>
 
           <nav
@@ -92,9 +91,8 @@ export default function Header() {
               <Link
                 key={item.label}
                 href={item.href}
-                className={`text-sm font-medium transition-colors ${
-                  isActiveMenu(item.href) ? "text-[#7054dc]" : "text-[#21212b] hover:text-[#7054dc]"
-                }`}
+                className={`text-sm font-medium transition-colors ${isActiveMenu(item.href) ? "text-[#7054dc]" : "text-[#21212b] hover:text-[#7054dc]"
+                  }`}
               >
                 {item.label}
               </Link>
@@ -134,16 +132,14 @@ export default function Header() {
       </header>
 
       <div
-        className={`fixed inset-0 z-[60] bg-[#12141d]/45 transition-opacity duration-300 lg:hidden ${
-          isSidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        className={`fixed inset-0 z-[60] bg-[#12141d]/45 transition-opacity duration-300 lg:hidden ${isSidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          }`}
         onClick={() => setIsSidebarOpen(false)}
       />
 
       <aside
-        className={`fixed right-0 top-0 z-[70] h-full w-[86vw] max-w-[360px] border-l border-[#e8e5f2] bg-white p-5 shadow-2xl transition-transform duration-300 lg:hidden ${
-          isSidebarOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed right-0 top-0 z-[70] h-full w-[86vw] max-w-[360px] border-l border-[#e8e5f2] bg-white p-5 shadow-2xl transition-transform duration-300 lg:hidden ${isSidebarOpen ? "translate-x-0" : "translate-x-full"
+          }`}
         aria-label="Sidebar navigasi"
       >
         <div className="mb-6 flex items-center justify-between">
@@ -164,11 +160,10 @@ export default function Header() {
               key={item.label}
               href={item.href}
               onClick={() => setIsSidebarOpen(false)}
-              className={`block rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
-                item.href !== "#" && pathname === item.href
+              className={`block rounded-xl px-3 py-3 text-sm font-medium transition-colors ${item.href !== "#" && pathname === item.href
                   ? "bg-[#f1ecff] text-[#7054dc]"
                   : "text-[#21212b] hover:bg-[#f7f6ff] hover:text-[#7054dc]"
-              }`}
+                }`}
             >
               {item.label}
             </Link>

@@ -139,7 +139,7 @@ export default function SiswaHeader() {
                     href="/beranda-siswa"
                     className="text-xl font-bold text-[#21212b]"
                 >
-                    NAMA WEB
+                    DigiClass
                 </Link>
 
                 <nav className="hidden flex-1 justify-center gap-16 sm:flex">
@@ -256,9 +256,9 @@ export default function SiswaHeader() {
                                                 </p>
                                                 {index !==
                                                     notifications.length -
-                                                        1 && (
-                                                    <div className="mt-3 border-t border-[#eceaf4]" />
-                                                )}
+                                                    1 && (
+                                                        <div className="mt-3 border-t border-[#eceaf4]" />
+                                                    )}
                                             </div>
                                         ))
                                     ) : (

@@ -50,7 +50,7 @@ export default function AdminHeader() {
         .then((res) => {
           if (res.profileImg) setAdminProfileImg(res.profileImg);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [user]);
 
@@ -148,7 +148,7 @@ export default function AdminHeader() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Logo */}
         <Link href="/admin/dashboard" className="text-xl font-bold text-[#21212b]">
-          NAMA WEB
+          DigiClass
         </Link>
 
         {/* Desktop Nav */}
@@ -159,11 +159,10 @@ export default function AdminHeader() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-[#f0ecff] hover:text-[#7054dc] ${
-                  item.active
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-[#f0ecff] hover:text-[#7054dc] ${item.active
                     ? 'bg-[#f0ecff] text-[#7054dc]'
                     : 'text-[#21212b]'
-                }`}
+                  }`}
               >
                 <Icon size={14} />
                 {item.label}
@@ -250,11 +249,11 @@ export default function AdminHeader() {
               aria-label="Buka menu profil"
             >
               {adminProfileImg ? (
-                <Image 
-                  src={adminProfileImg} 
-                  alt="Profile" 
-                  width={28} 
-                  height={28} 
+                <Image
+                  src={adminProfileImg}
+                  alt="Profile"
+                  width={28}
+                  height={28}
                   className="rounded-full object-cover w-[28px] h-[28px]"
                 />
               ) : (
@@ -342,11 +341,10 @@ export default function AdminHeader() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 font-medium transition-colors ${
-                    item.active
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2.5 font-medium transition-colors ${item.active
                       ? 'bg-[#f0ecff] text-[#7054dc]'
                       : 'text-[#21212b] hover:bg-[#f7f6ff]'
-                  }`}
+                    }`}
                 >
                   <Icon size={15} />
                   {item.label}

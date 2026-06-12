@@ -136,7 +136,7 @@ export default function GuruHeader() {
                     href="/beranda-guru"
                     className="text-xl font-bold text-[#21212b]"
                 >
-                    NAMA WEB
+                    DigiClass
                 </Link>
 
                 <nav className="hidden gap-10 sm:flex">
@@ -228,9 +228,9 @@ export default function GuruHeader() {
                                                 </p>
                                                 {index !==
                                                     notifications.length -
-                                                        1 && (
-                                                    <div className="mt-3 border-t border-[#eceaf4]" />
-                                                )}
+                                                    1 && (
+                                                        <div className="mt-3 border-t border-[#eceaf4]" />
+                                                    )}
                                             </div>
                                         ))
                                     ) : (

@@ -967,10 +967,12 @@ export const guruKuisApi = {
 // Upload endpoint
 // ---------------------------------------------------------------------------
 // NOTE: We call /api/upload (Next.js route handler) instead of going through
-// the /api-backend rewrite because Next.js rewrites strip multipart bodies,
-// causing 500s. The route handler at app/api/upload/route.ts proxies
-// the raw FormData directly to the backend with no size limits.
 // ---------------------------------------------------------------------------
+// Karena Next.js rewrites merusak multipart/form-data dan API route (/api/upload)
+// memiliki limit body 4MB bawaan Vercel/Next.js, kita langsung fetch ke backend.
+// ---------------------------------------------------------------------------
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://lms-express-api-o5uk.vercel.app/api/v1";
 
 export const uploadApi = {
     async upload(file: File, fileType?: string): Promise<UploadResponse> {
@@ -980,7 +982,7 @@ export const uploadApi = {
         formData.append("type", type);
         formData.append("fileType", type);
 
-        const res = await fetch("/api/upload", {
+        const res = await fetch(`${BACKEND_URL}/upload`, {
             method: "POST",
             body: formData,
             credentials: "include",
@@ -1159,20 +1161,33 @@ export const adminModulApi = {
 
 export const adminTopikApi = {
     getByModul(modulId: string) {
-        return apiFetch<AdminTopikItem[]>(`/admin/topik/${modulId}`);
+        return apiFetch<any[]>(`/admin/topik/${modulId}`).then((items) =>
+            items.map((item) => ({
+                ...item,
+                name: item.nama || item.name,
+                modulId: item.modul_id || item.modulId,
+            }))
+        );
     },
 
     create(payload: AdminTopikCreatePayload) {
         return apiFetch<AdminTopikItem>("/admin/topik", {
             method: "POST",
-            data: payload,
+            data: {
+                ...payload,
+                nama: payload.name,
+                modul_id: payload.modulId,
+            },
         });
     },
 
     update(id: string, payload: AdminTopikUpdatePayload) {
         return apiFetch<AdminTopikItem>(`/admin/topik/${id}`, {
             method: "PUT",
-            data: payload,
+            data: {
+                ...payload,
+                nama: payload.name,
+            },
         });
     },
 
@@ -1189,20 +1204,40 @@ export const adminTopikApi = {
 
 export const adminMateriApi = {
     getByModul(modulId: string) {
-        return apiFetch<AdminMateriItem[]>(`/admin/materi/${modulId}`);
+        return apiFetch<any[]>(`/admin/materi/${modulId}`).then((items) =>
+            items.map((item) => ({
+                ...item,
+                title: item.judul || item.title,
+                topikId: item.topik_id || item.topikId,
+                modulId: item.modul_id || item.modulId,
+            }))
+        );
     },
 
     create(payload: AdminMateriCreatePayload) {
         return apiFetch<AdminMateriItem>("/admin/materi", {
             method: "POST",
-            data: payload,
+            data: {
+                ...payload,
+                judul: payload.title,
+                topik_id: payload.topikId,
+                is_video: payload.isVideo ?? false,
+                video_url: payload.videoUrl,
+                article: payload.article,
+            },
         });
     },
 
     update(id: string, payload: AdminMateriUpdatePayload) {
         return apiFetch<AdminMateriItem>(`/admin/materi/${id}`, {
             method: "PUT",
-            data: payload,
+            data: {
+                ...payload,
+                judul: payload.title,
+                is_video: payload.isVideo,
+                video_url: payload.videoUrl,
+                article: payload.article,
+            },
         });
     },
 

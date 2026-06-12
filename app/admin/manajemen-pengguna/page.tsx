@@ -488,7 +488,7 @@ export default function ManajemenPenggunaPage() {
                                     <MdMoreVert size={18} />
                                   </button>
                                   {openActionMenuId === row.id && (
-                                    <div className="absolute right-0 top-9 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
+                                    <div className="absolute right-full mr-2 top-0 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
                                       <Link
                                         href={activeTab === 'guru' ? `/admin/manajemen-pengguna/edit-guru?id=${row.id}` : activeTab === 'siswa' ? `/admin/manajemen-pengguna/edit-siswa?id=${row.id}` : `/admin/manajemen-pengguna/edit-admin?id=${row.id}`}
                                         className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]"
