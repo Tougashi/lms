@@ -450,6 +450,10 @@ export const siswaCertificateApi = {
         return apiFetch<CertificateItem>(`/siswa/certificates/${id}`);
     },
 
+    getByModul(modulId: string) {
+        return apiFetch<StudyRoomCertificate>(`/siswa/certificates/modul/${modulId}`);
+    },
+
     claim(modulId: string) {
         return apiFetch<StudyRoomCertificate>("/siswa/certificates/claim", {
             method: "POST",
