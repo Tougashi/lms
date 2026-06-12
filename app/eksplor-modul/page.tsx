@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FaBookOpen, FaLock, FaSearch } from "react-icons/fa";
 import SiswaHeader from "../component/siswa/SiswaHeader";
@@ -61,7 +61,7 @@ function getJenjangKelas(item: ModuleItem): string {
     return jenjang || kelas || "";
 }
 
-export default function EksplorModulPage() {
+function EksplorModulContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
@@ -410,5 +410,13 @@ export default function EksplorModulPage() {
                 )}
             </main>
         </div>
+    );
+}
+
+export default function EksplorModulPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#fafafa]" />}>
+            <EksplorModulContent />
+        </Suspense>
     );
 }
