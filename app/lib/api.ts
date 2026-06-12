@@ -95,6 +95,9 @@ import type {
     AdminCTAnalysis,
     AdminCTAnalysisData,
     AdminProfile,
+    AdminUserItem,
+    AdminUserCreatePayload,
+    AdminUserUpdatePayload,
 } from "./types/admin";
 
 const API_BASE =
@@ -1234,6 +1237,54 @@ export const adminTutorApi = {
 
     deactivate(id: string) {
         return apiFetch<AdminTutorItem>(`/admin/tutor/${id}/deactivate`, {
+            method: "PATCH",
+        });
+    },
+
+    activate(id: string) {
+        return apiFetch<AdminTutorItem>(`/admin/tutor/${id}/activate`, {
+            method: "PATCH",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Admin Users endpoints
+// ---------------------------------------------------------------------------
+
+export const adminUserApi = {
+    getAll() {
+        return apiFetch<AdminUserItem[]>("/admin/pengelola");
+    },
+
+    create(payload: AdminUserCreatePayload) {
+        return apiFetch<{ message: string; user: AdminUserItem }>("/admin/pengelola", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: AdminUserUpdatePayload) {
+        return apiFetch<AdminUserItem>(`/admin/pengelola/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/admin/pengelola/${id}`, {
+            method: "DELETE",
+        });
+    },
+
+    deactivate(id: string) {
+        return apiFetch<AdminUserItem>(`/admin/pengelola/${id}/deactivate`, {
+            method: "PATCH",
+        });
+    },
+
+    activate(id: string) {
+        return apiFetch<AdminUserItem>(`/admin/pengelola/${id}/activate`, {
             method: "PATCH",
         });
     },
