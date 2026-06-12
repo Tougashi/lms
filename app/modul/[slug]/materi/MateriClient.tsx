@@ -25,7 +25,6 @@ import {
   siswaStudyRoomApi,
   siswaCertificateApi,
   siswaKuisApi,
-  siswaModulApi,
 } from "../../../lib/api";
 import type {
     SoalItem,
@@ -34,9 +33,9 @@ import type {
     StudyRoomCertificate,
     TestSubmitResult,
 } from "../../../lib/types/siswa";
+import { ApiError } from "../../../lib/types/umum";
 import { calculateProgress } from "../../../lib/utils/progress";
 import { useAuth } from "../../../context/AuthContext";
-import CertificateView from "./CertificateView";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -79,8 +78,7 @@ type SequenceItemType =
     | "summary"
     | "rangkuman-akhir"
     | "posttest"
-    | "rating"
-    | "certificate";
+    | "rating";
 
 type SequenceItem = {
     id: string;
@@ -160,9 +158,6 @@ function buildSequence(
     }
 
     seq.push({ id: "rating", title: "Beri Penilaian", type: "rating" });
-    if (modul.hasCertificate) {
-        seq.push({ id: "certificate", title: "Lihat Sertifikat", type: "certificate" });
-    }
 
     return seq;
 }
@@ -238,8 +233,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   const [posttestSoal, setPosttestSoal] = useState<SoalItem[]>([]);
   const [progress, setProgress] = useState<StudyRoomProgress | null>(null);
   const [certificate, setCertificate] = useState<StudyRoomCertificate | null>(null);
-  const [tutorName, setTutorName] = useState<string>("Tim Pengajar");
-  const [isClaimingCertificate, setIsClaimingCertificate] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dataError, setDataError] = useState("");
 
@@ -247,7 +240,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   const [assessmentType, setAssessmentType] = useState<"pretest" | "kuis" | "posttest">("pretest");
   const [activeQuizItemId, setActiveQuizItemId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<
-    "pretest-intro" | "pretest-quiz" | "pretest-result" | "materi" | "rating" | "certificate"
+    "pretest-intro" | "pretest-quiz" | "pretest-result" | "materi" | "rating"
   >("pretest-intro");
 
   const [isPretestStarted, setIsPretestStarted] = useState(false);
@@ -275,6 +268,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   const [isRatingSubmitted, setIsRatingSubmitted] = useState(false);
   const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
   const [wasTimeUp, setWasTimeUp] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
+  const [isClaiming, setIsClaiming] = useState(false);
+
+  useEffect(() => {
+    if (!toastMsg) return;
+    const t = setTimeout(() => setToastMsg(""), 3000);
+    return () => clearTimeout(t);
+  }, [toastMsg]);
 
   useEffect(() => {
     if (modulId && progress?.siswaId) {
@@ -358,15 +359,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
           setCertificate(res.certificate);
         }
 
-        // Fetch tutor name from modul detail
-        try {
-          const modulInfo = await siswaModulApi.getById(modulId);
-          if (modulInfo && (modulInfo as any).tutor?.fullName) {
-            setTutorName((modulInfo as any).tutor.fullName);
-          }
-        } catch {
-          // non-critical, fallback to default
-        }
       } catch (err: unknown) {
         console.error("MateriClient load error:", err);
         setDataError(err instanceof Error ? err.message : "Gagal memuat materi");
@@ -437,7 +429,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   const isPosttestActive = isAssessmentView && assessmentType === "posttest";
   const isFinalSummaryActive = currentView === "materi" && isFinalSummaryView;
   const isRatingView = currentView === "rating";
-  const isCertificateView = currentView === "certificate";
 
   const summaryHighlightText = currentSeqItem?.type === "summary"
     ? "Rangkuman ini merangkum poin-poin penting dari topik yang telah dipelajari."
@@ -476,14 +467,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   );
   const progressPercent = calculateProgress(sequence, completedContentItemMap, progress?.status, progress?.isGraduated);
 
-  // ─── Certificate eligibility ──────────────────────────────────────────
-  // Certificate requires 100% progress AND hasCertificate flag on the modul
-  const isEligibleForCertificate = useMemo(() => {
-    if (!modulDetail?.hasCertificate) return false;
-    if (progressPercent !== 100) return false;
-    return true;
-  }, [modulDetail, progressPercent]);
-
   const markContentItemAsCompleted = useCallback(async (itemId: string, itemType?: string) => {
     // Skip API call if it's a summary item
     if (itemId.startsWith("summary-") || itemId === "rangkuman-akhir") {
@@ -504,7 +487,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
       ?? (itemId === "pretest" ? "PRETEST"
         : itemId === "posttest" ? "POSTTEST"
         : itemId === "rating" ? "RATING"
-        : itemId === "certificate" ? "CERTIFICATE"
         : "MATERI");
     
     try {
@@ -619,7 +601,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   };
 
   const handleFooterPrevious = async () => {
-    if (currentView === "certificate" || currentView === "rating") {
+    if (currentView === "rating") {
       setCurrentView("materi");
       setIsMaterialMode(true);
       setIsFinalSummaryView(false);
@@ -635,12 +617,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
   };
 
   const handleFooterNext = async () => {
-    if (currentView === "certificate") {
-      setCurrentView("materi");
-      setIsMaterialMode(true);
-      setIsFinalSummaryView(false);
-      return;
-    }
     if (currentView === "rating") {
       if (isRatingSubmitted) {
         setCurrentView("materi");
@@ -1096,56 +1072,85 @@ export default function MateriClient({ modulId }: { modulId: string }) {
               );
             })()}
 
-            {/* ─── Lihat Sertifikat ─── */}
+            {/* ─── Pills Sertifikat Kelulusan ─── */}
             {modulDetail?.hasCertificate && (() => {
-              const itemId = "certificate";
-              const seqIndex = sequence.findIndex((s) => s.id === itemId);
-              const isLocked = (seqIndex > 0 && !isItemUnlockedByIndex(seqIndex)) || !isEligibleForCertificate;
-              const isCompleted = completedContentItemMap[itemId] || !!certificate;
-              const isActive = isCertificateView;
+              const isProgressComplete = progressPercent === 100;
+              const isClaimed = !!certificate;
+
+              const handlePillsClick = async () => {
+                if (!isProgressComplete && !isClaimed) {
+                  setToastMsg("Selesaikan semua materi dan kuis hingga 100% untuk membuka sertifikat ini.");
+                  return;
+                }
+                if (isClaimed) {
+                  router.push(`/modul/${modulId}/sertifikat`);
+                  return;
+                }
+                setIsClaiming(true);
+                try {
+                  const cert = await siswaCertificateApi.claim(modulId);
+                  setCertificate(cert);
+                  router.push(`/modul/${modulId}/sertifikat`);
+                } catch (err) {
+                  if (err instanceof ApiError && err.status === 409) {
+                    // Already claimed — extract cert from response data and redirect
+                    const data = err.data as { certificate?: StudyRoomCertificate };
+                    if (data?.certificate) setCertificate(data.certificate);
+                    router.push(`/modul/${modulId}/sertifikat`);
+                  } else {
+                    setToastMsg("Gagal mengklaim sertifikat. Silakan coba lagi.");
+                  }
+                } finally {
+                  setIsClaiming(false);
+                }
+              };
+
               return (
                 <div className="space-y-1">
                   <button
                     type="button"
-                    aria-current={isActive ? true : undefined}
-                    disabled={isLocked && !isCompleted}
-                    onClick={() => {
-                      if (isLocked && !isCompleted) return;
-                      if (seqIndex >= 0) setCurrentSeqIndex(seqIndex);
-                      setCurrentView("certificate");
-                      setIsMaterialMode(false);
-                      setIsFinalSummaryView(false);
-                      setActiveQuizItemId(null);
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                      isLocked && !isCompleted
-                        ? "cursor-not-allowed border border-[#dcdae3] bg-white text-[#8f95a3]"
-                        : isActive
-                        ? "border border-[#e0d5ff] bg-[#efe9ff] text-[#7054dc]"
-                        : "border border-[#dcdae3] bg-white text-[#313643]"
+                    onClick={handlePillsClick}
+                    disabled={isClaiming}
+                    className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
+                      isClaiming
+                        ? "cursor-not-allowed border border-transparent bg-gradient-to-r from-[#7054dc] to-[#8b6fe8] text-white/60 shadow-md shadow-[#7054dc]/25"
+                        : !isProgressComplete && !isClaimed
+                        ? "border border-[#dcdae3] bg-[#f7f7fa] text-[#a2a7b3]"
+                        : "border border-transparent bg-gradient-to-r from-[#7054dc] to-[#8b6fe8] text-white shadow-md shadow-[#7054dc]/25"
                     }`}
                   >
-                    {isCompleted ? (
-                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#7054dc]">
+                    <PiMedalFill size={18} className={`shrink-0 ${!isProgressComplete && !isClaimed ? "text-[#b8b6c4]" : "text-[#ffd700]"}`} />
+                    <span className="flex-1 text-left">Sertifikat Kelulusan</span>
+                    {!isProgressComplete && !isClaimed ? (
+                      <FaLock size={11} className="shrink-0 text-[#b8b6c4]" />
+                    ) : isClaiming ? (
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : isClaimed ? (
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
                         <FaCheck size={9} className="text-white" />
                       </span>
-                    ) : isLocked ? (
-                      <FaLock size={11} className="text-[#8f95a3]" />
                     ) : (
-                      <PiMedalFill size={13} className={isActive ? "text-[#7054dc]" : "text-[#f39b39]"} />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-white/90">Klaim</span>
                     )}
-                    Sertifikat Kelulusan
                   </button>
-                  {isLocked && !isCompleted && (
-                    <p className="px-3 text-[10px] leading-relaxed text-[#a2a7b3]">
-                      Selesaikan semua materi dan kuis hingga 100% untuk membuka sertifikat
-                    </p>
-                  )}
                 </div>
               );
             })()}
           </div>
         </aside>
+
+        {/* ── Toast Notification ── */}
+        {toastMsg && (
+          <div className="fixed bottom-6 right-6 z-50 max-w-[320px] animate-fade-in rounded-xl bg-[#202126] px-4 py-3 text-sm text-white shadow-lg">
+            <div className="flex items-start gap-2">
+              <span>🔒</span>
+              <span className="flex-1">{toastMsg}</span>
+              <button type="button" onClick={() => setToastMsg("")} className="-mr-1 -mt-1 text-white/60 hover:text-white">
+                ×
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Main content ── */}
         <section className="flex h-[calc(100vh-76px)] min-h-[calc(100vh-76px)] flex-col overflow-hidden">
@@ -1374,14 +1379,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     <button
                       type="button"
                       onClick={() => {
-                        const certIdx = sequence.findIndex((s) => s.id === "certificate");
                         const ratingIdx = sequence.findIndex((s) => s.id === "rating");
-                        if (modulDetail?.hasCertificate && certIdx >= 0) {
-                          setCurrentSeqIndex(certIdx);
-                          setCurrentView("certificate");
-                          setIsMaterialMode(false);
-                          setIsFinalSummaryView(false);
-                        } else if (ratingIdx >= 0) {
+                        if (ratingIdx >= 0) {
                           setCurrentSeqIndex(ratingIdx);
                           setCurrentView("rating");
                           setIsMaterialMode(false);
@@ -1393,7 +1392,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                       }}
                       className="mx-auto mt-8 inline-flex min-w-[180px] items-center justify-center rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
                     >
-                      {modulDetail?.hasCertificate ? "Lihat Sertifikat" : "Beri Penilaian"}
+                      Beri Penilaian
                     </button>
                   ) : (
                     <button
@@ -1553,141 +1552,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 </div>
               )}
 
-              {/* Certificate */}
-              {currentView === "certificate" && (
-                <div className="m-auto w-full max-w-5xl">
-                  {certificate ? (
-                    /* ── Sertifikat sudah diklaim: tampilkan preview visual ── */
-                    <div className="rounded-2xl border border-[#e6e4ed] bg-white px-6 py-10">
-                      {/* Header success banner */}
-                      <div className="mb-8 flex items-center gap-3 rounded-xl border border-[#d4edda] bg-[#f0fff4] px-5 py-4">
-                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#37b66a]">
-                          <FaCheck size={14} className="text-white" />
-                        </span>
-                        <div>
-                          <p className="text-sm font-semibold text-[#1a7f3c]">Sertifikat berhasil diklaim!</p>
-                          <p className="text-xs text-[#2d9e54]">Nomor: {certificate.kode_sertif}</p>
-                        </div>
-                      </div>
-
-                      {/* Certificate visual preview */}
-                      <CertificateView
-                        certificate={certificate}
-                        moduleName={modulDetail?.moduleName ?? ""}
-                        studentName={user?.nama_lengkap ?? user?.fullName ?? "Siswa"}
-                        tutorName={tutorName}
-                      />
-                    </div>
-                  ) : isEligibleForCertificate ? (
-                    /* ── Eligible 100%: tampilkan tombol klaim ── */
-                    <div className="overflow-hidden rounded-2xl border border-[#e6e4ed] bg-white">
-                      {/* Top gradient banner */}
-                      <div className="relative overflow-hidden bg-gradient-to-br from-[#7054dc] to-[#9b7fea] px-8 py-10 text-center text-white">
-                        <div className="absolute inset-0 opacity-10">
-                          <div className="absolute -right-8 -top-8 h-48 w-48 rounded-full border-4 border-white/20" />
-                          <div className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full border-4 border-white/20" />
-                        </div>
-                        <PiMedalFill size={72} className="relative mx-auto text-[#ffd700] drop-shadow-lg" />
-                        <h2 className="relative mt-4 text-2xl font-bold">Selamat! Kamu Telah Lulus 🎉</h2>
-                        <p className="relative mt-2 text-sm text-white/80">
-                          Kamu berhasil menyelesaikan 100% materi pada modul ini.
-                          <br />
-                          Klaim sertifikatmu sekarang!
-                        </p>
-                      </div>
-
-                      {/* Claim section */}
-                      <div className="px-8 py-8 text-center">
-                        <div className="mx-auto max-w-[480px]">
-                          {/* Preview info card */}
-                          <div className="mb-6 rounded-xl border border-[#e8e5f5] bg-[#f8f6ff] px-5 py-4 text-left">
-                            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#7054dc]">Preview Sertifikat</p>
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-[#8a8a96]">Nama:</span>
-                                <span className="text-sm font-semibold text-[#202126]">
-                                  {user?.nama_lengkap ?? user?.fullName ?? "Siswa"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-[#8a8a96]">Modul:</span>
-                                <span className="text-sm font-semibold text-[#202126]">{modulDetail?.moduleName}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-[#8a8a96]">Tutor:</span>
-                                <span className="text-sm font-semibold text-[#202126]">{tutorName}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            disabled={isClaimingCertificate}
-                            onClick={async () => {
-                              setIsClaimingCertificate(true);
-                              try {
-                                const cert = await siswaCertificateApi.claim(modulId);
-                                setCertificate(cert);
-                                // Mark certificate as completed
-                                setCompletedContentItemMap((prev) => ({ ...prev, certificate: true }));
-                              } catch (err) {
-                                console.error("Certificate claim failed:", err);
-                              } finally {
-                                setIsClaimingCertificate(false);
-                              }
-                            }}
-                            className="w-full rounded-xl bg-[#7054dc] px-6 py-3.5 text-sm font-semibold text-white shadow-md shadow-[#7054dc]/25 transition-all hover:opacity-90 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isClaimingCertificate ? (
-                              <span className="inline-flex items-center gap-2 justify-center">
-                                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                Memproses Sertifikat...
-                              </span>
-                            ) : (
-                              "🎓 Klaim Sertifikat Sekarang"
-                            )}
-                          </button>
-                          <p className="mt-3 text-xs text-[#8a8a96]">
-                            Sertifikat akan langsung tersimpan dan dapat diunduh sebagai PDF.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    /* ── Belum eligible: progress < 100% ── */
-                    <div className="rounded-2xl border border-[#e6e4ed] bg-white px-8 py-12 text-center">
-                      <PiMedalFill size={80} className="mx-auto text-[#d1d4db]" />
-                      <h2 className="mt-4 text-2xl font-bold text-[#202126]">Sertifikat Belum Tersedia</h2>
-                      <p className="mt-2 text-sm text-[#8a8a96]">
-                        Selesaikan semua materi dan kuis hingga{" "}
-                        <span className="font-semibold text-[#7054dc]">100%</span>{" "}
-                        untuk membuka sertifikat kelulusan.
-                      </p>
-                      <div className="mx-auto mt-6 max-w-[320px]">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-[#8a8a96]">Progress saat ini</span>
-                          <span className="font-semibold text-[#7054dc]">{progressPercent}%</span>
-                        </div>
-                        <div className="mt-2 h-3 overflow-hidden rounded-full bg-[#e2dfee]">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-[#7054dc] to-[#9b7fea] transition-all duration-500"
-                            style={{ width: `${progressPercent}%` }}
-                          />
-                        </div>
-                        <p className="mt-2 text-xs text-[#8a8a96]">
-                          {completedSteps} dari {totalSteps} materi selesai
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              
 
             </div>
           </div>
 
           {/* Footer navigation */}
-          {(currentView === "materi" || currentView === "pretest-quiz" || currentView === "pretest-result" || currentView === "rating" || currentView === "certificate") && (
+          {(currentView === "materi" || currentView === "pretest-quiz" || currentView === "pretest-result" || currentView === "rating") && (
             <div className="border-t border-[#e1e0e7] bg-white px-6 py-4">
               <div className="flex items-center justify-between">
                 <button

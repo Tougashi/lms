@@ -389,6 +389,9 @@ export interface StudyRoomCertificate {
   certificateUrl: string;
   kode_sertif: string;
   issued_at: string;
+  moduleName?: string;
+  tutorName?: string;
+  tutorSignatureUrl?: string | null;
 }
 
 export interface StudyRoomResponse {

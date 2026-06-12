@@ -48,6 +48,8 @@ export default function SertifikatClient({ modulId }: SertifikatClientProps) {
       try {
         const cert = await siswaCertificateApi.getByModul(modulId);
         setCertificate(cert);
+        if (cert.moduleName) setModuleName(cert.moduleName);
+        if (cert.tutorName) setTutorName(cert.tutorName);
       } catch {
         setError("Sertifikat belum tersedia atau belum diklaim.");
       } finally {
@@ -322,13 +324,22 @@ export default function SertifikatClient({ modulId }: SertifikatClientProps) {
               </div>
 
               {/* Signature */}
-              <div className="absolute right-[140px] top-[310px] z-10 text-center">
-                <p
-                  className="text-[34px] leading-none text-[#202126]"
-                  style={{ fontFamily: '"Homemade Apple", cursive' }}
-                >
-                  Signature
-                </p>
+              <div className="absolute right-[140px] top-[295px] z-10 text-center">
+                {certificate.tutorSignatureUrl ? (
+                  <img
+                    src={certificate.tutorSignatureUrl}
+                    alt="Tanda tangan tutor"
+                    className="mx-auto h-[50px] w-auto object-contain"
+                    crossOrigin="anonymous"
+                  />
+                ) : (
+                  <p
+                    className="text-[34px] leading-none text-[#202126]"
+                    style={{ fontFamily: '"Homemade Apple", cursive' }}
+                  >
+                    {tutorName}
+                  </p>
+                )}
                 <hr className="mt-1 border-[#202126]" />
                 <p className="mt-4 text-sm font-semibold text-black">{tutorName}</p>
                 <p className="mt-1 text-sm text-black">Tutor</p>
