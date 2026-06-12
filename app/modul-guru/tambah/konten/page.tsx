@@ -879,6 +879,75 @@ function TambahModulKontenPageContent() {
     })),
   });
 
+  const loadTopicData = useCallback((topik: any) => {
+    setActiveTopikId(topik.id);
+    setTopicTitle(topik.nama);
+    setTopicId(topik.id);
+    if (!topik.materis) topik.materis = [];
+    if (!topik.quizzes) topik.quizzes = [];
+
+    const loaded = topik.materis.map((item: any, idx: number) => {
+      const localId = Date.now() + idx;
+      setMaterialApiIds((prev) => ({
+        ...prev,
+        [localId]: item.id,
+      }));
+      return {
+        id: localId,
+        title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
+        type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
+        isSaved: true,
+        isExpanded: false,
+        videoSource: "link" as const,
+        linkUrl: item.videoUrl || "",
+        linkPreviewTitle: "",
+        linkPreviewThumb: item.videoUrl ? getYoutubeThumb(item.videoUrl) : "",
+        linkVideoTitle: "",
+        linkVideoDuration: "",
+        showUploadSuccess: false,
+        fileName: "",
+        fileSize: "",
+        uploadProgress: 100,
+        uploadStatus: "done" as const,
+        previewUrl: "",
+        duration: "00:00",
+        articleContent: item.article || "",
+      };
+    });
+    setMaterials(loaded);
+    if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
+    else setActiveMaterialId(null);
+
+    const quizIds: Record<number, string> = {};
+    const mappedQuiz = topik.quizzes.map((q: any, qIdx: number) => {
+      const localId = Date.now() + qIdx + 1000;
+      quizIds[localId] = q.id;
+      return {
+        id: localId,
+        title: q.question?.length > 40 ? q.question.substring(0, 40) + "…" : q.question || "Untitled",
+        isExpanded: false,
+        ctMode: q.quizType === "COMPUTATIONAL_THINKING",
+        duration: q.quizSettings?.[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
+        minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
+        scorePerQuestion: q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+        questions: [
+          {
+            id: localId + 1,
+            label: q.question || "Soal Kuis",
+            answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
+              id: localId + 10 + oIdx,
+              text: opt.option,
+              isCorrect: opt.option === q.correctAnswer,
+            })),
+          },
+        ],
+        ctStories: [makeCTStory()],
+      };
+    });
+    setQuizzes(mappedQuiz);
+    setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+  }, [getYoutubeThumb, makeCTStory]);
+
   const handleCreateQuiz = async () => {
     if (!topicId) {
       toast(
@@ -1575,7 +1644,7 @@ function TambahModulKontenPageContent() {
                           <p className="text-[12px] font-semibold text-[#232530]">
                             Topik {topikIndex + 1}:
                           </p>
-                        {isEditingTopic ? (
+                        {isEditingTopic && topicId === topik.id ? (
                           <>
                             <input
                               type="text"
@@ -1612,11 +1681,11 @@ function TambahModulKontenPageContent() {
                             <button
                               type="button"
                               onClick={() => {
-                                setActiveTopikId(topik.id);
-                                setTopicTitle(topik.nama);
-                                setTopicId(topik.id);
                                 setEditTopicTitle(topik.nama);
                                 setIsEditingTopic(true);
+                                if (activeTopikId !== topik.id) {
+                                  loadTopicData(topik);
+                                }
                               }}
                               className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"
                               aria-label="Edit topik"
@@ -2423,35 +2492,6 @@ function TambahModulKontenPageContent() {
 
                         {quiz.isExpanded && (
                           <div className="mt-4">
-                            <div className="mb-4 flex items-center gap-1 rounded-lg border border-[#e5e3ee] bg-white p-1">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleToggleCTMode(quiz.id, false)
-                                }
-                                className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                                  !quiz.ctMode
-                                    ? "bg-[#7054dc] text-white"
-                                    : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
-                                }`}
-                              >
-                                Reguler
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleToggleCTMode(quiz.id, true)
-                                }
-                                className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                                  quiz.ctMode
-                                    ? "bg-[#7054dc] text-white"
-                                    : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
-                                }`}
-                              >
-                                Computational Thinking
-                              </button>
-                            </div>
-
                             {quiz.ctMode ? (
                               <>
                                 {quiz.ctStories.map((story, sIdx) => (
@@ -2718,78 +2758,9 @@ function TambahModulKontenPageContent() {
                     <button
                       type="button"
                       onClick={() => {
-                        setActiveTopikId(topik.id);
-                        setTopicTitle(topik.nama);
-                        setTopicId(topik.id);
-                        const loaded = topik.materis.map((item, idx) => {
-                          const localId = Date.now() + idx;
-                          setMaterialApiIds((prev) => ({
-                            ...prev,
-                            [localId]: item.id,
-                          }));
-                          return {
-                            id: localId,
-                            title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
-                            type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
-                            isSaved: true,
-                            isExpanded: false,
-                            videoSource: "link" as const,
-                            linkUrl: item.videoUrl || "",
-                            linkPreviewTitle: "",
-                            linkPreviewThumb: item.videoUrl ? getYoutubeThumb(item.videoUrl) : "",
-                            linkVideoTitle: "",
-                            linkVideoDuration: "",
-                            showUploadSuccess: false,
-                            fileName: "",
-                            fileSize: "",
-                            uploadProgress: 100,
-                            uploadStatus: "done" as const,
-                            previewUrl: "",
-                            duration: "00:00",
-                            articleContent: item.article || "",
-                          };
-                        });
-                        setMaterials(loaded);
-                        if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
-                        const quizIds: Record<number, string> = {};
-                        const mappedQuiz = (topik.quizzes || []).map(
-                          (q, qIdx) => {
-                            const localId = Date.now() + qIdx + 1000;
-                            quizIds[localId] = q.id;
-                            return {
-                              id: localId,
-                              title:
-                                q.question.length > 40
-                                  ? q.question.substring(0, 40) + "…"
-                                  : q.question,
-                              isExpanded: false,
-                              ctMode: q.quizType === "COMPUTATIONAL_THINKING",
-                              duration: q.quizSettings[0]?.timeLimit
-                                ? Math.round(q.quizSettings[0].timeLimit / 60)
-                                : 90,
-                              minScore: q.quizSettings[0]?.minScoreTreshold ?? 0,
-                              scorePerQuestion:
-                                q.quizSettings[0]?.standardScorePerQuestion ??
-                                10,
-                              questions: [
-                                {
-                                  id: localId + 1,
-                                  label: q.question,
-                                  answers: (
-                                    q.quizAnswerOptions || []
-                                  ).map((opt, oIdx) => ({
-                                    id: localId + 10 + oIdx,
-                                    text: opt.option,
-                                    isCorrect: opt.option === q.correctAnswer,
-                                  })),
-                                },
-                              ],
-                              ctStories: [makeCTStory()],
-                            };
-                          },
-                        );
-                        setQuizzes(mappedQuiz);
-                        setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+                        if (activeTopikId !== topik.id) {
+                          loadTopicData(topik);
+                        }
                       }}
                       className="mt-2 text-[12px] font-semibold text-[#7054dc] hover:underline"
                     >
