@@ -101,12 +101,17 @@ export default function ManajemenModulPage() {
         adminModulApi.getAll({ limit: 50 }),
         adminKuisApi.getAll({ limit: 50 }),
       ]);
-      if (dashRes.status === 'fulfilled') {
-        setModulCount(dashRes.value.activeModules);
-        setKuisCount(dashRes.value.activeQuizzes);
+      if (modulRes.status === 'fulfilled') {
+        const items = modulRes.value.items ?? [];
+        setModulList(items);
+        setModulCount(items.length);
       }
-      if (modulRes.status === 'fulfilled') setModulList(modulRes.value.items ?? []);
-      if (kuisRes.status === 'fulfilled') setKuisList(kuisRes.value.items ?? []);
+      if (kuisRes.status === 'fulfilled') {
+        const items = kuisRes.value.items ?? [];
+        setKuisList(items);
+        const qCount = items.reduce((acc: number, m: any) => acc + (m.topiks?.reduce((a: number, t: any) => a + (t.quizzes?.length || 0), 0) || 0), 0);
+        setKuisCount(qCount);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -391,7 +396,7 @@ export default function ManajemenModulPage() {
                           <td className="px-4 py-3 align-middle font-medium text-[#5a5f6a] max-w-[260px] truncate">{row.moduleName}</td>
                           <td className="px-4 py-3 align-middle">{row.tutor?.fullName ?? '-'}</td>
                           <td className="px-4 py-3 align-middle">
-                            {row.topiks?.reduce((acc, t) => acc + t.materis.reduce((a, m) => a + m.quizzes.length, 0), 0) ?? 0} quiz
+                            {row.topiks?.reduce((acc, t) => acc + (t.quizzes?.length || 0), 0) ?? 0} quiz
                           </td>
                           <td className="px-4 py-3 align-middle text-right">
                             <div className="relative inline-flex">

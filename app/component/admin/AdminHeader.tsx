@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FiMenu, FiX } from 'react-icons/fi';
@@ -16,7 +17,7 @@ import {
 import { FaBell, FaBook, FaUsers } from 'react-icons/fa';
 import { RiCustomerService2Line } from 'react-icons/ri';
 import { useAuth } from '../../context/AuthContext';
-import { notificationApi } from '../../lib/api';
+import { notificationApi, adminProfileApi } from '../../lib/api';
 import type { NotificationItem } from '../../lib/types/umum';
 
 function extractNotifications(res: unknown): NotificationItem[] {
@@ -40,6 +41,18 @@ export default function AdminHeader() {
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const notificationMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const [adminProfileImg, setAdminProfileImg] = useState<string | null>(null);
+
+  // Fetch admin profile for the avatar
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      adminProfileApi.get()
+        .then((res) => {
+          if (res.profileImg) setAdminProfileImg(res.profileImg);
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
   // Fetch unread count on mount
   useEffect(() => {
@@ -236,7 +249,17 @@ export default function AdminHeader() {
               className="flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white px-1.5 py-1 shadow-sm transition-colors hover:bg-[#f7f6ff]"
               aria-label="Buka menu profil"
             >
-              <IoPersonCircle size={28} className="text-[#7054dc]" />
+              {adminProfileImg ? (
+                <Image 
+                  src={adminProfileImg} 
+                  alt="Profile" 
+                  width={28} 
+                  height={28} 
+                  className="rounded-full object-cover w-[28px] h-[28px]"
+                />
+              ) : (
+                <IoPersonCircle size={28} className="text-[#7054dc]" />
+              )}
               <MdOutlineKeyboardArrowDown size={18} className="text-[#8a8a96]" />
             </button>
 

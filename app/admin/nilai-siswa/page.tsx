@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { FiArrowLeft } from 'react-icons/fi';
-import { FaHandsClapping } from 'react-icons/fa6';
+import { FaHandsClapping, FaBook } from 'react-icons/fa6';
 import { HiExclamationCircle, HiCheckCircle } from 'react-icons/hi2';
+import { IoPersonCircle } from 'react-icons/io5';
 import { adminProgressApi } from '../../lib/api';
-import type { AdminCTAnalysisData } from '../../lib/types/admin';
+import type { AdminCTAnalysisData, AdminProgressDetail, AdminModuleProgressItem } from '../../lib/types/admin';
 import AdminHeader from '../../component/admin/AdminHeader';
 
 /* ───────────────── helpers ───────────────── */
@@ -204,7 +205,8 @@ function NilaiSiswaContent() {
   const [activeView, setActiveView] = useState<'ct' | 'kuis'>(tabParam === 'kuis' ? 'kuis' : 'ct');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<AdminCTAnalysisData | null>(null);
+  const [data, setData] = useState<{ analyze: AdminCTAnalysisData; progress: AdminProgressDetail } | null>(null);
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!studentId) {
@@ -217,10 +219,17 @@ function NilaiSiswaContent() {
     setLoading(true);
     setError(null);
 
-    adminProgressApi
-      .analyze(studentId)
-      .then((result) => {
-        if (!cancelled) setData(result);
+    Promise.all([
+      adminProgressApi.getById(studentId),
+      adminProgressApi.analyze(studentId)
+    ])
+      .then(([progressRes, analyzeRes]) => {
+        if (!cancelled) {
+          setData({ progress: progressRes, analyze: analyzeRes });
+          if (progressRes.modules && progressRes.modules.length > 0) {
+            setSelectedModuleId(progressRes.modules[0].moduleId);
+          }
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -241,10 +250,14 @@ function NilaiSiswaContent() {
   if (loading) return <LoadingState />;
   if (error || !data) return <ErrorState message={error || 'Data tidak ditemukan.'} />;
 
-  const { studentInfo, moduleProgress, computationalThinking, quizRecords, recommendation } = data;
-  const moduleName = moduleProgress?.moduleName || 'Modul';
-  const level = moduleProgress?.level || '';
-  const cls = moduleProgress?.class || '';
+  const { analyze, progress } = data;
+  const { studentInfo, computationalThinking, recommendation } = analyze;
+  
+  const modulesList = Array.isArray(progress?.modules) ? progress.modules : [];
+  const selectedModule = modulesList.find(m => m.moduleId === selectedModuleId) || modulesList[0];
+  const moduleName = selectedModule?.moduleName || 'Modul';
+  const level = selectedModule?.level || '';
+  const cls = selectedModule?.class || '';
 
   return (
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
@@ -264,31 +277,60 @@ function NilaiSiswaContent() {
         <div className="mt-5 grid gap-8 lg:grid-cols-[1fr_280px]">
           {/* ── LEFT COLUMN ── */}
           <div>
-            {/* Module info */}
-            <div className="flex items-center gap-4">
-              <div className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-2xl bg-[#f3f4f8]">
-                <Image
-                  src={moduleProgress?.moduleImgUrl || '/assets/images/beranda-siswa/matapelajaran.png'}
-                  alt={moduleName}
-                  width={60}
-                  height={60}
-                  className="h-full w-full object-cover"
-                />
+            {modulesList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-[#e8e6f0] bg-white py-20 text-center">
+                <FaBook size={48} className="mb-4 text-[#d8d3f0]" />
+                <h2 className="text-[16px] font-bold text-[#232530]">Belum Ada Modul</h2>
+                <p className="mt-2 text-[13px] text-[#8a8d98]">Siswa ini belum mengambil modul apapun.</p>
               </div>
-              <div>
-                <h1 className="text-[17px] font-bold text-[#232530]">{moduleName}</h1>
-                <p className="text-[13px] text-[#8a8d98]">
-                  {level ? `Jenjang ${level}` : ''}{cls ? ` | ${cls}` : ''}
-                </p>
-              </div>
-            </div>
+            ) : (
+              <>
+                {/* Module List Selection */}
+                {modulesList.length > 1 && (
+                  <div className="mb-6 flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                    {modulesList.map(m => (
+                      <button
+                        key={m.moduleId}
+                        onClick={() => setSelectedModuleId(m.moduleId)}
+                        className={`shrink-0 rounded-xl px-4 py-2 text-[13px] font-semibold transition-colors ${
+                          m.moduleId === (selectedModuleId || modulesList[0].moduleId)
+                            ? 'bg-[#7054dc] text-white'
+                            : 'bg-white text-[#555968] border border-[#e8e6f0] hover:border-[#7054dc]'
+                        }`}
+                      >
+                        {m.moduleName}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Module info */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-2xl bg-[#f3f4f8]">
+                      <Image
+                        src={selectedModule?.moduleImgUrl || '/assets/images/beranda-siswa/matapelajaran.png'}
+                        alt={moduleName}
+                        width={60}
+                        height={60}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <h1 className="text-[17px] font-bold text-[#232530]">{moduleName}</h1>
+                      <p className="text-[13px] text-[#8a8d98]">
+                        {level ? `Jenjang ${level}` : ''}{cls ? ` | ${cls}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
             {/* Scores row */}
             <div className="mt-5 flex flex-wrap items-stretch gap-4">
               {/* Pre-Test */}
               <div className="flex items-center gap-3 rounded-2xl border border-[#f0e6d3] bg-[#fffaf2] px-5 py-3.5">
                 <span className="text-[34px] font-semibold leading-none text-[#f39b39]">
-                  {moduleProgress?.pretestScore ?? '-'}
+                  {selectedModule?.pretestScore ?? '-'}
                 </span>
                 <span className="text-[13px] font-medium text-[#555968]">Nilai Pre-Test</span>
               </div>
@@ -296,7 +338,7 @@ function NilaiSiswaContent() {
               {/* Post-Test */}
               <div className="flex items-center gap-3 rounded-2xl border border-[#d8d3f0] bg-[#f5f2ff] px-5 py-3.5">
                 <span className="text-[34px] font-semibold leading-none text-[#7054dc]">
-                  {moduleProgress?.posttestScore ?? '-'}
+                  {selectedModule?.posttestScore ?? '-'}
                 </span>
                 <span className="text-[13px] font-medium text-[#555968]">Nilai Post-Test</span>
               </div>
@@ -308,15 +350,15 @@ function NilaiSiswaContent() {
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#eceaf4]">
                       <div
                         className="h-full rounded-full bg-[#7054dc] transition-all"
-                        style={{ width: `${moduleProgress?.progressPercentage || 0}%` }}
+                        style={{ width: `${selectedModule?.progressPercentage || 0}%` }}
                       />
                     </div>
                     <span className="text-[14px] font-semibold text-[#232530]">
-                      {Math.round(moduleProgress?.progressPercentage || 0)}%
+                      {Math.round(selectedModule?.progressPercentage || 0)}%
                     </span>
                   </div>
                   <p className="mt-1.5 text-[13px] text-[#555968]">
-                    {moduleProgress?.completedMateri || 0} dari {moduleProgress?.totalMateri || 0} Materi Selesai
+                    {selectedModule?.completedMateri || 0} dari {selectedModule?.totalMateri || 0} Materi Selesai
                   </p>
                 </div>
               </div>
@@ -328,13 +370,15 @@ function NilaiSiswaContent() {
             </h2>
 
             {/* CT Analysis View */}
-            {activeView === 'ct' && (
-              <div className="mt-5 flex flex-col items-center gap-10 md:flex-row md:items-start">
-                <div className="shrink-0">
-                  <PieChart pillars={computationalThinking} />
-                </div>
+            <div 
+              className="mt-5 flex flex-col items-center gap-10 md:flex-row md:items-start"
+              style={{ display: activeView === 'ct' ? '' : 'none' }}
+            >
+              <div className="shrink-0">
+                <PieChart pillars={computationalThinking} />
+              </div>
 
-                <div className="flex-1 space-y-5 pt-1">
+              <div className="flex-1 space-y-5 pt-1">
                   {Object.entries(PILLAR_META).map(([key, meta]) => {
                     const pillar = computationalThinking[key as keyof typeof computationalThinking] as { score: number; label: string } | undefined;
                     const score = pillar?.score ?? 0;
@@ -360,13 +404,14 @@ function NilaiSiswaContent() {
                   })}
                 </div>
               </div>
-            )}
 
             {/* Quiz Details View */}
-            {activeView === 'kuis' && (
-              <div className="mt-4 overflow-hidden rounded-2xl border border-[#e8e6f0] bg-white">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[600px] border-separate border-spacing-0">
+            <div 
+              className="mt-4 overflow-hidden rounded-2xl border border-[#e8e6f0] bg-white"
+              style={{ display: activeView === 'kuis' ? 'block' : 'none' }}
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[600px] border-separate border-spacing-0">
                     <thead>
                       <tr className="bg-[#fafafe] text-left text-[13px] font-medium text-[#8a8d98]">
                         <th className="px-5 py-4 font-medium">Topik</th>
@@ -377,14 +422,14 @@ function NilaiSiswaContent() {
                       </tr>
                     </thead>
                     <tbody>
-                      {quizRecords.length === 0 ? (
+                      {!(selectedModule?.quizRecords) || selectedModule.quizRecords.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="px-5 py-8 text-center text-[13px] text-[#8a8d98]">
                             Belum ada data kuis.
                           </td>
                         </tr>
                       ) : (
-                        quizRecords.map((row, index) => (
+                        selectedModule.quizRecords.map((row, index) => (
                           <tr
                             key={index}
                             className="border-t border-[#f0eef6] text-[13px] text-[#232530]"
@@ -419,10 +464,11 @@ function NilaiSiswaContent() {
                   </table>
                 </div>
               </div>
+            </>
             )}
-          </div>
+            </div>
 
-          {/* ── RIGHT COLUMN — Student profile ── */}
+            {/* ── RIGHT COLUMN — Student profile ── */}
           <aside className="hidden lg:block">
             <div className="flex flex-col items-center">
               <div className="relative h-[140px] w-[140px]">
@@ -437,9 +483,7 @@ function NilaiSiswaContent() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-[#7054dc] text-[40px] font-bold text-white">
-                      {studentInfo.fullName.charAt(0).toUpperCase()}
-                    </div>
+                    <IoPersonCircle className="h-[140px] w-[140px] text-[#d8d3f0] -ml-[6px] -mt-[6px]" />
                   )}
                 </div>
               </div>
