@@ -75,6 +75,7 @@ export interface TestSubmitPayload {
     questionId: string;
     answer: string;
   }>;
+  timeSpent?: number;
 }
 
 export interface TestSubmitResult {
@@ -92,7 +93,13 @@ export interface ProgressDetail {
   siswaId: string;
   modulId: string;
   pretestScore?: number | null;
+  pretestCorrectCount?: number | null;
+  pretestWrongCount?: number | null;
+  pretestTimeSpent?: number | null;
   posttestScore?: number | null;
+  posttestCorrectCount?: number | null;
+  posttestWrongCount?: number | null;
+  posttestTimeSpent?: number | null;
   finalScore?: number | null;
   status: string;
   isGraduated: boolean;
@@ -361,7 +368,13 @@ export interface StudyRoomProgress {
   completedContentItems: string[];
   progressPercentage: number;
   pretestScore: number | null;
+  pretestCorrectCount: number | null;
+  pretestWrongCount: number | null;
+  pretestTimeSpent: number | null;
   posttestScore: number | null;
+  posttestCorrectCount: number | null;
+  posttestWrongCount: number | null;
+  posttestTimeSpent: number | null;
   finalScore: number | null;
   status: string;
   isGraduated: boolean;

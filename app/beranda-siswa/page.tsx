@@ -49,13 +49,16 @@ export default function BerandaSiswaPage() {
 
         if (unresolvedIds.size > 0) {
           const resolvedNames: Record<string, string> = {};
+          const resolvedImgs: Record<string, string | null> = {};
           await Promise.all(
             Array.from(unresolvedIds).map(async (mid) => {
               try {
                 const m = await siswaModulApi.getById(mid);
                 resolvedNames[mid] = m.moduleName;
+                resolvedImgs[mid] = m.moduleImgUrl ?? null;
               } catch {
                 resolvedNames[mid] = 'Modul';
+                resolvedImgs[mid] = null;
               }
             })
           );
@@ -64,11 +67,11 @@ export default function BerandaSiswaPage() {
 
           for (const p of progressItems) {
             if ((!p.modul?.moduleName && !p.modul?.nama_modul) && p.modulId && resolvedNames[p.modulId]) {
-              p.modul = { ...p.modul, id: p.modulId, moduleName: resolvedNames[p.modulId] } as ProgressItem['modul'];
+              p.modul = { ...p.modul, id: p.modulId, moduleName: resolvedNames[p.modulId], moduleImgUrl: resolvedImgs[p.modulId] } as ProgressItem['modul'];
             }
           }
           if (data.lastActivity && (!data.lastActivity.modul?.moduleName && !data.lastActivity.modul?.nama_modul) && data.lastActivity.modulId && resolvedNames[data.lastActivity.modulId]) {
-            data.lastActivity.modul = { ...data.lastActivity.modul, id: data.lastActivity.modulId, moduleName: resolvedNames[data.lastActivity.modulId] } as ProgressItem['modul'];
+            data.lastActivity.modul = { ...data.lastActivity.modul, id: data.lastActivity.modulId, moduleName: resolvedNames[data.lastActivity.modulId], moduleImgUrl: resolvedImgs[data.lastActivity.modulId] } as ProgressItem['modul'];
           }
         }
 
@@ -270,8 +273,14 @@ export default function BerandaSiswaPage() {
                 progressData.map((item) => (
                   <Link key={item.id} href={`/modul/${item.modulId || item.modul?.id}/materi`} className="flex border-b border-[#f0f0f0] last:border-b-0 hover:bg-[#fafafa] transition-colors py-4 px-6">
                     <div className="flex-1 flex items-center gap-3">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#f1ecff]">
-                        <FaBookOpen size={24} className="text-[#7054dc]" />
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg">
+                        {item.modul?.moduleImgUrl ? (
+                          <Image src={item.modul.moduleImgUrl} alt={getModuleName(item)} fill className="object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-[#f1ecff]">
+                            <FaBookOpen size={24} className="text-[#7054dc]" />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <span className="font-medium text-[#21212b]">{getModuleName(item)}</span>
