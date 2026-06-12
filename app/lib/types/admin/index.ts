@@ -169,6 +169,9 @@ export interface AdminMateriItem {
   topikId?: string;
   modulId: string;
   order: number;
+  isVideo?: boolean;
+  videoUrl?: string | null;
+  article?: string | null;
 }
 
 export interface AdminMateriCreatePayload {
@@ -176,11 +179,17 @@ export interface AdminMateriCreatePayload {
   topikId?: string;
   modulId: string;
   order?: number;
+  isVideo?: boolean;
+  videoUrl?: string | null;
+  article?: string | null;
 }
 
 export interface AdminMateriUpdatePayload {
   title?: string;
   order?: number;
+  isVideo?: boolean;
+  videoUrl?: string | null;
+  article?: string | null;
 }
 
 // ── Kuis ─────────────────────────────────────────────────────────────────────

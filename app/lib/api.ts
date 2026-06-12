@@ -1159,20 +1159,33 @@ export const adminModulApi = {
 
 export const adminTopikApi = {
     getByModul(modulId: string) {
-        return apiFetch<AdminTopikItem[]>(`/admin/topik/${modulId}`);
+        return apiFetch<any[]>(`/admin/topik/${modulId}`).then((items) =>
+            items.map((item) => ({
+                ...item,
+                name: item.nama || item.name,
+                modulId: item.modul_id || item.modulId,
+            }))
+        );
     },
 
     create(payload: AdminTopikCreatePayload) {
         return apiFetch<AdminTopikItem>("/admin/topik", {
             method: "POST",
-            data: payload,
+            data: {
+                ...payload,
+                nama: payload.name,
+                modul_id: payload.modulId,
+            },
         });
     },
 
     update(id: string, payload: AdminTopikUpdatePayload) {
         return apiFetch<AdminTopikItem>(`/admin/topik/${id}`, {
             method: "PUT",
-            data: payload,
+            data: {
+                ...payload,
+                nama: payload.name,
+            },
         });
     },
 
@@ -1189,20 +1202,40 @@ export const adminTopikApi = {
 
 export const adminMateriApi = {
     getByModul(modulId: string) {
-        return apiFetch<AdminMateriItem[]>(`/admin/materi/${modulId}`);
+        return apiFetch<any[]>(`/admin/materi/${modulId}`).then((items) =>
+            items.map((item) => ({
+                ...item,
+                title: item.judul || item.title,
+                topikId: item.topik_id || item.topikId,
+                modulId: item.modul_id || item.modulId,
+            }))
+        );
     },
 
     create(payload: AdminMateriCreatePayload) {
         return apiFetch<AdminMateriItem>("/admin/materi", {
             method: "POST",
-            data: payload,
+            data: {
+                ...payload,
+                judul: payload.title,
+                topik_id: payload.topikId,
+                is_video: payload.isVideo ?? false,
+                video_url: payload.videoUrl,
+                article: payload.article,
+            },
         });
     },
 
     update(id: string, payload: AdminMateriUpdatePayload) {
         return apiFetch<AdminMateriItem>(`/admin/materi/${id}`, {
             method: "PUT",
-            data: payload,
+            data: {
+                ...payload,
+                judul: payload.title,
+                is_video: payload.isVideo,
+                video_url: payload.videoUrl,
+                article: payload.article,
+            },
         });
     },
 
