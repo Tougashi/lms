@@ -4,11 +4,11 @@ import { useState, useMemo } from "react";
 import {
     FaChevronDown,
     FaChevronUp,
-    FaFileAlt,
+    FaBookOpen,
+    FaPlay,
     FaCheck,
     FaLock,
 } from "react-icons/fa";
-import { MdPlayCircleFilled } from "react-icons/md";
 import { PiMedalFill } from "react-icons/pi";
 import { AnimatePresence, motion } from "framer-motion";
 import type {
@@ -34,20 +34,28 @@ function buildOrderedItems(topik: TopikDetail): OrderedItem[] {
     );
     const items: OrderedItem[] = [];
     for (const ti of sorted) {
-        if (ti.itemType === "ARTICLE") {
-            const materi = topik.materis.find((m) => m.id === ti.itemId);
+        if (ti.itemType === "ARTICLE" || (ti.itemType as any) === "MATERI") {
+            const materi = topik.materis?.find((m) => m.id === ti.itemId);
             if (materi) items.push({ type: "ARTICLE", data: materi });
         } else if (ti.itemType === "QUIZ") {
-            const quiz = topik.materis
-                .flatMap((m) => m.quizzes)
-                .find((q) => q?.id === ti.itemId);
+            // Some endpoints nest quizzes inside materis, others put them directly on topik.quizzes
+            const quiz =
+                topik.materis?.flatMap((m) => m.quizzes || [])?.find((q) => q?.id === ti.itemId) ||
+                (topik as any).quizzes?.find((q: any) => q?.id === ti.itemId);
             if (quiz) items.push({ type: "QUIZ", data: quiz });
         }
     }
     const usedItemIds = new Set(sorted.map((ti) => ti.itemId));
-    for (const materi of topik.materis) {
+    for (const materi of topik.materis || []) {
         if (!usedItemIds.has(materi.id)) {
             items.push({ type: "ARTICLE", data: materi });
+        }
+    }
+    // Also add quizzes from topik.quizzes as fallback if they weren't in topikItems
+    const topikQuizzes = (topik as any).quizzes || [];
+    for (const quiz of topikQuizzes) {
+        if (!usedItemIds.has(quiz.id)) {
+            items.push({ type: "QUIZ", data: quiz });
         }
     }
     return items;
@@ -153,13 +161,13 @@ export default function AccordionMateri({
                                                             />
                                                         )}
                                                         {materi.isVideo ? (
-                                                            <MdPlayCircleFilled
-                                                                size={16}
+                                                            <FaPlay
+                                                                size={10}
                                                                 className="shrink-0 text-[#f39b39]"
                                                             />
                                                         ) : (
-                                                            <FaFileAlt
-                                                                size={14}
+                                                            <FaBookOpen
+                                                                size={12}
                                                                 className="shrink-0 text-[#7054dc]"
                                                             />
                                                         )}

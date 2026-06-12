@@ -61,7 +61,7 @@ function PrePostTestPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const modulId = searchParams.get('modulId');
-  const { toast, confirm } = usePopup();
+  const { toast, confirm, showLoading, hideLoading } = usePopup();
 
   const [banks, setBanks] = useState<BankSoal[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -174,6 +174,7 @@ function PrePostTestPageContent() {
     const nid = Date.now();
 
     setIsCreatingBank(true);
+    showLoading('Membuat bank soal...');
     try {
       let apiId: string | null = null;
       if (newBankType === 'pretest') {
@@ -198,6 +199,7 @@ function PrePostTestPageContent() {
       console.error('Create bank error:', err);
       toast(err instanceof Error ? err.message : 'Gagal membuat bank soal.', 'error');
     } finally {
+      hideLoading();
       setIsCreatingBank(false);
     }
   }, [modulId, newBankName, newBankType, banks.length]);
@@ -205,6 +207,7 @@ function PrePostTestPageContent() {
   const handleDeleteBank = useCallback(async (id: number) => {
     const bank = banks.find(b => b.id === id);
     if (bank?.apiId) {
+      showLoading('Menghapus bank soal...');
       try {
         if (bank.type === 'pretest') {
           await guruPretestApi.delete(bank.apiId);
@@ -214,8 +217,10 @@ function PrePostTestPageContent() {
       } catch (err: unknown) {
         console.error('Delete bank error:', err);
         toast(err instanceof Error ? err.message : 'Gagal menghapus bank soal.', 'error');
+        hideLoading();
         return;
       }
+      hideLoading();
     }
     setBanks((p) => p.filter((b) => b.id !== id));
     setOpenMenuId(null);
@@ -245,6 +250,7 @@ function PrePostTestPageContent() {
     if (!activeBank) return;
     const question = activeBank.questions.find(q => q.id === qId);
     if (question?.apiSoalId) {
+      showLoading('Menghapus soal...');
       try {
         if (activeBank.type === 'pretest') {
           await guruPretestApi.deleteSoal(question.apiSoalId);
@@ -254,8 +260,10 @@ function PrePostTestPageContent() {
       } catch (err: unknown) {
         console.error('Delete soal error:', err);
         toast(err instanceof Error ? err.message : 'Gagal menghapus soal.', 'error');
+        hideLoading();
         return;
       }
+      hideLoading();
     }
     setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
       ...b, questions: b.questions.filter((q) => q.id !== qId),
@@ -328,6 +336,7 @@ function PrePostTestPageContent() {
     }
 
     setIsSaving(true);
+    showLoading('Menyimpan soal...');
     try {
       const payload = {
         pertanyaan: question.pertanyaan,
@@ -360,6 +369,7 @@ function PrePostTestPageContent() {
       console.error('Save question error:', err);
       toast(err instanceof Error ? err.message : 'Gagal menyimpan soal.', 'error');
     } finally {
+      hideLoading();
       setIsSaving(false);
     }
   }, [activeBank, activeBankId]);
@@ -372,6 +382,7 @@ function PrePostTestPageContent() {
       return;
     }
     setIsSaving(true);
+    showLoading('Menyimpan pengaturan...');
     try {
       if (targetBank.type === 'pretest') {
         await guruPretestApi.updateSettings(targetBank.apiId, {
@@ -390,6 +401,7 @@ function PrePostTestPageContent() {
       console.error('Save settings error:', err);
       toast(err instanceof Error ? err.message : 'Gagal menyimpan pengaturan.', 'error');
     } finally {
+      hideLoading();
       setIsSaving(false);
     }
   }, [settingsTargetBank, settingsDuration, settingsSoalTampil]);
@@ -399,11 +411,14 @@ function PrePostTestPageContent() {
     if (!modulId) return;
     const ok = await confirm({ message: 'Apakah Anda yakin ingin menerbitkan modul ini?', confirmText: 'Terbitkan' });
     if (!ok) return;
+    showLoading('Menerbitkan modul...');
     try {
       await guruModulApi.update(modulId, { isDraft: false });
       router.push('/modul-guru?tab=published');
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : 'Gagal menerbitkan modul.', 'error');
+    } finally {
+      hideLoading();
     }
   }, [modulId, router]);
 

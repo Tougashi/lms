@@ -35,6 +35,8 @@ interface ConfirmOptions {
 interface PopupContextValue {
   toast: (message: string, type?: ToastType) => void;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
+  showLoading: (message?: string) => void;
+  hideLoading: () => void;
 }
 
 const PopupContext = createContext<PopupContextValue | null>(null);
@@ -191,6 +193,7 @@ export function PopupProvider({ children }: { children: ReactNode }) {
     options: ConfirmOptions;
     resolve: (result: boolean) => void;
   } | null>(null);
+  const [loadingState, setLoadingState] = useState<{ isVisible: boolean; message?: string }>({ isVisible: false });
   const idRef = useRef(0);
   const confirmStateRef = useRef(confirmState);
   confirmStateRef.current = confirmState;
@@ -220,8 +223,16 @@ export function PopupProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const showLoading = useCallback((message?: string) => {
+    setLoadingState({ isVisible: true, message });
+  }, []);
+
+  const hideLoading = useCallback(() => {
+    setLoadingState({ isVisible: false });
+  }, []);
+
   return (
-    <PopupContext.Provider value={{ toast, confirm }}>
+    <PopupContext.Provider value={{ toast, confirm, showLoading, hideLoading }}>
       {children}
 
       {/* Toast container */}
@@ -234,6 +245,18 @@ export function PopupProvider({ children }: { children: ReactNode }) {
       {/* Confirm dialog */}
       {confirmState && (
         <ConfirmDialog options={confirmState.options} onResolve={handleConfirmResolve} />
+      )}
+
+      {/* Loading overlay */}
+      {loadingState.isVisible && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all duration-200">
+          <div className="flex flex-col items-center justify-center rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
+            {loadingState.message && (
+              <p className="mt-4 text-[14px] font-medium text-[#232530]">{loadingState.message}</p>
+            )}
+          </div>
+        </div>
       )}
     </PopupContext.Provider>
   );

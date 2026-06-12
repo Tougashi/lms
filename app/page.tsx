@@ -1,4 +1,5 @@
 import Header from "./component/Header";
+import HomeRedirector from "./component/HomeRedirector";
 import FeatureSection from "./component/FeatureSection";
 import Hero from "./component/Hero";
 import LearningFlowSection from "./component/LearningFlowSection";
@@ -10,6 +11,7 @@ import TestimonialSection from "./component/TestimonialSectionView";
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#F1EFFC]">
+      <HomeRedirector />
       <Header />
       <main className="">
         <Hero />

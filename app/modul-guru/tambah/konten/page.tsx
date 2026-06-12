@@ -397,8 +397,9 @@ function TambahModulKontenPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const modulId = searchParams.get("modulId");
-  const { toast, confirm } = usePopup();
+  const { toast, confirm, showLoading, hideLoading } = usePopup();
 
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isTopicAdded, setIsTopicAdded] = useState(false);
   const [topicTitle, setTopicTitle] = useState("");
@@ -581,6 +582,8 @@ function TambahModulKontenPageContent() {
         }
       } catch (err) {
         console.error("Load content error:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadContent();
@@ -699,6 +702,7 @@ function TambahModulKontenPageContent() {
     const apiId = materialApiIds[materialId];
     if (apiId) {
       setIsDeletingMaterial(materialId);
+      showLoading("Menghapus materi...");
       try {
         await guruMateriApi.delete(apiId);
         setMaterialApiIds((prev) => {
@@ -709,9 +713,11 @@ function TambahModulKontenPageContent() {
       } catch (err) {
         console.error("Delete material error:", err);
         toast("Gagal menghapus materi.", "error");
+        hideLoading();
         setIsDeletingMaterial(null);
         return;
       } finally {
+        hideLoading();
         setIsDeletingMaterial(null);
       }
     }
@@ -774,6 +780,7 @@ function TambahModulKontenPageContent() {
     const isVideo = newMaterialType === "video";
 
     // Create in API first
+    showLoading("Menambahkan materi...");
     try {
       const created = await guruMateriApi.create({
         topik_id: topicId,
@@ -786,7 +793,10 @@ function TambahModulKontenPageContent() {
     } catch (err) {
       console.error("Create material error:", err);
       toast("Gagal membuat materi. Pastikan topik sudah tersimpan.", "error");
+      hideLoading();
       return;
+    } finally {
+      hideLoading();
     }
 
     setMaterials((prev) => [
@@ -824,6 +834,7 @@ function TambahModulKontenPageContent() {
     const apiId = materialApiIds[materialId];
     if (material && apiId) {
       setIsSavingMaterial(materialId);
+      showLoading("Menyimpan materi...");
       try {
         await guruMateriApi.update(apiId, {
           is_video: material.type === "video",
@@ -838,9 +849,11 @@ function TambahModulKontenPageContent() {
       } catch (err) {
         console.error("Save material error:", err);
         toast("Gagal menyimpan materi.", "error");
+        hideLoading();
         setIsSavingMaterial(null);
         return;
       } finally {
+        hideLoading();
         setIsSavingMaterial(null);
       }
     }
@@ -903,6 +916,75 @@ function TambahModulKontenPageContent() {
     })),
   });
 
+  const loadTopicData = useCallback((topik: any) => {
+    setActiveTopikId(topik.id);
+    setTopicTitle(topik.nama);
+    setTopicId(topik.id);
+    if (!topik.materis) topik.materis = [];
+    if (!topik.quizzes) topik.quizzes = [];
+
+    const loaded = topik.materis.map((item: any, idx: number) => {
+      const localId = Date.now() + idx;
+      setMaterialApiIds((prev) => ({
+        ...prev,
+        [localId]: item.id,
+      }));
+      return {
+        id: localId,
+        title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
+        type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
+        isSaved: true,
+        isExpanded: false,
+        videoSource: "link" as const,
+        linkUrl: item.videoUrl || "",
+        linkPreviewTitle: "",
+        linkPreviewThumb: item.videoUrl ? getYoutubeThumb(item.videoUrl) : "",
+        linkVideoTitle: "",
+        linkVideoDuration: "",
+        showUploadSuccess: false,
+        fileName: "",
+        fileSize: "",
+        uploadProgress: 100,
+        uploadStatus: "done" as const,
+        previewUrl: "",
+        duration: "00:00",
+        articleContent: item.article || "",
+      };
+    });
+    setMaterials(loaded);
+    if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
+    else setActiveMaterialId(null);
+
+    const quizIds: Record<number, string> = {};
+    const mappedQuiz = topik.quizzes.map((q: any, qIdx: number) => {
+      const localId = Date.now() + qIdx + 1000;
+      quizIds[localId] = q.id;
+      return {
+        id: localId,
+        title: q.question?.length > 40 ? q.question.substring(0, 40) + "…" : q.question || "Untitled",
+        isExpanded: false,
+        ctMode: q.quizType === "COMPUTATIONAL_THINKING",
+        duration: q.quizSettings?.[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
+        minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
+        scorePerQuestion: q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+        questions: [
+          {
+            id: localId + 1,
+            label: q.question || "Soal Kuis",
+            answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
+              id: localId + 10 + oIdx,
+              text: opt.option,
+              isCorrect: opt.option === q.correctAnswer,
+            })),
+          },
+        ],
+        ctStories: [makeCTStory()],
+      };
+    });
+    setQuizzes(mappedQuiz);
+    setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+  }, [getYoutubeThumb, makeCTStory]);
+
   const handleCreateQuiz = async () => {
     if (!topicId) {
       toast(
@@ -916,6 +998,7 @@ function TambahModulKontenPageContent() {
 
     // Create quiz in API
     setIsSavingQuiz(true);
+    showLoading("Membuat kuis...");
     try {
       const created = await guruKuisApi.create({
         quiz: {
@@ -938,9 +1021,11 @@ function TambahModulKontenPageContent() {
     } catch (err) {
       console.error("Create quiz error:", err);
       toast("Gagal membuat kuis.", "error");
+      hideLoading();
       setIsSavingQuiz(false);
       return;
     } finally {
+      hideLoading();
       setIsSavingQuiz(false);
     }
 
@@ -1166,14 +1251,17 @@ function TambahModulKontenPageContent() {
       s.subQuestions.map((sq) => subQuizApiIds[sq.id]).filter(Boolean),
     ) ?? [];
 
+    showLoading("Menghapus kuis...");
     try {
       if (apiId) await guruKuisApi.delete(apiId);
       for (const sid of subIds) await guruKuisApi.delete(sid);
     } catch (err) {
       console.error("Delete quiz error:", err);
       toast("Gagal menghapus kuis.", "error");
+      hideLoading();
       return;
     }
+    hideLoading();
     setQuizApiIds((prev) => {
       const next = { ...prev };
       delete next[quizId];
@@ -1286,6 +1374,7 @@ function TambahModulKontenPageContent() {
     }
 
     setIsSavingQuiz(true);
+    showLoading("Menyimpan kuis...");
     try {
       if (quiz.ctMode) {
         let firstSaved = false;
@@ -1406,6 +1495,7 @@ function TambahModulKontenPageContent() {
       console.error("Submit quiz error:", err);
       toast("Gagal menyimpan kuis.", "error");
     } finally {
+      hideLoading();
       setIsSavingQuiz(false);
     }
   };
@@ -1419,6 +1509,7 @@ function TambahModulKontenPageContent() {
     }
     setIsCreatingTopic(true);
     setTopicError("");
+    showLoading("Membuat topik...");
     try {
       const created = await guruTopikApi.create({
         modul_id: modulId,
@@ -1436,6 +1527,7 @@ function TambahModulKontenPageContent() {
         err instanceof Error ? err.message : "Gagal membuat topik.",
       );
     } finally {
+      hideLoading();
       setIsCreatingTopic(false);
     }
   }, [topicTitle, modulId]);
@@ -1443,6 +1535,7 @@ function TambahModulKontenPageContent() {
   // Edit topic via API
   const handleSaveEditTopic = useCallback(async () => {
     if (!topicId || editTopicTitle.trim().length === 0) return;
+    showLoading("Menyimpan perubahan topik...");
     try {
       await guruTopikApi.update(topicId, { nama: editTopicTitle.trim() });
       setTopicTitle(editTopicTitle.trim());
@@ -1458,6 +1551,8 @@ function TambahModulKontenPageContent() {
         err instanceof Error ? err.message : "Gagal memperbarui topik.",
         "error",
       );
+    } finally {
+      hideLoading();
     }
   }, [topicId, editTopicTitle]);
 
@@ -1471,6 +1566,7 @@ function TambahModulKontenPageContent() {
       confirmText: "Hapus",
     });
     if (!ok) return;
+    showLoading("Menghapus topik...");
     try {
       await guruTopikApi.delete(targetId);
       setTopicTitle("");
@@ -1486,6 +1582,8 @@ function TambahModulKontenPageContent() {
         err instanceof Error ? err.message : "Gagal menghapus topik.",
         "error",
       );
+    } finally {
+      hideLoading();
     }
   }, [topicId]);
 
@@ -1497,6 +1595,7 @@ function TambahModulKontenPageContent() {
       confirmText: "Terbitkan",
     });
     if (!ok2) return;
+    showLoading("Menerbitkan modul...");
     try {
       await guruModulApi.update(modulId, { isDraft: false });
       router.push("/modul-guru?tab=published");
@@ -1506,22 +1605,22 @@ function TambahModulKontenPageContent() {
         err instanceof Error ? err.message : "Gagal menerbitkan modul.",
         "error",
       );
+    } finally {
+      hideLoading();
     }
   }, [modulId, router]);
 
-  if (!isAuthorized) {
+  if (!isAuthorized || isLoading) {
     return (
-      <Suspense
-        fallback={
-          <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
-            <div className="flex items-center justify-center py-20">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent" />
-            </div>
+      <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
+        <GuruHeader />
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
+            <p className="text-sm text-[#8a8d98]">{isLoading ? 'Memuat data konten...' : 'Memeriksa otorisasi...'}</p>
           </div>
-        }
-      >
-        <TambahModulKontenPageContent />
-      </Suspense>
+        </div>
+      </div>
     );
   }
 
@@ -1681,7 +1780,7 @@ function TambahModulKontenPageContent() {
                           <p className="text-[12px] font-semibold text-[#232530]">
                             Topik {topikIndex + 1}:
                           </p>
-                        {isEditingTopic ? (
+                        {isEditingTopic && topicId === topik.id ? (
                           <>
                             <input
                               type="text"
@@ -1718,11 +1817,11 @@ function TambahModulKontenPageContent() {
                             <button
                               type="button"
                               onClick={() => {
-                                setActiveTopikId(topik.id);
-                                setTopicTitle(topik.nama);
-                                setTopicId(topik.id);
                                 setEditTopicTitle(topik.nama);
                                 setIsEditingTopic(true);
+                                if (activeTopikId !== topik.id) {
+                                  loadTopicData(topik);
+                                }
                               }}
                               className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"
                               aria-label="Edit topik"
@@ -2529,40 +2628,6 @@ function TambahModulKontenPageContent() {
 
                         {quiz.isExpanded && (
                           <div className="mt-4">
-                            {isTopicCT ? (
-                              <div className="mb-4 inline-flex items-center gap-1.5 rounded-lg bg-[#f1ecff] px-3 py-1.5 text-[12px] font-semibold text-[#7054dc]">
-                                Computational Thinking
-                              </div>
-                            ) : (
-                              <div className="mb-4 flex items-center gap-1 rounded-lg border border-[#e5e3ee] bg-white p-1">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleToggleCTMode(quiz.id, false)
-                                  }
-                                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                                    !quiz.ctMode
-                                      ? "bg-[#7054dc] text-white"
-                                      : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
-                                  }`}
-                                >
-                                  Reguler
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleToggleCTMode(quiz.id, true)
-                                  }
-                                  className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-                                    quiz.ctMode
-                                      ? "bg-[#7054dc] text-white"
-                                      : "text-[#7a7e8a] hover:bg-[#f5f4fb]"
-                                  }`}
-                                >
-                                  Computational Thinking
-                                </button>
-                              </div>
-                            )}
 
                             {quiz.ctMode ? (
                               <>
@@ -2861,78 +2926,9 @@ function TambahModulKontenPageContent() {
                     <button
                       type="button"
                       onClick={() => {
-                        setActiveTopikId(topik.id);
-                        setTopicTitle(topik.nama);
-                        setTopicId(topik.id);
-                        const loaded = topik.materis.map((item, idx) => {
-                          const localId = Date.now() + idx;
-                          setMaterialApiIds((prev) => ({
-                            ...prev,
-                            [localId]: item.id,
-                          }));
-                          return {
-                            id: localId,
-                            title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
-                            type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
-                            isSaved: true,
-                            isExpanded: false,
-                            videoSource: "link" as const,
-                            linkUrl: item.videoUrl || "",
-                            linkPreviewTitle: "",
-                            linkPreviewThumb: item.videoUrl ? getYoutubeThumb(item.videoUrl) : "",
-                            linkVideoTitle: "",
-                            linkVideoDuration: "",
-                            showUploadSuccess: false,
-                            fileName: "",
-                            fileSize: "",
-                            uploadProgress: 100,
-                            uploadStatus: "done" as const,
-                            previewUrl: "",
-                            duration: "00:00",
-                            articleContent: item.article || "",
-                          };
-                        });
-                        setMaterials(loaded);
-                        if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
-                        const quizIds: Record<number, string> = {};
-                        const mappedQuiz = (topik.quizzes || []).map(
-                          (q, qIdx) => {
-                            const localId = Date.now() + qIdx + 1000;
-                            quizIds[localId] = q.id;
-                            return {
-                              id: localId,
-                              title:
-                                q.question.length > 40
-                                  ? q.question.substring(0, 40) + "…"
-                                  : q.question,
-                              isExpanded: false,
-                              ctMode: q.quizType === "COMPUTATIONAL_THINKING",
-                              duration: q.quizSettings[0]?.timeLimit
-                                ? Math.round(q.quizSettings[0].timeLimit / 60)
-                                : 90,
-                              minScore: q.quizSettings[0]?.minScoreTreshold ?? 0,
-                              scorePerQuestion:
-                                q.quizSettings[0]?.standardScorePerQuestion ??
-                                10,
-                              questions: [
-                                {
-                                  id: localId + 1,
-                                  label: q.question,
-                                  answers: (
-                                    q.quizAnswerOptions || []
-                                  ).map((opt, oIdx) => ({
-                                    id: localId + 10 + oIdx,
-                                    text: opt.option,
-                                    isCorrect: opt.option === q.correctAnswer,
-                                  })),
-                                },
-                              ],
-                              ctStories: [makeCTStory()],
-                            };
-                          },
-                        );
-                        setQuizzes(mappedQuiz);
-                        setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+                        if (activeTopikId !== topik.id) {
+                          loadTopicData(topik);
+                        }
                       }}
                       className="mt-2 text-[12px] font-semibold text-[#7054dc] hover:underline"
                     >
