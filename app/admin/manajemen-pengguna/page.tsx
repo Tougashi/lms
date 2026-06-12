@@ -235,10 +235,13 @@ export default function ManajemenPenggunaPage() {
       : ['Nama Lengkap', 'Tingkat Siswa', 'Kelas', 'Email'];
 
   function getGuruCols(r: AdminTutorItem) {
-    return [r.fullName, 'Guru', r.gender ?? '-', r.whatsappNumber ?? '-', r.email];
+    return [r.fullName, r.pekerjaan || '-', r.prodi || '-', r.whatsappNumber ?? '-', r.email];
   }
 
   function getSiswaCols(r: AdminSiswaItem) {
+    if (r.role === 'umum' || r.studentType === 'UMUM') {
+      return [r.nama_lengkap, 'Umum', 'Umum', r.email];
+    }
     return [r.nama_lengkap, r.jenjang ?? '-', r.kelas_sekolah ?? '-', r.email];
   }
 

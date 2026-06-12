@@ -125,7 +125,7 @@ export default function TambahSiswaPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [jenjang, setJenjang] = useState("");
   const [kelasSekolah, setKelasSekolah] = useState("");
-  const [studentType, setStudentType] = useState<"SISWA" | "GURU">("SISWA");
+  const [role, setRole] = useState<"siswa" | "umum">("siswa");
 
   /* foto profil */
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -192,9 +192,9 @@ export default function TambahSiswaPage() {
         nama_lengkap: namaLengkap.trim(),
         email: email.trim(),
         password,
-        jenjang: jenjang || undefined,
-        kelas_sekolah: kelasSekolah || undefined,
-        studentType,
+        jenjang: role === "umum" ? undefined : jenjang || undefined,
+        kelas_sekolah: role === "umum" ? undefined : kelasSekolah || undefined,
+        role,
         profileImage: finalPhotoUrl ?? undefined,
       });
       showToast("success", "Siswa berhasil ditambahkan.");
@@ -409,33 +409,35 @@ export default function TambahSiswaPage() {
             </div>
 
             {/* Jenjang + Kelas */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className={labelCls}>Jenjang Sekolah</label>
-                <StyledSelect
-                  value={jenjang}
-                  onChange={handleJenjangChange}
-                  options={jenjangOptions}
-                  placeholder="— Pilih Jenjang —"
-                />
-                <p className={hintCls}>
-                  Sesuaikan dengan jenjang pendidikan siswa
-                </p>
+            {role === "siswa" && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelCls}>Jenjang Sekolah</label>
+                  <StyledSelect
+                    value={jenjang}
+                    onChange={handleJenjangChange}
+                    options={jenjangOptions}
+                    placeholder="— Pilih Jenjang —"
+                  />
+                  <p className={hintCls}>
+                    Sesuaikan dengan jenjang pendidikan siswa
+                  </p>
+                </div>
+                <div>
+                  <label className={labelCls}>Kelas</label>
+                  <StyledSelect
+                    value={kelasSekolah}
+                    onChange={setKelasSekolah}
+                    options={getKelasOptions(jenjang)}
+                    placeholder="— Pilih Kelas —"
+                    disabled={!jenjang}
+                  />
+                  <p className={hintCls}>
+                    {jenjang ? "Pilih kelas sesuai jenjang" : "Pilih jenjang terlebih dahulu"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <label className={labelCls}>Kelas</label>
-                <StyledSelect
-                  value={kelasSekolah}
-                  onChange={setKelasSekolah}
-                  options={getKelasOptions(jenjang)}
-                  placeholder="— Pilih Kelas —"
-                  disabled={!jenjang}
-                />
-                <p className={hintCls}>
-                  {jenjang ? "Pilih kelas sesuai jenjang" : "Pilih jenjang terlebih dahulu"}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* ══ CARD: Tipe Akses ══ */}
@@ -445,17 +447,17 @@ export default function TambahSiswaPage() {
             <div className="flex items-center gap-3">
               {(
                 [
-                  { label: "Siswa", value: "SISWA" },
-                  { label: "Umum", value: "GURU" },
-                ] as { label: string; value: "SISWA" | "GURU" }[]
+                  { label: "Siswa", value: "siswa" },
+                  { label: "Umum", value: "umum" },
+                ] as { label: string; value: "siswa" | "umum" }[]
               ).map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setStudentType(opt.value)}
+                  onClick={() => setRole(opt.value)}
                   className={[
                     "rounded-xl px-5 py-2 text-[13px] font-semibold transition-colors",
-                    studentType === opt.value
+                    role === opt.value
                       ? "bg-[#7054dc] text-white shadow-[0_4px_14px_rgba(112,84,220,0.3)]"
                       : "border border-[#e2e0ea] text-[#6b6880] hover:border-[#c8c4db] hover:bg-[#fafafa]",
                   ].join(" ")}

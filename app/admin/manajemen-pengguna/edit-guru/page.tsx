@@ -15,6 +15,7 @@ import {
 } from "react-icons/fi";
 import AdminHeader from "../../../component/admin/AdminHeader";
 import { adminTutorApi, uploadApi } from "../../../lib/api";
+import type { AdminTutorUpdatePayload } from "../../../lib/types/admin";
 import {
   AdminToastContainer,
   useAdminToast,
@@ -201,6 +202,7 @@ function EditGuruContent() {
   /* akun */
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [gender, setGender] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
 
@@ -349,8 +351,10 @@ function EditGuruContent() {
         finalCvUrl = res.url ?? "";
       }
 
-      await adminTutorApi.update(id, {
+      const payload: AdminTutorUpdatePayload = {
         fullName: fullName.trim(),
+        email: email.trim(),
+        ...(newPassword ? { password: newPassword } : {}),
         gender: gender || undefined,
         whatsappNumber: whatsappNumber.trim() || undefined,
         pekerjaan: pekerjaan.trim() || undefined,
@@ -360,7 +364,9 @@ function EditGuruContent() {
         cvPathUrl: finalCvUrl || undefined,
         biografi: biografi.trim() || undefined,
         profileImg: finalPhotoUrl ?? undefined,
-      });
+      };
+
+      await adminTutorApi.update(id, payload);
       showToast("success", "Data guru berhasil diperbarui.");
       setTimeout(() => router.push("/admin/manajemen-pengguna"), 1200);
     } catch (err: unknown) {
@@ -540,17 +546,36 @@ function EditGuruContent() {
                 )}
               </div>
 
-              {/* Email — read-only */}
+              {/* Email — editable */}
               <div className="mb-4">
                 <label className={labelCls}>
-                  Email{" "}
-                  <span className="font-normal text-[#a0a3af]">
-                    (tidak dapat diubah)
-                  </span>
+                  Email <span className="text-[#e8473f]">*</span>
                 </label>
-                <div className="mt-1.5 flex h-[44px] items-center rounded-xl border border-[#e2e0ea] bg-[#f4f3f8] px-4">
-                  <span className="text-[13px] text-[#9396a3]">{email}</span>
-                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Password Baru (Opsional) */}
+              <div className="mb-4">
+                <label className={labelCls}>
+                  Ganti Kata Sandi{" "}
+                  <span className="font-normal text-[#a0a3af]">(Opsional)</span>
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Minimal 6 karakter"
+                  className={inputCls}
+                />
+                <p className={hintCls}>
+                  Isi hanya jika ingin mengganti kata sandi guru ini. Jika dibiarkan kosong, kata sandi lama tetap berlaku.
+                </p>
               </div>
 
               {/* No WA + Jenis Kelamin */}

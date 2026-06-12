@@ -233,8 +233,11 @@ export interface AdminSiswaCreatePayload {
 
 export interface AdminSiswaUpdatePayload {
   nama_lengkap?: string;
+  email?: string;
+  password?: string;
   kelas_sekolah?: string;
   jenjang?: string;
+  role?: "siswa" | "umum";
   studentType?: "SISWA" | "GURU";
   profileImage?: string | null;
 }
@@ -275,6 +278,8 @@ export interface AdminTutorCreatePayload {
 
 export interface AdminTutorUpdatePayload {
   fullName?: string;
+  email?: string;
+  password?: string;
   gender?: string;
   pekerjaan?: string;
   whatsappNumber?: string;

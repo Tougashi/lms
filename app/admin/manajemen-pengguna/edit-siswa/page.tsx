@@ -104,8 +104,11 @@ function EditSiswaContent() {
   const { toasts, showToast, dismissToast } = useAdminToast();
 
   const [namaLengkap, setNamaLengkap] = useState('');
+  const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [jenjang, setJenjang] = useState('');
   const [kelasSekolah, setKelasSekolah] = useState('');
+  const [role, setRole] = useState<"siswa" | "umum">("siswa");
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -120,9 +123,11 @@ function EditSiswaContent() {
         if (!siswa) {
           setNotFound(true);
         } else {
-          setNamaLengkap(siswa.nama_lengkap);
+          setNamaLengkap(siswa.nama_lengkap ?? '');
+          setEmail(siswa.email ?? '');
           setJenjang(siswa.jenjang ?? '');
           setKelasSekolah(siswa.kelas_sekolah ?? '');
+          setRole((siswa.role as "siswa" | "umum") ?? "siswa");
         }
       })
       .catch(() => setNotFound(true))
@@ -152,8 +157,11 @@ function EditSiswaContent() {
     try {
       await adminSiswaApi.update(id, {
         nama_lengkap: namaLengkap.trim(),
-        jenjang: jenjang || undefined,
-        kelas_sekolah: kelasSekolah || undefined,
+        email: email.trim(),
+        ...(newPassword ? { password: newPassword } : {}),
+        role,
+        jenjang: role === "umum" ? undefined : jenjang || undefined,
+        kelas_sekolah: role === "umum" ? undefined : kelasSekolah || undefined,
       });
       showToast('success', 'Data siswa berhasil diperbarui.');
       setTimeout(() => router.push('/admin/manajemen-pengguna'), 1200);
@@ -227,32 +235,98 @@ function EditSiswaContent() {
                 }
               </div>
 
-              {/* Jenjang + Kelas */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className={labelCls}>Jenjang Sekolah</label>
-                  <StyledSelect
-                    value={jenjang}
-                    onChange={handleJenjangChange}
-                    options={jenjangOptions}
-                    placeholder="— Pilih Jenjang —"
-                  />
-                  <p className={hintCls}>Opsional — SD, SMP, atau SMA</p>
-                </div>
-                <div>
-                  <label className={labelCls}>Kelas</label>
-                  <StyledSelect
-                    value={kelasSekolah}
-                    onChange={setKelasSekolah}
-                    options={getKelasOptions(jenjang)}
-                    placeholder="— Pilih Kelas —"
-                    disabled={!jenjang}
-                  />
-                  <p className={hintCls}>
-                    {jenjang ? 'Pilih kelas sesuai jenjang' : 'Pilih jenjang terlebih dahulu'}
-                  </p>
-                </div>
+              {/* Email */}
+              <div className="mb-4">
+                <label className={labelCls}>
+                  Email <span className="text-[#e8473f]">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Masukkan email siswa"
+                  className={fieldCls}
+                />
               </div>
+
+              {/* Password Baru (Opsional) */}
+              <div className="mb-4">
+                <label className={labelCls}>
+                  Ganti Kata Sandi{' '}
+                  <span className="font-normal text-[#a0a3af]">(Opsional)</span>
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Minimal 6 karakter"
+                  className={fieldCls}
+                />
+                <p className={hintCls}>
+                  Isi hanya jika ingin mengganti kata sandi siswa. Biarkan kosong jika tidak ingin mengubah.
+                </p>
+              </div>
+
+              {/* Jenjang + Kelas */}
+              {role === "siswa" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className={labelCls}>Jenjang Sekolah</label>
+                    <StyledSelect
+                      value={jenjang}
+                      onChange={handleJenjangChange}
+                      options={jenjangOptions}
+                      placeholder="— Pilih Jenjang —"
+                    />
+                    <p className={hintCls}>Opsional — SD, SMP, atau SMA</p>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Kelas</label>
+                    <StyledSelect
+                      value={kelasSekolah}
+                      onChange={setKelasSekolah}
+                      options={getKelasOptions(jenjang)}
+                      placeholder="— Pilih Kelas —"
+                      disabled={!jenjang}
+                    />
+                    <p className={hintCls}>
+                      {jenjang ? 'Pilih kelas' : 'Pilih jenjang terlebih dahulu'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ══ CARD: Tipe Akses ══ */}
+            <div className="rounded-2xl border border-[#e6e3f0] bg-white p-6 shadow-sm">
+              <SectionTitle>Tipe Akses</SectionTitle>
+
+              <div className="flex items-center gap-3">
+                {(
+                  [
+                    { label: "Siswa", value: "siswa" },
+                    { label: "Umum", value: "umum" },
+                  ] as { label: string; value: "siswa" | "umum" }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRole(opt.value)}
+                    className={[
+                      "rounded-xl px-5 py-2 text-[13px] font-semibold transition-colors",
+                      role === opt.value
+                        ? "bg-[#7054dc] text-white shadow-[0_4px_14px_rgba(112,84,220,0.3)]"
+                        : "border border-[#e2e0ea] text-[#6b6880] hover:border-[#c8c4db] hover:bg-[#fafafa]",
+                    ].join(" ")}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <p className={`${hintCls} mt-3`}>
+                Siswa mendapatkan akses ke modul yang di-assign. Umum memiliki
+                akses terbatas.
+              </p>
             </div>
 
             {/* ID Badge */}

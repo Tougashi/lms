@@ -32,7 +32,7 @@ export default function AdminSettingPage() {
   const [isEditingAccount, setIsEditingAccount] = useState(false);
   
   // Forms
-  const [personalForm, setPersonalForm] = useState({ fullName: "", gender: "", whatsappNumber: "" });
+  const [personalForm, setPersonalForm] = useState({ fullName: "", email: "", gender: "", whatsappNumber: "" });
   const [accountForm, setAccountForm] = useState({ username: "" });
   const [passwordForm, setPasswordForm] = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
   const [showPassword, setShowPassword] = useState({ old: false, new: false, confirm: false });
@@ -57,6 +57,7 @@ export default function AdminSettingPage() {
       
       setPersonalForm({
         fullName: res.fullName || "",
+        email: res.email || "",
         gender: mappedGender,
         whatsappNumber: res.whatsappNumber || "",
       });
@@ -76,6 +77,7 @@ export default function AdminSettingPage() {
     try {
       await adminProfileApi.update({
         fullName: personalForm.fullName,
+        email: personalForm.email,
         gender: personalForm.gender,
         whatsappNumber: personalForm.whatsappNumber,
       });
@@ -268,6 +270,7 @@ export default function AdminSettingPage() {
                                   setIsEditingPersonal(false);
                                   setPersonalForm({
                                     fullName: profile.fullName || "",
+                                    email: profile.email || "",
                                     gender: profile.gender || "L",
                                     whatsappNumber: profile.whatsappNumber || "",
                                   });
@@ -323,10 +326,10 @@ export default function AdminSettingPage() {
                             <div>
                               <label className="mb-1.5 block text-xs text-[#7d8291]">Email</label>
                               <input
-                                type="text"
-                                value={profile.email}
-                                disabled
-                                className="w-full rounded-lg border border-[#d9d7df] bg-[#f7f6fb] px-3 py-2 text-sm text-[#7d8291]"
+                                type="email"
+                                value={personalForm.email}
+                                onChange={(e) => setPersonalForm({ ...personalForm, email: e.target.value })}
+                                className="w-full rounded-lg border border-[#d9d7df] bg-white px-3 py-2 text-sm text-[#202126] focus:border-[#7054dc] focus:outline-none"
                               />
                             </div>
                             <div>
