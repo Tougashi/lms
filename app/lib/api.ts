@@ -824,11 +824,106 @@ export const guruPosttestApi = {
 };
 
 // ---------------------------------------------------------------------------
-// Admin – Pretest & Posttest (alias ke endpoint tutor, admin memiliki akses sama)
+// Admin – Pretest & Posttest (dedicated admin routes at /admin/pretest, /admin/posttest)
 // ---------------------------------------------------------------------------
 
-export const adminPretestApi = guruPretestApi;
-export const adminPosttestApi = guruPosttestApi;
+export const adminPretestApi = {
+    getByModul(modulId: string) {
+        return apiFetch<GuruPretestItem>(`/admin/pretest/${modulId}`);
+    },
+    getDetail(pretestId: string) {
+        return apiFetch<GuruPretestItem>(`/admin/pretest/detail/${pretestId}`);
+    },
+    create(payload: { modul_id: string }) {
+        return apiFetch<GuruPretestItem>("/admin/pretest", {
+            method: "POST",
+            data: payload,
+        });
+    },
+    update(id: string, payload: Record<string, unknown>) {
+        return apiFetch<GuruPretestItem>(`/admin/pretest/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/admin/pretest/${id}`, {
+            method: "DELETE",
+        });
+    },
+    addSoal(payload: GuruPretestSoalPayload) {
+        return apiFetch<unknown>("/admin/pretest/soal", {
+            method: "POST",
+            data: payload,
+        });
+    },
+    updateSoal(soalId: string, payload: GuruPretestSoalUpdatePayload) {
+        return apiFetch<unknown>(`/admin/pretest/soal/${soalId}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+    deleteSoal(soalId: string) {
+        return apiFetch<{ message: string }>(`/admin/pretest/soal/${soalId}`, {
+            method: "DELETE",
+        });
+    },
+    updateSettings(pretestId: string, payload: GuruPretestSettingsPayload) {
+        return apiFetch<unknown>(`/admin/pretest/settings/${pretestId}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+};
+
+export const adminPosttestApi = {
+    getByModul(modulId: string) {
+        return apiFetch<GuruPosttestItem>(`/admin/posttest/${modulId}`);
+    },
+    getDetail(posttestId: string) {
+        return apiFetch<GuruPosttestItem>(`/admin/posttest/detail/${posttestId}`);
+    },
+    create(payload: { modul_id: string }) {
+        return apiFetch<GuruPosttestItem>("/admin/posttest", {
+            method: "POST",
+            data: payload,
+        });
+    },
+    update(id: string, payload: Record<string, unknown>) {
+        return apiFetch<GuruPosttestItem>(`/admin/posttest/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/admin/posttest/${id}`, {
+            method: "DELETE",
+        });
+    },
+    addSoal(payload: GuruPosttestSoalPayload) {
+        return apiFetch<unknown>("/admin/posttest/soal", {
+            method: "POST",
+            data: payload,
+        });
+    },
+    updateSoal(soalId: string, payload: GuruPosttestSoalUpdatePayload) {
+        return apiFetch<unknown>(`/admin/posttest/soal/${soalId}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+    deleteSoal(soalId: string) {
+        return apiFetch<{ message: string }>(`/admin/posttest/soal/${soalId}`, {
+            method: "DELETE",
+        });
+    },
+    updateSettings(posttestId: string, payload: GuruPosttestSettingsPayload) {
+        return apiFetch<unknown>(`/admin/posttest/settings/${posttestId}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+};
 
 // ---------------------------------------------------------------------------
 // Guru / Tutor – Kuis endpoints

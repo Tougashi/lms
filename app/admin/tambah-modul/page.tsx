@@ -17,6 +17,36 @@ import { AdminToastContainer, useAdminToast } from "../components/AdminToast";
 import { adminModulApi, adminTutorApi, uploadApi } from "../../lib/api";
 import type { AdminTutorItem } from "../../lib/types/admin";
 
+/* ─── Navigation-guard dialog ─── */
+function NavGuardModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-[400px] rounded-[22px] border-2 border-[#7054dc] bg-white px-8 py-7 text-center shadow-[0_20px_48px_rgba(112,84,220,0.18)]">
+        <h3 className="text-[16px] font-bold italic text-[#7054dc]">Tinggalkan Halaman?</h3>
+        <p className="mx-auto mt-3 max-w-[320px] text-[13px] leading-[1.6] text-[#5a5d6a]">
+          Form ini belum tersimpan. Perubahan yang Anda buat akan hilang jika pindah halaman sekarang.
+        </p>
+        <div className="mt-6 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="h-[42px] flex-1 rounded-xl bg-[#f07167] text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-[#e85f55]"
+          >
+            Ya, Tinggalkan
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="h-[42px] flex-1 rounded-xl border-2 border-[#d8d3f0] bg-white text-[13px] font-semibold text-[#7054dc] transition-colors hover:bg-[#f5f2ff]"
+          >
+            Tetap di Sini
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── ID state (persisted across re-renders without triggering re-render for sidebar) ─── */
 let _createdModulId: string | null = null;
 
@@ -191,6 +221,9 @@ export default function TambahModulAdminPage() {
   /* ui state */
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isDirty, setIsDirty] = useState(false);
+  const [pendingNavUrl, setPendingNavUrl] = useState<string | null>(null);
+  const savedRef = useRef(false);
 
   /* cover */
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -262,6 +295,14 @@ export default function TambahModulAdminPage() {
     fetchTutors();
   }, [fetchTutors]);
 
+  /* mark form dirty whenever user touches any field */
+  useEffect(() => {
+    if (moduleName || subtitle || description || tutorId || level || kelas || coverFile) {
+      if (!savedRef.current) setIsDirty(true);
+    }
+  }, [moduleName, subtitle, description, tutorId, level, kelas, coverFile]);
+
+
   /* cleanup object URL on unmount */
   useEffect(() => {
     return () => {
@@ -269,6 +310,18 @@ export default function TambahModulAdminPage() {
         URL.revokeObjectURL(coverObjectUrlRef.current);
     };
   }, []);
+
+  /* warn browser tab close / reload when form is dirty */
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty && !savedRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
 
   /* cover change — upload immediately on file select */
   const handleCoverChange = async (file: File | null) => {
@@ -350,12 +403,22 @@ export default function TambahModulAdminPage() {
       });
 
       showToast("success", "Modul berhasil dibuat. Lanjutkan mengisi konten modul.");
+      savedRef.current = true;
+      setIsDirty(false);
       router.push(`/admin/tambah-modul/konten?id=${created.id}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Gagal menyimpan modul.";
       showToast("error", msg);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  /* guard Link clicks that navigate away */
+  const handleNavAway = (e: React.MouseEvent, href: string) => {
+    if (isDirty && !savedRef.current) {
+      e.preventDefault();
+      setPendingNavUrl(href);
     }
   };
 
@@ -395,13 +458,19 @@ export default function TambahModulAdminPage() {
   return (
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
       <AdminToastContainer toasts={toasts} onDismiss={dismissToast} />
+      {pendingNavUrl && (
+        <NavGuardModal
+          onConfirm={() => { setIsDirty(false); router.push(pendingNavUrl!); setPendingNavUrl(null); }}
+          onCancel={() => setPendingNavUrl(null)}
+        />
+      )}
       <AdminHeader />
 
       <main className="flex w-full">
         <AdminModuleSidebar
           basePath="/admin/tambah-modul"
           title="Tambah Modul"
-          showSiswaTab={true}
+          showSiswaTab={false}
         />
 
         <div className="flex-1 px-4 pb-12 pt-6 sm:px-6 lg:px-8">
@@ -409,6 +478,7 @@ export default function TambahModulAdminPage() {
             {/* Back link */}
             <Link
               href="/admin/manajemen-modul"
+              onClick={(e) => handleNavAway(e, '/admin/manajemen-modul')}
               className="mb-5 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#7054dc] hover:text-[#5f46cc] transition-colors"
             >
               <FiArrowLeft size={15} />
@@ -789,6 +859,7 @@ export default function TambahModulAdminPage() {
           <div className="flex items-center justify-end gap-3 pb-4">
             <Link
               href="/admin/manajemen-modul"
+              onClick={(e) => handleNavAway(e, '/admin/manajemen-modul')}
               className="inline-flex h-[44px] items-center rounded-xl border border-[#e2e0ea] px-6 text-[13px] font-semibold text-[#6b6880] hover:border-[#c8c4db] hover:bg-[#f7f6fb] transition-colors"
             >
               Batal

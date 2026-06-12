@@ -300,7 +300,7 @@ function AdminKontenPageContent() {
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
       <AdminHeader />
       <main className="flex w-full">
-        <AdminModuleSidebar basePath="/admin/tambah-modul" modulId={modulId ?? undefined} title="Tambah Modul" showSiswaTab={true} />
+        <AdminModuleSidebar basePath="/admin/tambah-modul" modulId={modulId ?? undefined} title="Tambah Modul" showSiswaTab={false} />
 
         <section className="flex-1 px-4 pb-10 pt-6 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
