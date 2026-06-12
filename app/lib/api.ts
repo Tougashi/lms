@@ -967,10 +967,15 @@ export const guruKuisApi = {
 // Upload endpoint
 // ---------------------------------------------------------------------------
 // NOTE: We call /api/upload (Next.js route handler) instead of going through
-// the /api-backend rewrite because Next.js rewrites strip multipart bodies,
-// causing 500s. The route handler at app/api/upload/route.ts proxies
-// the raw FormData directly to the backend with no size limits.
 // ---------------------------------------------------------------------------
+// Karena Next.js rewrites merusak multipart/form-data dan API route (/api/upload)
+// memiliki limit body 4MB bawaan Vercel/Next.js, kita langsung fetch ke backend.
+// ---------------------------------------------------------------------------
+
+let BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://lms-express-api-o5uk.vercel.app/api/v1";
+if (BACKEND_URL && !BACKEND_URL.endsWith('/api/v1')) {
+    BACKEND_URL += '/api/v1';
+}
 
 export const uploadApi = {
     async upload(file: File, fileType?: string): Promise<UploadResponse> {
@@ -980,7 +985,7 @@ export const uploadApi = {
         formData.append("type", type);
         formData.append("fileType", type);
 
-        const res = await fetch("/api/upload", {
+        const res = await fetch(`${BACKEND_URL}/upload`, {
             method: "POST",
             body: formData,
             credentials: "include",

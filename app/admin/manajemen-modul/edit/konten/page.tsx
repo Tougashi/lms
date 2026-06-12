@@ -16,31 +16,49 @@ function RichTextEditor({ placeholder, value = '', onChange }: { placeholder: st
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEmpty, setIsEmpty] = useState(true);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-
-  const updateEmptyState = () => {
-    const html = editorRef.current?.innerHTML || '';
-    setIsEmpty((editorRef.current?.textContent?.trim() ?? '').length === 0);
-    if (onChange) onChange(html);
-  };
   
+  const [active, setActive] = useState({ bold: false, italic: false, underline: false, ul: false, ol: false, h1: false, h2: false });
+
+  const updateState = useCallback(() => {
+    if (!editorRef.current) return;
+    const html = editorRef.current.innerHTML || '';
+    setIsEmpty((editorRef.current.textContent?.trim() ?? '').length === 0);
+    if (onChange) onChange(html);
+
+    try {
+      setActive({
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline'),
+        ul: document.queryCommandState('insertUnorderedList'),
+        ol: document.queryCommandState('insertOrderedList'),
+        h1: document.queryCommandValue('formatBlock') === 'h1',
+        h2: document.queryCommandValue('formatBlock') === 'h2',
+      });
+    } catch { /* ignore */ }
+  }, [onChange]);
+  
+  useEffect(() => {
+    document.addEventListener('selectionchange', updateState);
+    return () => document.removeEventListener('selectionchange', updateState);
+  }, [updateState]);
+
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
       editorRef.current.innerHTML = value;
-      setIsEmpty((editorRef.current.textContent?.trim() ?? '').length === 0);
+      updateState();
     }
-  }, [value]);
+  }, [value, updateState]);
 
-  const applyCommand = (command: string) => {
+  const applyCmd = (cmd: string, val?: string) => {
     editorRef.current?.focus();
-    document.execCommand(command);
-    updateEmptyState();
+    document.execCommand(cmd, false, val);
+    updateState();
   };
   const applyLink = () => {
     const url = window.prompt('Masukkan tautan');
     if (!url) return;
-    editorRef.current?.focus();
-    document.execCommand('createLink', false, url);
-    updateEmptyState();
+    applyCmd('createLink', url);
   };
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,7 +69,7 @@ function RichTextEditor({ placeholder, value = '', onChange }: { placeholder: st
       if (editorRef.current) {
         editorRef.current.focus();
         document.execCommand('insertImage', false, res.url);
-        updateEmptyState();
+        updateState();
       }
     } catch { /* silent */ } finally {
       setIsUploadingImage(false);
@@ -59,25 +77,38 @@ function RichTextEditor({ placeholder, value = '', onChange }: { placeholder: st
     }
   };
 
+  const btnClass = (isActive: boolean) => `inline-flex h-6 w-6 items-center justify-center rounded-md text-[#232530] transition-colors ${isActive ? 'bg-[#ece7ff] text-[#7054dc]' : 'hover:bg-[#f5f4fb]'}`;
+
   return (
     <div className="rounded-xl border border-[#d9d7df] bg-white">
       <div className="flex flex-wrap items-center gap-1.5 border-b border-[#e8e9ef] px-3 py-2 text-[11px] text-[#6f7381]">
-        <button type="button" onClick={() => applyCommand('bold')} className="inline-flex h-6 w-6 items-center justify-center rounded-md font-semibold text-[#232530] hover:bg-[#f5f4fb]">B</button>
-        <button type="button" onClick={() => applyCommand('italic')} className="inline-flex h-6 w-6 items-center justify-center rounded-md italic text-[#232530] hover:bg-[#f5f4fb]">I</button>
-        <button type="button" onClick={() => applyCommand('underline')} className="inline-flex h-6 w-6 items-center justify-center rounded-md underline text-[#232530] hover:bg-[#f5f4fb]">U</button>
-        <button type="button" onClick={applyLink} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#232530] hover:bg-[#f5f4fb]" aria-label="Link">
+        <button type="button" onClick={() => applyCmd('formatBlock', 'H1')} className={btnClass(active.h1)} title="Heading 1"><span className="font-bold">H1</span></button>
+        <button type="button" onClick={() => applyCmd('formatBlock', 'H2')} className={btnClass(active.h2)} title="Heading 2"><span className="font-bold">H2</span></button>
+        <div className="h-4 w-px bg-[#e4e5eb] mx-1" />
+        <button type="button" onClick={() => applyCmd('bold')} className={btnClass(active.bold)} title="Bold"><span className="font-bold">B</span></button>
+        <button type="button" onClick={() => applyCmd('italic')} className={btnClass(active.italic)} title="Italic"><span className="italic">I</span></button>
+        <button type="button" onClick={() => applyCmd('underline')} className={btnClass(active.underline)} title="Underline"><span className="underline">U</span></button>
+        <div className="h-4 w-px bg-[#e4e5eb] mx-1" />
+        <button type="button" onClick={() => applyCmd('insertUnorderedList')} className={btnClass(active.ul)} title="Bullet List">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="5" cy="7" r="2" fill="currentColor"/><circle cx="5" cy="17" r="2" fill="currentColor"/><path d="M10 7h10M10 17h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+        </button>
+        <button type="button" onClick={() => applyCmd('insertOrderedList')} className={btnClass(active.ol)} title="Numbered List">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 7h2v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10 7h10M10 17h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+        </button>
+        <div className="h-4 w-px bg-[#e4e5eb] mx-1" />
+        <button type="button" onClick={applyLink} className={btnClass(false)} title="Link">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10 13.5l4-4M7 17a4 4 0 0 1 0-6l2-2a4 4 0 0 1 6 6l-2 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
         </button>
-        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploadingImage} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#232530] hover:bg-[#f5f4fb] disabled:opacity-50" aria-label="Image">
+        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploadingImage} className={btnClass(false)} title="Image">
           {isUploadingImage
             ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#7054dc] border-t-transparent" />
             : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="2"/><circle cx="9" cy="11" r="2" fill="currentColor"/><path d="M20 16l-5-5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           }
         </button>
       </div>
-      <div className="relative px-3 py-3 text-[12px] text-[#232530]">
-        {isEmpty && <span className="pointer-events-none absolute left-3 top-3 text-[11px] text-[#9aa0ad]">{placeholder}</span>}
-        <div ref={editorRef} contentEditable onInput={updateEmptyState} onBlur={updateEmptyState} className="min-h-[120px] outline-none" />
+      <div className="relative px-3 py-3 text-[13px] text-[#232530]">
+        {isEmpty && <span className="pointer-events-none absolute left-3 top-3 text-[12px] text-[#9ca0ad]">{placeholder}</span>}
+        <div ref={editorRef} contentEditable onInput={updateState} onBlur={updateState} className="min-h-[120px] outline-none prose prose-sm max-w-none" />
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
       </div>
     </div>
@@ -122,7 +153,7 @@ const getYoutubeThumb = (url: string) => {
 function EditModulKontenContent() {
   const searchParams = useSearchParams();
   const modulId = searchParams.get('id');
-  const { confirm } = usePopup();
+  const { confirm, toast } = usePopup();
 
   const [topics, setTopics] = useState<TopicWithMaterials[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -269,7 +300,8 @@ function EditModulKontenContent() {
       try {
         await adminMateriApi.delete(apiId);
         setMaterialApiIds((prev) => { const n = { ...prev }; delete n[materialId]; return n; });
-      } catch { showFeedback('Gagal menghapus materi.', 'error'); setIsDeletingMaterial(null); return; }
+        toast('Materi berhasil dihapus!', 'success');
+      } catch { toast('Gagal menghapus materi.', 'error'); setIsDeletingMaterial(null); return; }
       finally { setIsDeletingMaterial(null); }
     }
     setTopics(prev => prev.map(t => {
@@ -297,6 +329,7 @@ function EditModulKontenContent() {
       }]);
       setIsFormOpen(false);
       setTopicTitle('');
+      toast('Bab berhasil ditambahkan!', 'success');
     } catch (err: unknown) {
       setTopicError(err instanceof Error ? err.message : 'Gagal membuat topik');
     } finally { setIsCreatingTopic(false); }
@@ -310,7 +343,8 @@ function EditModulKontenContent() {
     try {
       await adminTopikApi.update(topicId, { name: title });
       setTopics(prev => prev.map(t => t.id === topicId ? { ...t, name: title, isEditing: false } : t));
-    } catch { showFeedback('Gagal memperbarui topik.', 'error'); }
+      toast('Judul Bab berhasil diperbarui!', 'success');
+    } catch { toast('Gagal memperbarui topik.', 'error'); }
   };
   
   const handleDeleteTopic = async (topicId: string) => {
@@ -325,7 +359,8 @@ function EditModulKontenContent() {
     try {
       await adminTopikApi.delete(topicId);
       setTopics(prev => prev.filter(t => t.id !== topicId));
-    } catch { showFeedback('Gagal menghapus topik.', 'error'); }
+      toast('Bab berhasil dihapus!', 'success');
+    } catch { toast('Gagal menghapus bab.', 'error'); }
   };
 
   const handleCreateMaterial = async (topicId: string) => {
@@ -339,7 +374,8 @@ function EditModulKontenContent() {
     try {
       const created = await adminMateriApi.create({ title: trimmedTitle, topikId: topicId, modulId, order: topic.materials.length + 1 });
       setMaterialApiIds((prev) => ({ ...prev, [nextId]: created.id }));
-    } catch { showFeedback('Gagal membuat materi. Pastikan koneksi aman.', 'error'); return; }
+      toast('Materi berhasil dibuat, silakan isi kontennya.', 'success');
+    } catch { toast('Gagal membuat materi. Pastikan koneksi aman.', 'error'); return; }
     
     setTopics(prev => prev.map(t => {
       if(t.id !== topicId) return t;
@@ -387,7 +423,8 @@ function EditModulKontenContent() {
             materials: t.materials.map(m => m.id === materialId ? { ...m, uploadStatus: 'done', uploadProgress: 100, isSaved: true } : m)
           };
         }));
-      } catch { showFeedback('Gagal menyimpan materi.', 'error'); setIsSavingMaterial(null); return; }
+        toast('Materi berhasil disimpan!', 'success');
+      } catch { toast('Gagal menyimpan materi.', 'error'); setIsSavingMaterial(null); return; }
       finally { setIsSavingMaterial(null); }
     }
   }, [topics, materialApiIds]);
@@ -563,15 +600,22 @@ function EditModulKontenContent() {
                                     )}
 
                                     {m.videoSource === 'upload' && (
-                                      <label className="mt-3 flex h-[80px] max-w-md cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-[#c8bfff] bg-[#f9f8ff] text-[12px] text-[#7054dc] hover:bg-[#f0eeff]">
-                                        <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileChange(topic.id, m.id, e.target.files?.[0] ?? null)} />
-                                        {m.uploadStatus === 'done'
-                                          ? <span className="font-semibold text-green-600">✓ {m.fileName || 'Video Tersimpan'}</span>
-                                          : m.uploadStatus === 'uploading'
-                                            ? <span>Mengunggah... {m.uploadProgress}%</span>
-                                            : <span>+ Upload Video</span>
-                                        }
-                                      </label>
+                                      <div className="mt-3 flex flex-col gap-3">
+                                        {m.previewUrl && (
+                                          <div className="w-full max-w-md overflow-hidden rounded-xl bg-black aspect-video flex items-center justify-center">
+                                            <video src={m.previewUrl} controls className="max-h-full max-w-full" />
+                                          </div>
+                                        )}
+                                        <label className="flex h-[80px] max-w-md cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-[#c8bfff] bg-[#f9f8ff] text-[12px] text-[#7054dc] hover:bg-[#f0eeff]">
+                                          <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileChange(topic.id, m.id, e.target.files?.[0] ?? null)} />
+                                          {m.uploadStatus === 'done'
+                                            ? <span className="font-semibold text-green-600">✓ {m.fileName || 'Video Tersimpan'} (Ubah)</span>
+                                            : m.uploadStatus === 'uploading'
+                                              ? <span>Mengunggah... {m.uploadProgress}%</span>
+                                              : <span>+ Upload Video</span>
+                                          }
+                                        </label>
+                                      </div>
                                     )}
                                   </div>
                                 )}

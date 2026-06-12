@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "NAMA WEB",
+  title: "DigiClass",
   description: "Platfrom pembelajaran interaktif untuk siswa SD, SMP, dan SMA",
 };
 

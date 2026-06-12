@@ -15,8 +15,7 @@ export async function POST(req: NextRequest) {
     // Ambil cookie dari request untuk dikirim ke backend (auth)
     const cookie = req.headers.get("cookie") ?? "";
 
-    // Forward body as-is (FormData stream)
-    const body = await req.blob();
+    // Forward body as-is (ReadableStream)
     const contentType = req.headers.get("content-type") ?? "";
 
     const backendRes = await fetch(BACKEND_URL, {
@@ -25,7 +24,9 @@ export async function POST(req: NextRequest) {
         "Content-Type": contentType,
         Cookie: cookie,
       },
-      body,
+      body: req.body,
+      // @ts-ignore - duplex is required for Node.js fetch with ReadableStream body
+      duplex: "half",
     });
 
     const data = await backendRes.json().catch(() => ({}));

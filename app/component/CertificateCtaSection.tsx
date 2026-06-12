@@ -47,7 +47,7 @@ export default function CertificateCtaSection() {
 
       <AnimateInView delay={0.22}>
         <footer className="mt-16 -mx-4 w-[calc(100%+2rem)] bg-[#2f2941] px-4 py-6 text-center text-sm font-medium text-white/80 sm:-mx-7 sm:w-[calc(100%+3.5rem)] sm:px-7 lg:-mx-10 lg:w-[calc(100%+5rem)] lg:px-10">
-          Copyright NAMA WEB 2026
+          Copyright DigiClass 2026
         </footer>
       </AnimateInView>
     </section>
