@@ -107,7 +107,7 @@ export default function ManajemenPenggunaPage() {
       const [dashRes, tutorRes, siswaRes, adminRes] = await Promise.allSettled([
         adminDashboardApi.get(),
         adminTutorApi.getAll(),
-        adminSiswaApi.getAll(),
+        adminSiswaApi.getAll({ limit: 1000 }),
         adminUserApi.getAll(),
       ]);
       if (dashRes.status === 'fulfilled') {

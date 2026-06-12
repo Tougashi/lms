@@ -1080,12 +1080,18 @@ export default function BerandaAdminPage() {
                                 />
                                 <StatCard
                                     label="Modul"
-                                    value={stats?.activeModules ?? 0}
+                                    value={modulRows.length}
                                     accent="purple"
                                 />
                                 <StatCard
                                     label="Kuis"
-                                    value={stats?.activeQuizzes ?? 0}
+                                    value={
+                                        kuisRows.flatMap((m: any) =>
+                                            (m.topiks || []).flatMap((t: any) =>
+                                                t.quizzes || [],
+                                            ),
+                                        ).length
+                                    }
                                     accent="orange"
                                 />
                             </div>
