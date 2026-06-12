@@ -972,10 +972,7 @@ export const guruKuisApi = {
 // memiliki limit body 4MB bawaan Vercel/Next.js, kita langsung fetch ke backend.
 // ---------------------------------------------------------------------------
 
-let BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://lms-express-api-o5uk.vercel.app/api/v1";
-if (BACKEND_URL && !BACKEND_URL.endsWith('/api/v1')) {
-    BACKEND_URL += '/api/v1';
-}
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://lms-express-api-o5uk.vercel.app/api/v1";
 
 export const uploadApi = {
     async upload(file: File, fileType?: string): Promise<UploadResponse> {
