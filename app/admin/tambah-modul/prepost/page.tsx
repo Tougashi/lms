@@ -254,12 +254,14 @@ function AdminPrePostPageContent() {
   }, [activeBank, activeBankId]);
 
   const handleSaveSettings = useCallback(async () => {
-    if (!settingsTargetBank?.apiId || settingsTargetBank.type !== 'pretest') {
-      showFeedback('Pengaturan hanya tersedia untuk Pre Test.', 'error'); setIsSettingsOpen(false); return;
-    }
+    if (!settingsTargetBank?.apiId) { setIsSettingsOpen(false); return; }
     setIsSaving(true);
     try {
-      await guruPretestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil });
+      if (settingsTargetBank.type === 'pretest') {
+        await guruPretestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil });
+      } else {
+        await guruPosttestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration });
+      }
       showFeedback('Pengaturan berhasil disimpan!', 'success');
       setIsSettingsOpen(false); setSettingsTargetBankId(null);
     } catch (err: unknown) {
@@ -278,10 +280,12 @@ function AdminPrePostPageContent() {
           <div><p className="text-[13px] font-semibold text-[#232530]">Durasi Pengerjaan (Menit)</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Batas waktu siswa untuk menyelesaikan</p></div>
           <div className="flex items-center gap-2"><input type="number" value={settingsDuration} onChange={(e) => setSettingsDuration(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] outline-none" /><span className="text-[12px] text-[#7a7e8a]">Menit</span></div>
         </div>
+        {settingsTargetBank?.type === 'pretest' && (
         <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
           <div><p className="text-[13px] font-semibold text-[#232530]">Jumlah Soal Tampil</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Jumlah soal acak dari bank soal</p></div>
           <div className="flex items-center gap-2"><input type="number" value={settingsSoalTampil} onChange={(e) => setSettingsSoalTampil(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] outline-none" /><span className="text-[12px] text-[#7a7e8a]">Soal</span></div>
         </div>
+        )}
         <div className="mt-5 flex items-center justify-end gap-3">
           <button type="button" onClick={() => setIsSettingsOpen(false)} className="text-[12px] font-semibold text-[#7a7e8a]">Batal</button>
           <button type="button" onClick={handleSaveSettings} disabled={isSaving} className="inline-flex h-[32px] items-center justify-center rounded-lg bg-[#7054dc] px-5 text-[12px] font-semibold text-white hover:bg-[#5f46cc] disabled:opacity-50">{isSaving ? 'Menyimpan...' : 'Simpan'}</button>
@@ -324,7 +328,7 @@ function AdminPrePostPageContent() {
                   <span className={`inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold ${activeBank.type === 'pretest' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
                     {activeBank.type === 'pretest' ? 'Pre Test' : 'Post Test'}
                   </span>
-                  {activeBank.type === 'pretest' && <button type="button" onClick={() => { setSettingsTargetBankId(activeBank.id); setIsSettingsOpen(true); }} className="text-[#7a7e8a] hover:text-[#7054dc]"><FiSettings size={14} /></button>}
+                  <button type="button" onClick={() => { setSettingsTargetBankId(activeBank.id); setIsSettingsOpen(true); }} className="text-[#7a7e8a] hover:text-[#7054dc]"><FiSettings size={14} /></button>
                   <button type="button" onClick={() => { handleDeleteBank(activeBank.id); }} className="ml-auto text-[#7a7e8a] hover:text-red-500"><FiTrash2 size={14} /></button>
                 </div>
               </div>
@@ -415,9 +419,10 @@ function AdminPrePostPageContent() {
               <h1 className="text-[18px] font-bold text-[#232530]">Pre - Post Test Modul</h1>
               <p className="text-[12px] text-[#7a7e8a]">Buat soal evaluasi awal dan akhir modul</p>
             </div>
-            {banks.some((b) => b.type === 'pretest') && (
+            {banks.some((b) => b.type === 'pretest') && (<>
               <button type="button" onClick={() => { const pb = banks.find((b) => b.type === 'pretest'); if (pb) { setSettingsTargetBankId(pb.id); setIsSettingsOpen(true); } }} className="ml-2 text-[#7a7e8a] hover:text-[#7054dc]" title="Pengaturan Pre Test"><FiSettings size={18} /></button>
-            )}
+              <button type="button" onClick={() => { const pb = banks.find((b) => b.type === 'posttest'); if (pb) { setSettingsTargetBankId(pb.id); setIsSettingsOpen(true); } }} className="ml-2 text-[#7a7e8a] hover:text-[#7054dc]" title="Pengaturan Post Test"><FiSettings size={18} /></button>
+            </>)}
           </div>
 
           {!modulId && <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-700">Simpan profil modul terlebih dahulu untuk membuat bank soal.</div>}
