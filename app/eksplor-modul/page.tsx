@@ -21,8 +21,13 @@ type StatusFilter = (typeof statusFilters)[number]["id"];
 function getStatusFromEnrolled(
     item: EnrolledModuleItem,
 ): "belum-mulai" | "dalam-progress" | "selesai" {
-    if (item.progress?.isGraduated || item.progress?.status === "COMPLETED") return "selesai";
     const pct = item.progress?.progressPercentage ?? 0;
+    if (
+        item.progress?.isGraduated ||
+        item.progress?.status === "COMPLETED" ||
+        pct >= 100
+    )
+        return "selesai";
     if (pct > 0) return "dalam-progress";
     return "belum-mulai";
 }
@@ -67,13 +72,16 @@ function EksplorModulContent() {
     const pathname = usePathname();
     const activeTab: "relevan" | "terdaftar" =
         searchParams.get("tab") === "terdaftar" ? "terdaftar" : "relevan";
-    const setActiveTab = useCallback((tab: "relevan" | "terdaftar") => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (tab === "relevan") params.delete("tab");
-        else params.set("tab", "terdaftar");
-        const q = params.toString();
-        router.replace(`${pathname}${q ? `?${q}` : ""}`, { scroll: false });
-    }, [searchParams, pathname, router]);
+    const setActiveTab = useCallback(
+        (tab: "relevan" | "terdaftar") => {
+            const params = new URLSearchParams(searchParams.toString());
+            if (tab === "relevan") params.delete("tab");
+            else params.set("tab", "terdaftar");
+            const q = params.toString();
+            router.replace(`${pathname}${q ? `?${q}` : ""}`, { scroll: false });
+        },
+        [searchParams, pathname, router],
+    );
     const [activeStatus, setActiveStatus] = useState<StatusFilter>("semua");
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -121,18 +129,21 @@ function EksplorModulContent() {
                 setEnrolledModules(enrolled);
             } catch (err: unknown) {
                 console.error("Eksplor modul fetch error:", err);
-                if (isMounted) setError(
-                    err instanceof Error
-                        ? err.message
-                        : "Gagal memuat data modul",
-                );
+                if (isMounted)
+                    setError(
+                        err instanceof Error
+                            ? err.message
+                            : "Gagal memuat data modul",
+                    );
             } finally {
                 if (isMounted) setIsLoading(false);
             }
         };
 
         fetchData();
-        return () => { isMounted = false; };
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const filteredModules = useMemo(() => {

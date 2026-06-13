@@ -23,6 +23,7 @@ export interface GuruModuleItem {
     isPaid?: boolean;
     modulPrice?: number | null;
     hasCertificate?: boolean;
+    isTestComputationalThinking?: boolean;
     level?: string | null;
     class?: string | null;
     modulType?: string;
@@ -49,6 +50,7 @@ export interface GuruModuleCreatePayload {
     isPaid?: boolean;
     modulPrice?: number | null;
     hasCertificate?: boolean;
+    isTestComputationalThinking?: boolean;
     level?: string;
     class?: string;
     modulType?: string;
@@ -65,6 +67,7 @@ export interface GuruModuleUpdatePayload {
     isPaid?: boolean;
     modulPrice?: number | null;
     hasCertificate?: boolean;
+    isTestComputationalThinking?: boolean;
     level?: string;
     class?: string;
     modulType?: string;
@@ -75,6 +78,7 @@ export interface GuruModuleUpdatePayload {
 export interface GuruMateriItem {
     id: string;
     topik_id: string;
+    judul: string;
     is_video: boolean;
     video_url?: string | null;
     article?: string | null;
@@ -177,6 +181,9 @@ export interface GuruPretestQuestion {
     correctAnswer: string;
     skor: number;
     answerOptions?: { id: string; option: string }[];
+    ctGroupId?: string | null;
+    ctStory?: string | null;
+    ctAspect?: string | null;
 }
 
 export interface GuruPretestSetting {
@@ -192,12 +199,23 @@ export interface GuruPretestSettingsPayload {
     countShownQuestions: number;
 }
 
+export interface GuruAccessRule {
+    id: string;
+    pretestId: string;
+    materiId: string;
+    minScore: number;
+    selectedTopicIds?: string[];
+    materi?: { id: string; judul: string };
+    selectedTopics?: { id: string; nama: string }[];
+}
+
 export interface GuruPretestItem {
     id: string;
     pretestName?: string;
     modulId?: string;
     pretestQuestions: GuruPretestQuestion[];
     pretestSettings?: GuruPretestSetting[];
+    automaticAccessMateries?: GuruAccessRule[];
     createdAt?: string;
     updatedAt?: string;
 }
@@ -208,6 +226,9 @@ export interface GuruPretestSoalPayload {
     pilihan: string[];
     jawaban_benar: string;
     skor?: number;
+    ctGroupId?: string;
+    ctStory?: string;
+    ctAspect?: string;
 }
 
 export interface GuruPretestSoalUpdatePayload {
@@ -215,6 +236,9 @@ export interface GuruPretestSoalUpdatePayload {
     pilihan?: string[];
     jawaban_benar?: string;
     skor?: number;
+    ctGroupId?: string;
+    ctStory?: string;
+    ctAspect?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -228,6 +252,9 @@ export interface GuruPosttestQuestion {
     pilihan: string[];
     correctAnswer: string;
     skor: number;
+    ctGroupId?: string | null;
+    ctStory?: string | null;
+    ctAspect?: string | null;
 }
 
 export interface GuruPosttestSetting {
@@ -256,6 +283,9 @@ export interface GuruPosttestSoalPayload {
     pilihan: string[];
     jawaban_benar: string;
     skor?: number;
+    ctGroupId?: string;
+    ctStory?: string;
+    ctAspect?: string;
 }
 
 export interface GuruPosttestSoalUpdatePayload {
@@ -263,6 +293,9 @@ export interface GuruPosttestSoalUpdatePayload {
     pilihan?: string[];
     jawaban_benar?: string;
     skor?: number;
+    ctGroupId?: string;
+    ctStory?: string;
+    ctAspect?: string;
 }
 
 // ---------------------------------------------------------------------------

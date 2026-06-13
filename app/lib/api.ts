@@ -762,6 +762,45 @@ export const guruPretestApi = {
             data: payload,
         });
     },
+
+    getAccessRules(pretestId: string) {
+        return apiFetch<unknown[]>(
+            `/tutor/pretest/${pretestId}/access-rules`,
+        );
+    },
+
+    createAccessRule(payload: {
+        pretestId: string;
+        materiId: string;
+        minScore: number;
+        selectedTopicIds?: string[];
+    }) {
+        return apiFetch<unknown>(
+            `/tutor/pretest/${payload.pretestId}/access-rules`,
+            { method: "POST", data: payload },
+        );
+    },
+
+    updateAccessRule(
+        id: string,
+        payload: {
+            materiId?: string;
+            minScore?: number;
+            selectedTopicIds?: string[];
+        },
+    ) {
+        return apiFetch<unknown>(`/tutor/pretest/access-rules/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    deleteAccessRule(id: string) {
+        return apiFetch<{ message: string }>(
+            `/tutor/pretest/access-rules/${id}`,
+            { method: "DELETE" },
+        );
+    },
 };
 
 // ---------------------------------------------------------------------------

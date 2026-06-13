@@ -159,6 +159,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
             id: "rangkuman-akhir",
             title: modul.curriculum.rangkumanAkhir.title,
             type: "rangkuman-akhir",
+            konten: modul.curriculum.rangkumanAkhir.content ?? undefined,
         });
     }
 
@@ -462,10 +463,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 // Embedded progress
                 const prog = res.progress;
                 if (prog) {
-                    console.log(
-                        "[MateriClient] Progress loaded:",
-                        JSON.stringify(prog, null, 2),
-                    );
+                    // console.log(
+                    //     "[MateriClient] Progress loaded:",
+                    //     JSON.stringify(prog, null, 2),
+                    // );
                     setProgress(prog);
 
                     // Restore completed Map REGARDLESS of pretestScore
@@ -764,7 +765,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 if (result?.isGraduated) {
                     setProgress((prev) =>
                         prev
-                            ? { ...prev, isGraduated: true, status: "COMPLETED" }
+                            ? {
+                                  ...prev,
+                                  isGraduated: true,
+                                  status: "COMPLETED",
+                              }
                             : prev,
                     );
                 }
@@ -921,7 +926,17 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 const nextIdx = currentSeqIndex + 1;
                 const nextItem = sequence[nextIdx];
                 setCurrentSeqIndex(nextIdx);
-                if (nextItem?.type === "posttest") {
+                if (nextItem?.type === "quiz") {
+                    setAssessmentType("kuis");
+                    setActiveQuizItemId(nextItem.id);
+                    setCurrentView("pretest-intro");
+                    setIsMaterialMode(false);
+                    setIsFinalSummaryView(false);
+                    setActiveQuestionIndex(0);
+                    setSelectedAnswers({});
+                    setWasTimeUp(false);
+                    setRemainingSeconds(900);
+                } else if (nextItem?.type === "posttest") {
                     const duration =
                         getDurationForAssessment(modulDetail, "posttest") ??
                         900;
@@ -2183,14 +2198,23 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
                                             {isFinalSummaryView ? (
                                                 <div className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]">
-                                                    <p>
-                                                        Rangkuman akhir dari
-                                                        seluruh materi yang
-                                                        telah kamu pelajari.
-                                                        Kamu telah menyelesaikan
-                                                        semua topik dalam modul
-                                                        ini. Selamat!
-                                                    </p>
+                                                    {currentSeqItem?.konten ? (
+                                                        <div
+                                                            dangerouslySetInnerHTML={{
+                                                                __html: currentSeqItem.konten,
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <p>
+                                                            Rangkuman akhir dari
+                                                            seluruh materi yang
+                                                            telah kamu pelajari.
+                                                            Kamu telah
+                                                            menyelesaikan semua
+                                                            topik dalam modul
+                                                            ini. Selamat!
+                                                        </p>
+                                                    )}
                                                     {progress?.pretestScore !=
                                                         null && (
                                                         <p>
@@ -2217,23 +2241,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                         </p>
                                                     )}
                                                 </div>
-                                            ) : currentSeqItem?.konten ? (
+                                            ) : currentSeqItem?.konten &&
+                                              (!currentSeqItem?.hasVideo ||
+                                                  isDescriptionExpanded) ? (
                                                 <div
                                                     className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]"
                                                     dangerouslySetInnerHTML={{
                                                         __html: currentSeqItem.konten,
                                                     }}
                                                 />
-                                            ) : currentSeqItem?.type ===
-                                              "summary" ? (
-                                                <div className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]">
-                                                    <p>
-                                                        Rangkuman untuk topik
-                                                        ini merangkum
-                                                        konsep-konsep penting
-                                                        yang telah dipelajari.
-                                                    </p>
-                                                </div>
                                             ) : (
                                                 <div className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]">
                                                     <p>

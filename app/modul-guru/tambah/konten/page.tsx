@@ -30,15 +30,34 @@ import type { GuruTopikWithMateri } from "../../../lib/types/guru";
 import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
 import { usePopup } from "../../../component/ui/PopupProvider";
 
-function RichTextEditor({ placeholder }: { placeholder: string }) {
+function RichTextEditor({
+  placeholder,
+  value = "",
+  onChange,
+}: {
+  placeholder: string;
+  value?: string;
+  onChange?: (html: string) => void;
+}) {
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEmpty, setIsEmpty] = useState(true);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value;
+    }
+  }, [value]);
+
   const updateEmptyState = () => {
     const text = editorRef.current?.textContent?.trim() ?? "";
     setIsEmpty(text.length === 0);
+  };
+
+  const handleInput = () => {
+    updateEmptyState();
+    onChange?.(editorRef.current?.innerHTML ?? "");
   };
 
   const applyCommand = (command: string) => {
@@ -48,7 +67,7 @@ function RichTextEditor({ placeholder }: { placeholder: string }) {
 
     editorRef.current.focus();
     document.execCommand(command);
-    updateEmptyState();
+    handleInput();
   };
 
   const applyLink = () => {
@@ -63,7 +82,7 @@ function RichTextEditor({ placeholder }: { placeholder: string }) {
 
     editorRef.current.focus();
     document.execCommand("createLink", false, url);
-    updateEmptyState();
+    handleInput();
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,7 +95,7 @@ function RichTextEditor({ placeholder }: { placeholder: string }) {
       if (editorRef.current) {
         editorRef.current.focus();
         document.execCommand("insertImage", false, res.url);
-        updateEmptyState();
+        handleInput();
       }
     } catch {
       // upload failed silently
@@ -238,8 +257,8 @@ function RichTextEditor({ placeholder }: { placeholder: string }) {
         <div
           ref={editorRef}
           contentEditable
-          onInput={updateEmptyState}
-          onBlur={updateEmptyState}
+          onInput={handleInput}
+          onBlur={handleInput}
           className="min-h-[120px] outline-none"
         />
         <input
@@ -431,6 +450,7 @@ function TambahModulKontenPageContent() {
       previewUrl: string;
       duration: string;
       articleContent: string;
+      _editSnapshot?: { articleContent: string } | null;
     }[]
   >([]);
   const [activeMaterialId, setActiveMaterialId] = useState<number | null>(null);
@@ -487,7 +507,6 @@ function TambahModulKontenPageContent() {
   );
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
 
-  const uploadIntervalsRef = useRef<Record<number, number>>({});
   const uploadSuccessTimersRef = useRef<Record<number, number>>({});
   const materialsRef = useRef(materials);
 
@@ -518,7 +537,7 @@ function TambahModulKontenPageContent() {
               }));
               return {
                 id: localId,
-                title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
+        title: item.isVideo ? `Video ${idx + 1}` : `Materi ${idx + 1}`,
                 type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
                 isSaved: true,
                 isExpanded: false,
@@ -590,58 +609,16 @@ function TambahModulKontenPageContent() {
   }, [modulId]);
 
   useEffect(() => {
-    const intervals = uploadIntervalsRef.current;
     const successTimers = uploadSuccessTimersRef.current;
 
     return () => {
-      Object.values(intervals).forEach((intervalId) => {
-        window.clearInterval(intervalId);
-      });
       Object.values(successTimers).forEach((timerId) => {
         window.clearTimeout(timerId);
-      });
-
-      materialsRef.current.forEach((material) => {
-        if (material.previewUrl) {
-          URL.revokeObjectURL(material.previewUrl);
-        }
       });
     };
   }, []);
 
-  const startFakeUpload = (materialId: number) => {
-    if (uploadIntervalsRef.current[materialId]) {
-      window.clearInterval(uploadIntervalsRef.current[materialId]);
-    }
 
-    const intervalId = window.setInterval(() => {
-      setMaterials((prev) =>
-        prev.map((material) => {
-          if (
-            material.id !== materialId ||
-            material.uploadStatus !== "uploading"
-          ) {
-            return material;
-          }
-
-          const nextProgress = Math.min(material.uploadProgress + 12, 100);
-          if (nextProgress >= 100) {
-            window.clearInterval(intervalId);
-            delete uploadIntervalsRef.current[materialId];
-          }
-          return {
-            ...material,
-            uploadProgress: nextProgress,
-            uploadStatus: nextProgress >= 100 ? "done" : "uploading",
-            showUploadSuccess:
-              nextProgress >= 100 ? true : material.showUploadSuccess,
-          };
-        }),
-      );
-    }, 300);
-
-    uploadIntervalsRef.current[materialId] = intervalId;
-  };
 
   useEffect(() => {
     materials.forEach((material) => {
@@ -669,7 +646,7 @@ function TambahModulKontenPageContent() {
     });
   }, [materials]);
 
-  const handleFileChange = (materialId: number, file: File | null) => {
+  const handleFileChange = async (materialId: number, file: File | null) => {
     if (!file) {
       return;
     }
@@ -679,23 +656,45 @@ function TambahModulKontenPageContent() {
         if (material.id !== materialId) {
           return material;
         }
-
-        if (material.previewUrl) {
-          URL.revokeObjectURL(material.previewUrl);
-        }
-
         return {
           ...material,
           fileName: file.name,
           fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
           uploadProgress: 0,
           uploadStatus: "uploading",
-          previewUrl: URL.createObjectURL(file),
         };
       }),
     );
 
-    startFakeUpload(materialId);
+    try {
+      const res = await uploadApi.upload(file, "MATERI_VIDEO");
+      setMaterials((prev) =>
+        prev.map((material) => {
+          if (material.id !== materialId) return material;
+          if (material.uploadStatus !== "uploading") return material;
+          return {
+            ...material,
+            uploadProgress: 100,
+            uploadStatus: "done",
+            previewUrl: res.url,
+            showUploadSuccess: true,
+          };
+        }),
+      );
+    } catch (err) {
+      console.error("Upload video error:", err);
+      setMaterials((prev) =>
+        prev.map((material) => {
+          if (material.id !== materialId) return material;
+          return {
+            ...material,
+            uploadProgress: 0,
+            uploadStatus: "idle",
+          };
+        }),
+      );
+      toast("Gagal mengunggah video.", "error");
+    }
   };
 
   const handleDeleteMaterial = async (materialId: number) => {
@@ -844,7 +843,9 @@ function TambahModulKontenPageContent() {
                 ? material.linkUrl
                 : material.previewUrl
               : null,
-          article: material.type === "artikel" ? material.articleContent : null,
+          article: material.type === "artikel" || (material.type === "video" && material.articleContent)
+            ? material.articleContent
+            : null,
         });
       } catch (err) {
         console.error("Save material error:", err);
@@ -864,6 +865,7 @@ function TambahModulKontenPageContent() {
               ...item,
               isSaved: true,
               isExpanded: false,
+              _editSnapshot: undefined,
             }
           : item,
       ),
@@ -878,9 +880,25 @@ function TambahModulKontenPageContent() {
               ...item,
               isSaved: false,
               isExpanded: true,
+              _editSnapshot: { articleContent: item.articleContent },
             }
           : item,
       ),
+    );
+  };
+
+  const handleCancelEditMaterial = (materialId: number) => {
+    setMaterials((prev) =>
+      prev.map((item) => {
+        if (item.id !== materialId) return item;
+        return {
+          ...item,
+          isSaved: true,
+          isExpanded: false,
+          articleContent: item._editSnapshot?.articleContent ?? item.articleContent,
+          _editSnapshot: undefined,
+        };
+      }),
     );
   };
 
@@ -2104,6 +2122,21 @@ function TambahModulKontenPageContent() {
                                           Unggah video sukses!
                                         </p>
                                       )}
+                                      {material.articleContent && (
+                                        <div className="mt-3">
+                                          <p className="mb-1 text-[12px] font-semibold text-[#232530]">
+                                            Bahan Bacaan
+                                          </p>
+                                          <div className="rounded-xl border border-[#e5e3ee] bg-white px-3 py-3">
+                                            <div
+                                              className="text-[12px] leading-[1.7] text-[#232530] [&_img]:max-w-full [&_img]:rounded-lg"
+                                              dangerouslySetInnerHTML={{
+                                                __html: material.articleContent,
+                                              }}
+                                            />
+                                          </div>
+                                        </div>
+                                      )}
                                     </>
                                   ) : (
                                     <>
@@ -2125,10 +2158,18 @@ function TambahModulKontenPageContent() {
                                         </button>
                                       </div>
                                       <div className="mt-2 rounded-xl border border-[#e5e3ee] bg-white px-3 py-3">
-                                        <p className="text-[12px] leading-[1.7] text-[#232530]">
-                                          {material.articleContent ||
-                                            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse et vehicula ipsum. Donec ut turpis in nisl interdum faucibus. Aenean lacinia, metus a efficitur venenatis, lectus dolor tempus lacus, sit amet dignissim erat est id metus. Vivamus fermentum ac lacus sit amet cursus. Integer nec suscipit tortor, vitae auctor arcu. Etiam feugiat mauris vel hendrerit rutrum. Ut est elit, vestibulum sit amet volutpat ac, congue ullamcorper mauris."}
-                                        </p>
+                                        {material.articleContent ? (
+                                          <div
+                                            className="text-[12px] leading-[1.7] text-[#232530] [&_img]:max-w-full [&_img]:rounded-lg"
+                                            dangerouslySetInnerHTML={{
+                                              __html: material.articleContent,
+                                            }}
+                                          />
+                                        ) : (
+                                          <p className="text-[12px] leading-[1.7] text-[#232530]">
+                                            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse et vehicula ipsum. Donec ut turpis in nisl interdum faucibus.
+                                          </p>
+                                        )}
                                       </div>
                                       <p className="mt-1 text-[11px] text-[#7a7e8a]">
                                         Deskiprsi Video jika ada
@@ -2397,7 +2438,19 @@ function TambahModulKontenPageContent() {
                                       Bahan Bacaan
                                     </p>
                                     <div className="mt-2">
-                                      <RichTextEditor placeholder="Tulis bahan bacaan di sini..." />
+                                      <RichTextEditor
+                                        placeholder="Tulis bahan bacaan di sini..."
+                                        value={material.articleContent}
+                                        onChange={(html) =>
+                                          setMaterials((prev) =>
+                                            prev.map((m) =>
+                                              m.id === material.id
+                                                ? { ...m, articleContent: html }
+                                                : m,
+                                            ),
+                                          )
+                                        }
+                                      />
                                     </div>
                                     <p className="mt-1 text-[11px] text-[#7a7e8a]">
                                       Deskiprsi Video jika ada
@@ -2410,7 +2463,19 @@ function TambahModulKontenPageContent() {
                                     Bahan Bacaan
                                   </p>
                                   <div className="mt-2">
-                                    <RichTextEditor placeholder="Tulis materi artikel di sini..." />
+                                    <RichTextEditor
+                                      placeholder="Tulis materi artikel di sini..."
+                                      value={material.articleContent}
+                                      onChange={(html) =>
+                                        setMaterials((prev) =>
+                                          prev.map((m) =>
+                                            m.id === material.id
+                                              ? { ...m, articleContent: html }
+                                              : m,
+                                          ),
+                                        )
+                                      }
+                                    />
                                   </div>
                                   <p className="mt-1 text-[11px] text-[#7a7e8a]">
                                     Deskiprsi Video jika ada
@@ -2422,6 +2487,7 @@ function TambahModulKontenPageContent() {
                                 <div className="mt-4 flex items-center justify-end gap-3">
                                   <button
                                     type="button"
+                                    onClick={() => handleCancelEditMaterial(material.id)}
                                     className="inline-flex h-[32px] items-center justify-center rounded-lg px-3 text-[12px] font-semibold text-[#7a7e8a]"
                                   >
                                     Batal
@@ -3022,30 +3088,6 @@ function TambahModulKontenPageContent() {
                     <FiX size={16} />
                   </button>
                 </div>
-
-                {!isTopicCT && (
-                  <div className="mt-5 rounded-xl border border-[#e5e3ee] px-4 py-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[13px] font-semibold text-[#232530]">
-                        Aktifkan Mode Computational Thinking
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleCTMode(quiz.id, !quiz.ctMode)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${quiz.ctMode ? "bg-[#7054dc]" : "bg-[#d1d5db]"}`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${quiz.ctMode ? "translate-x-6" : "translate-x-1"}`}
-                        />
-                      </button>
-                    </div>
-                    <p className="mt-2 text-[11px] leading-[1.6] text-[#7a7e8a]">
-                      Kuis akan disajikan dalam bentuk studi kasus. Setiap satu
-                      cerita akan memiliki 4 pertanyaan turunan berdasarkan pilar
-                      pemikiran komputasional.
-                    </p>
-                  </div>
-                )}
 
                 <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
                   <p className="text-[13px] font-semibold text-[#232530]">

@@ -399,6 +399,7 @@ export interface StudyRoomResponse {
   modulId: string;
   moduleName: string;
   hasCertificate: boolean;
+  isTestComputationalThinking: boolean;
   progress: StudyRoomProgress | null;
   certificate: StudyRoomCertificate | null;
   curriculum: StudyRoomCurriculum;
