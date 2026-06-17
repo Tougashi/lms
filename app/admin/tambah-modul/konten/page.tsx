@@ -9,111 +9,8 @@ import AdminHeader from '../../../component/admin/AdminHeader';
 import AdminModuleSidebar from '../../components/AdminModuleSidebar';
 import { adminTopikApi, adminMateriApi, uploadApi } from '../../../lib/api';
 import { usePopup } from '../../../component/ui/PopupProvider';
+import TrixEditor from '../../../component/ui/TrixEditor';
 
-/* ─── Rich Text Editor ─── */
-function RichTextEditor({ placeholder, value = '', onChange }: { placeholder: string; value?: string; onChange?: (val: string) => void }) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isEmpty, setIsEmpty] = useState(true);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  
-  const [active, setActive] = useState({ bold: false, italic: false, underline: false, ul: false, ol: false, h1: false, h2: false });
-
-  const updateState = useCallback(() => {
-    if (!editorRef.current) return;
-    const html = editorRef.current.innerHTML || '';
-    setIsEmpty((editorRef.current.textContent?.trim() ?? '').length === 0);
-    if (onChange) onChange(html);
-
-    try {
-      setActive({
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-        underline: document.queryCommandState('underline'),
-        ul: document.queryCommandState('insertUnorderedList'),
-        ol: document.queryCommandState('insertOrderedList'),
-        h1: document.queryCommandValue('formatBlock') === 'h1',
-        h2: document.queryCommandValue('formatBlock') === 'h2',
-      });
-    } catch { /* ignore */ }
-  }, [onChange]);
-  
-  useEffect(() => {
-    document.addEventListener('selectionchange', updateState);
-    return () => document.removeEventListener('selectionchange', updateState);
-  }, [updateState]);
-
-  useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value;
-      updateState();
-    }
-  }, [value, updateState]);
-
-  const applyCmd = (cmd: string, val?: string) => {
-    editorRef.current?.focus();
-    document.execCommand(cmd, false, val);
-    updateState();
-  };
-  const applyLink = () => {
-    const url = window.prompt('Masukkan tautan');
-    if (!url) return;
-    applyCmd('createLink', url);
-  };
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploadingImage(true);
-    try {
-      const res = await uploadApi.upload(file, 'MATERI_IMAGE');
-      if (editorRef.current) {
-        editorRef.current.focus();
-        document.execCommand('insertImage', false, res.url);
-        updateState();
-      }
-    } catch { /* silent */ } finally {
-      setIsUploadingImage(false);
-      e.target.value = '';
-    }
-  };
-
-  const btnClass = (isActive: boolean) => `inline-flex h-6 w-6 items-center justify-center rounded-md text-[#232530] transition-colors ${isActive ? 'bg-[#ece7ff] text-[#7054dc]' : 'hover:bg-[#f5f4fb]'}`;
-
-  return (
-    <div className="rounded-xl border border-[#d9d7df] bg-white">
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-[#e8e9ef] px-3 py-2 text-[11px] text-[#6f7381]">
-        <button type="button" onClick={() => applyCmd('formatBlock', 'H1')} className={btnClass(active.h1)} title="Heading 1"><span className="font-bold">H1</span></button>
-        <button type="button" onClick={() => applyCmd('formatBlock', 'H2')} className={btnClass(active.h2)} title="Heading 2"><span className="font-bold">H2</span></button>
-        <div className="h-4 w-px bg-[#e4e5eb] mx-1" />
-        <button type="button" onClick={() => applyCmd('bold')} className={btnClass(active.bold)} title="Bold"><span className="font-bold">B</span></button>
-        <button type="button" onClick={() => applyCmd('italic')} className={btnClass(active.italic)} title="Italic"><span className="italic">I</span></button>
-        <button type="button" onClick={() => applyCmd('underline')} className={btnClass(active.underline)} title="Underline"><span className="underline">U</span></button>
-        <div className="h-4 w-px bg-[#e4e5eb] mx-1" />
-        <button type="button" onClick={() => applyCmd('insertUnorderedList')} className={btnClass(active.ul)} title="Bullet List">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="5" cy="7" r="2" fill="currentColor"/><circle cx="5" cy="17" r="2" fill="currentColor"/><path d="M10 7h10M10 17h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-        </button>
-        <button type="button" onClick={() => applyCmd('insertOrderedList')} className={btnClass(active.ol)} title="Numbered List">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 7h2v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><path d="M10 7h10M10 17h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-        </button>
-        <div className="h-4 w-px bg-[#e4e5eb] mx-1" />
-        <button type="button" onClick={applyLink} className={btnClass(false)} title="Link">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M10 13.5l4-4M7 17a4 4 0 0 1 0-6l2-2a4 4 0 0 1 6 6l-2 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-        </button>
-        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploadingImage} className={btnClass(false)} title="Image">
-          {isUploadingImage
-            ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#7054dc] border-t-transparent" />
-            : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="2"/><circle cx="9" cy="11" r="2" fill="currentColor"/><path d="M20 16l-5-5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-          }
-        </button>
-      </div>
-      <div className="relative px-3 py-3 text-[13px] text-[#232530]">
-        {isEmpty && <span className="pointer-events-none absolute left-3 top-3 text-[12px] text-[#9ca0ad]">{placeholder}</span>}
-        <div ref={editorRef} contentEditable onInput={updateState} onBlur={updateState} className="min-h-[120px] outline-none prose prose-sm max-w-none" />
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-      </div>
-    </div>
-  );
-}
 
 /* ─── Types ─── */
 type Material = {
@@ -623,7 +520,8 @@ function AdminKontenPageContent() {
                                 {m.type === 'artikel' && (
                                   <div className="mt-2">
                                     <p className="text-[12px] font-semibold text-[#232530] mb-2">Konten Artikel</p>
-                                    <RichTextEditor 
+                                    <TrixEditor 
+                                      id={`admin-tambah-artikel-${m.id}`}
                                       placeholder="Tulis konten artikel..." 
                                       value={m.articleContent}
                                       onChange={(html) => setTopics(prev => prev.map(t => t.id === topic.id ? { ...t, materials: t.materials.map(mat => mat.id === m.id ? { ...mat, articleContent: html } : mat) } : t))}

@@ -210,7 +210,7 @@ export default function AccordionMateri({
                                                     <span className="flex-1">
                                                         Kuis Reguler -{" "}
                                                         {truncate(
-                                                            quiz.question,
+                                                            quiz.question ? quiz.question.replace(/<[^>]*>?/gm, '') : "",
                                                             50,
                                                         )}
                                                     </span>

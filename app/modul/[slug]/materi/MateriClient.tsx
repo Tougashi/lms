@@ -136,7 +136,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
             ) {
                 seq.push({
                     id: item.id,
-                    title: item.judul || "Kuis",
+                    title: item.judul ? item.judul.replace(/<[^>]*>?/gm, '') : "Kuis",
                     type: "quiz",
                     topikId: topik.id,
                     topikName: topik.nama,
@@ -198,7 +198,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
             ) {
                 items.push({
                     id: item.id,
-                    title: item.judul || "Kuis",
+                    title: item.judul ? item.judul.replace(/<[^>]*>?/gm, '') : "Kuis",
                     type: "quiz",
                     topikId: topik.id,
                     topikName: topik.nama,
@@ -406,7 +406,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                     topik.items.push({
                                         id: q.id,
                                         itemType: "QUIZ",
-                                        judul: q.question || "Kuis",
+                                        judul: (q.question ? q.question.replace(/<[^>]*>?/gm, '') : "Kuis"),
                                         question: q.question,
                                         correctAnswer: q.correctAnswer,
                                         quizImgQuestionUrl:
@@ -1358,7 +1358,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             />
                                                             <p className="text-[10px] leading-relaxed italic text-[#6b6f7e]">
                                                                 {
-                                                                    section.rangkumanTopik
+                                                                    section.rangkumanTopik.replace(/<[^>]*>?/gm, '')
                                                                 }
                                                             </p>
                                                         </div>
@@ -1814,9 +1814,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 </div>
                                             )}
 
-                                            <p className="text-base font-semibold text-[#202126]">
-                                                {activeQuestion.pertanyaan}
-                                            </p>
+                                            <div 
+                                                className="text-base font-semibold text-[#202126] prose prose-sm max-w-none"
+                                                dangerouslySetInnerHTML={{ __html: activeQuestion.pertanyaan }}
+                                            />
 
                                             <div className="mt-6 space-y-3">
                                                 {[

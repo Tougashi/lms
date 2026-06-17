@@ -29,379 +29,7 @@ import {
 import type { GuruTopikWithMateri } from "../../../lib/types/guru";
 import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
 import { usePopup } from "../../../component/ui/PopupProvider";
-
-function RichTextEditor({
-  placeholder,
-  value = "",
-  onChange,
-}: {
-  placeholder: string;
-  value?: string;
-  onChange?: (html: string) => void;
-}) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isEmpty, setIsEmpty] = useState(true);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-
-  useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value;
-    }
-  }, [value]);
-
-  const updateEmptyState = () => {
-    const text = editorRef.current?.textContent?.trim() ?? "";
-    setIsEmpty(text.length === 0);
-  };
-
-  const handleInput = () => {
-    updateEmptyState();
-    onChange?.(editorRef.current?.innerHTML ?? "");
-  };
-
-  const applyCommand = (command: string) => {
-    if (!editorRef.current) {
-      return;
-    }
-
-    editorRef.current.focus();
-    document.execCommand(command);
-    handleInput();
-  };
-
-  const applyLink = () => {
-    if (!editorRef.current) {
-      return;
-    }
-
-    const url = window.prompt("Masukkan tautan");
-    if (!url) {
-      return;
-    }
-
-    editorRef.current.focus();
-    document.execCommand("createLink", false, url);
-    handleInput();
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingImage(true);
-    try {
-      const res = await uploadApi.upload(file, "MATERI_IMAGE");
-      if (editorRef.current) {
-        editorRef.current.focus();
-        document.execCommand("insertImage", false, res.url);
-        handleInput();
-      }
-    } catch {
-      // upload failed silently
-    } finally {
-      setIsUploadingImage(false);
-      e.target.value = "";
-    }
-  };
-
-  return (
-    <div className="rounded-xl border border-[#d9d7df] bg-white">
-      <div className="flex items-center gap-1.5 border-b border-[#e8e9ef] px-3 py-2 text-[11px] text-[#6f7381]">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-[#f5f4fb]"
-        >
-          Normal Teks
-          <FiChevronDown size={12} />
-        </button>
-        <span className="h-4 w-px bg-[#e4e5eb]" />
-        <button
-          type="button"
-          onClick={() => applyCommand("bold")}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md font-semibold text-[#232530] hover:bg-[#f5f4fb]"
-          aria-label="Bold"
-        >
-          B
-        </button>
-        <button
-          type="button"
-          onClick={() => applyCommand("italic")}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md italic text-[#232530] hover:bg-[#f5f4fb]"
-          aria-label="Italic"
-        >
-          I
-        </button>
-        <button
-          type="button"
-          onClick={() => applyCommand("underline")}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md underline text-[#232530] hover:bg-[#f5f4fb]"
-          aria-label="Underline"
-        >
-          U
-        </button>
-        <button
-          type="button"
-          onClick={() => applyCommand("insertUnorderedList")}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[12px] text-[#232530] hover:bg-[#f5f4fb]"
-          aria-label="Bullet list"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
-            <circle cx="5" cy="7" r="2" fill="currentColor" />
-            <circle cx="5" cy="17" r="2" fill="currentColor" />
-            <path
-              d="M10 7h10M10 17h10"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => applyCommand("insertOrderedList")}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[12px] text-[#232530] hover:bg-[#f5f4fb]"
-          aria-label="Numbered list"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M4 7h2v10"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-            <path
-              d="M10 7h10M10 17h10"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={applyLink}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#232530] hover:bg-[#f5f4fb]"
-          aria-label="Insert link"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M10 13.5l4-4M7 17a4 4 0 0 1 0-6l2-2a4 4 0 0 1 6 6l-2 2"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploadingImage}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#232530] hover:bg-[#f5f4fb] disabled:opacity-50"
-          aria-label="Insert image"
-        >
-          {isUploadingImage ? (
-            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#7054dc] border-t-transparent" />
-          ) : (
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <rect
-                x="4"
-                y="6"
-                width="16"
-                height="12"
-                rx="2"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-              <circle cx="9" cy="11" r="2" fill="currentColor" />
-              <path
-                d="M20 16l-5-5-5 5"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
-      <div className="relative px-3 py-3 text-[12px] text-[#232530]">
-        {isEmpty && (
-          <span className="pointer-events-none absolute left-3 top-3 text-[11px] text-[#9aa0ad]">
-            {placeholder}
-          </span>
-        )}
-        <div
-          ref={editorRef}
-          contentEditable
-          onInput={handleInput}
-          onBlur={handleInput}
-          className="min-h-[120px] outline-none"
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleImageUpload}
-        />
-      </div>
-    </div>
-  );
-}
-
-function QuizMiniEditor({
-  placeholder,
-  value = "",
-  onChange,
-}: {
-  placeholder: string;
-  value?: string;
-  onChange?: (html: string) => void;
-}) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isEmpty, setIsEmpty] = useState(true);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-
-  useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value;
-      setIsEmpty(!value || editorRef.current.textContent?.trim() === "");
-    }
-  }, [value]);
-
-  const updateEmptyState = () => {
-    setIsEmpty((editorRef.current?.textContent?.trim() ?? "").length === 0);
-  };
-
-  const handleInput = () => {
-    updateEmptyState();
-    onChange?.(editorRef.current?.innerHTML ?? "");
-  };
-
-  const applyCommand = (cmd: string) => {
-    if (!editorRef.current) return;
-    editorRef.current.focus();
-    document.execCommand(cmd);
-    handleInput();
-  };
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingImage(true);
-    try {
-      const res = await uploadApi.upload(file, "MATERI_IMAGE");
-      if (editorRef.current) {
-        editorRef.current.focus();
-        document.execCommand("insertImage", false, res.url);
-        handleInput();
-      }
-    } catch {
-      // upload failed silently
-    } finally {
-      setIsUploadingImage(false);
-      e.target.value = "";
-    }
-  };
-  return (
-    <div className="rounded-xl border border-[#d9d7df] bg-white">
-      <div className="flex items-center gap-1.5 border-b border-[#e8e9ef] px-3 py-2">
-        <button
-          type="button"
-          onClick={() => applyCommand("bold")}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md font-semibold text-[#232530] hover:bg-[#f5f4fb]"
-          aria-label="Bold"
-        >
-          B
-        </button>
-        <button
-          type="button"
-          onClick={() => applyCommand("italic")}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md italic text-[#232530] hover:bg-[#f5f4fb]"
-          aria-label="Italic"
-        >
-          I
-        </button>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploadingImage}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#232530] hover:bg-[#f5f4fb] disabled:opacity-50"
-          aria-label="Image"
-        >
-          {isUploadingImage ? (
-            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#7054dc] border-t-transparent" />
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <rect
-                x="4"
-                y="6"
-                width="16"
-                height="12"
-                rx="2"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-              <circle cx="9" cy="11" r="2" fill="currentColor" />
-              <path
-                d="M20 16l-5-5-5 5"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
-      <div className="relative px-3 py-3 text-[12px] text-[#232530]">
-        {isEmpty && (
-          <span className="pointer-events-none absolute left-3 top-3 text-[11px] text-[#9aa0ad]">
-            {placeholder}
-          </span>
-        )}
-        <div
-          ref={editorRef}
-          contentEditable
-          onInput={handleInput}
-          onBlur={updateEmptyState}
-          className="min-h-[80px] outline-none"
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleImageUpload}
-        />
-      </div>
-    </div>
-  );
-}
+import TrixEditor from "../../../component/ui/TrixEditor";
 
 const getYoutubeThumb = (url: string) => {
   const match = url.match(/(?:v=|be\/)([a-zA-Z0-9_-]{6,})/);
@@ -2438,7 +2066,8 @@ function TambahModulKontenPageContent() {
                                       Bahan Bacaan
                                     </p>
                                     <div className="mt-2">
-                                      <RichTextEditor
+                                      <TrixEditor
+                                        id={`materi-video-article-${material.id}`}
                                         placeholder="Tulis bahan bacaan di sini..."
                                         value={material.articleContent}
                                         onChange={(html) =>
@@ -2463,7 +2092,8 @@ function TambahModulKontenPageContent() {
                                     Bahan Bacaan
                                   </p>
                                   <div className="mt-2">
-                                    <RichTextEditor
+                                    <TrixEditor
+                                      id={`materi-article-${material.id}`}
                                       placeholder="Tulis materi artikel di sini..."
                                       value={material.articleContent}
                                       onChange={(html) =>
@@ -2699,15 +2329,17 @@ function TambahModulKontenPageContent() {
                               <>
                                 {quiz.ctStories.map((story, sIdx) => (
                                   <div key={story.id} className="mb-6">
-                                    <QuizMiniEditor placeholder="Masukkan cerita di sini ..." />
+                                    <TrixEditor id={`quiz-ct-story-${story.id}`} placeholder="Masukkan cerita di sini ..." minHeight="80px" />
                                     {story.subQuestions.map((sq) => (
                                       <div key={sq.id} className="mt-4">
                                         <p className="mb-2 text-[12px] font-semibold text-[#232530]">
-                                          {sq.label}
+                                          {sq.label ? sq.label.replace(/<[^>]*>?/gm, '') : ""}
                                         </p>
-                                        <QuizMiniEditor
+                                        <TrixEditor
+                                          id={`quiz-ct-sq-${sq.id}`}
                                           placeholder="Masukkan soal ..."
                                           value={sq.label}
+                                          minHeight="80px"
                                           onChange={(html) => setQuizzes((p) =>
                                             p.map((q) =>
                                               q.id !== quiz.id ? q : {
@@ -2844,11 +2476,13 @@ function TambahModulKontenPageContent() {
                                 {quiz.questions.map((question) => (
                                   <div key={question.id} className="mb-4">
                                     <p className="mb-2 text-[12px] font-semibold text-[#232530]">
-                                      {question.label}
+                                      {question.label ? question.label.replace(/<[^>]*>?/gm, '') : ""}
                                     </p>
-                                    <QuizMiniEditor
+                                    <TrixEditor
+                                      id={`quiz-q-${question.id}`}
                                       placeholder="Masukkan soal ..."
                                       value={question.label}
+                                      minHeight="80px"
                                       onChange={(html) => setQuizzes((p) =>
                                         p.map((q) =>
                                           q.id !== quiz.id ? q : {
