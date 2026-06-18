@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useMemo, useState } from 'react';
 import {
   FaCheckSquare,
   FaFilter,
@@ -30,13 +30,65 @@ import type { AdminModulItem, AdminKuisItem } from '../../lib/types/admin';
 
 type ActiveTab = 'modul' | 'kuis';
 
-const filterOptions = [
-  { id: 'a-z', label: 'Urutkan A - Z' },
-  { id: 'z-a', label: 'Urutkan Z - A' },
-  { id: 'judul', label: 'Urutkan dengan Judul Modul' },
-  { id: 'guru', label: 'Urutkan dengan Guru Modul' },
-  { id: 'siswa', label: 'Urutkan dengan Jumlah Siswa' },
-];
+// Per-tab filter / sort options
+const filterOptionsByTab: Record<
+  ActiveTab,
+  { id: string; label: string; sortFn: (a: AdminModulItem | AdminKuisItem, b: AdminModulItem | AdminKuisItem) => number }[]
+> = {
+  modul: [
+    {
+      id: 'nama-az',
+      label: 'Judul Modul A → Z',
+      sortFn: (a, b) => (a as AdminModulItem).moduleName.localeCompare((b as AdminModulItem).moduleName),
+    },
+    {
+      id: 'nama-za',
+      label: 'Judul Modul Z → A',
+      sortFn: (a, b) => (b as AdminModulItem).moduleName.localeCompare((a as AdminModulItem).moduleName),
+    },
+    {
+      id: 'guru-az',
+      label: 'Nama Guru A → Z',
+      sortFn: (a, b) => ((a as AdminModulItem).tutor?.fullName ?? '').localeCompare((b as AdminModulItem).tutor?.fullName ?? ''),
+    },
+    {
+      id: 'siswa-banyak',
+      label: 'Jml. Siswa Terbanyak',
+      sortFn: (a, b) => ((b as AdminModulItem).totalSiswa ?? 0) - ((a as AdminModulItem).totalSiswa ?? 0),
+    },
+    {
+      id: 'siswa-dikit',
+      label: 'Jml. Siswa Tersedikit',
+      sortFn: (a, b) => ((a as AdminModulItem).totalSiswa ?? 0) - ((b as AdminModulItem).totalSiswa ?? 0),
+    },
+  ],
+  kuis: [
+    {
+      id: 'nama-az',
+      label: 'Nama Modul A → Z',
+      sortFn: (a, b) => (a as AdminKuisItem).moduleName.localeCompare((b as AdminKuisItem).moduleName),
+    },
+    {
+      id: 'nama-za',
+      label: 'Nama Modul Z → A',
+      sortFn: (a, b) => (b as AdminKuisItem).moduleName.localeCompare((a as AdminKuisItem).moduleName),
+    },
+    {
+      id: 'guru-az',
+      label: 'Nama Guru A → Z',
+      sortFn: (a, b) => ((a as AdminKuisItem).tutor?.fullName ?? '').localeCompare((b as AdminKuisItem).tutor?.fullName ?? ''),
+    },
+    {
+      id: 'kuis-banyak',
+      label: 'Jml. Quiz Terbanyak',
+      sortFn: (a, b) => {
+        const countA = (a as AdminKuisItem).topiks?.reduce((s, t) => s + (t.quizzes?.length || 0), 0) ?? 0;
+        const countB = (b as AdminKuisItem).topiks?.reduce((s, t) => s + (t.quizzes?.length || 0), 0) ?? 0;
+        return countB - countA;
+      },
+    },
+  ],
+};
 
 function StatCard({
   label,
@@ -73,10 +125,11 @@ function StatCard({
 
 export default function ManajemenModulPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('modul');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedRowIds, setSelectedRowIds] = useState<Record<string, boolean>>({});
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState<string[]>(['a-z', 'judul']);
+  const [activeSortId, setActiveSortId] = useState<string>('nama-az');
 
   // Toast & confirm
   const { toasts, showToast, dismissToast } = useAdminToast();
@@ -96,10 +149,10 @@ export default function ManajemenModulPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [dashRes, modulRes, kuisRes] = await Promise.allSettled([
+      const [, modulRes, kuisRes] = await Promise.allSettled([
         adminDashboardApi.get(),
-        adminModulApi.getAll({ limit: 50 }),
-        adminKuisApi.getAll({ limit: 50 }),
+        adminModulApi.getAll({ limit: 200 }),
+        adminKuisApi.getAll({ limit: 200 }),
       ]);
       if (modulRes.status === 'fulfilled') {
         const items = modulRes.value.items ?? [];
@@ -119,15 +172,52 @@ export default function ManajemenModulPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const currentRows = activeTab === 'modul' ? modulList : kuisList;
-  const totalPages = Math.max(1, Math.ceil(currentRows.length / PAGE_SIZE));
+  // Current filter options per tab
+  const filterOptions = filterOptionsByTab[activeTab] ?? [];
+
+  // Filtered + sorted rows
+  const processedRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const rawRows: (AdminModulItem | AdminKuisItem)[] = activeTab === 'modul' ? modulList : kuisList;
+
+    // 1. Text search
+    const searched = q
+      ? rawRows.filter((r) => {
+          if (activeTab === 'modul') {
+            const m = r as AdminModulItem;
+            return (
+              m.moduleName.toLowerCase().includes(q) ||
+              (m.tutor?.fullName ?? '').toLowerCase().includes(q)
+            );
+          } else {
+            const k = r as AdminKuisItem;
+            return (
+              k.moduleName.toLowerCase().includes(q) ||
+              (k.tutor?.fullName ?? '').toLowerCase().includes(q)
+            );
+          }
+        })
+      : rawRows;
+
+    // 2. Sort
+    const sortFn = filterOptions.find((o) => o.id === activeSortId)?.sortFn;
+    if (sortFn) {
+      return [...searched].sort(sortFn);
+    }
+    return searched;
+  }, [modulList, kuisList, activeTab, searchQuery, activeSortId, filterOptions]);
+
+  const totalPages = Math.max(1, Math.ceil(processedRows.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
-  const paginatedRows = currentRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const paginatedRows = processedRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const currentRowIds = paginatedRows.map((r) => r.id);
   const allRowsSelected = currentRowIds.length > 0 && currentRowIds.every((id) => selectedRowIds[id]);
 
-  // Reset page when tab changes
-  useEffect(() => { setCurrentPage(1); }, [activeTab]);
+  // Reset page when tab or search changes
+  useEffect(() => { setCurrentPage(1); }, [activeTab, searchQuery]);
+
+  // Reset sort when tab changes
+  useEffect(() => { setActiveSortId('nama-az'); }, [activeTab]);
 
   const toggleSelectAll = () => {
     setSelectedRowIds((prev) => {
@@ -143,12 +233,6 @@ export default function ManajemenModulPage() {
 
   const toggleRow = (id: string) => {
     setSelectedRowIds((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const toggleFilterOption = (id: string) => {
-    setSelectedFilters((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
   };
 
   const handleDelete = (id: string) => {
@@ -183,7 +267,7 @@ export default function ManajemenModulPage() {
     <div className="min-h-screen bg-[#f3f3f6]">
       {deleteTarget && (
         <AdminConfirmDialog
-          message={`Yakin ingin menghapus ${activeTab === 'modul' ? 'modul' : 'kuis'} ini? Tindakan tidak dapat dibatalkan.`}
+          message={`Yakin ingin menghapus ${Array.isArray(deleteTarget) ? `${deleteTarget.length} ${activeTab}` : activeTab} ini? Tindakan tidak dapat dibatalkan.`}
           danger
           confirmLabel="Ya, Hapus"
           onConfirm={executeDelete}
@@ -200,14 +284,14 @@ export default function ManajemenModulPage() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('modul')}
+                  onClick={() => { setActiveTab('modul'); setSearchQuery(''); }}
                   className={`rounded-full px-14 py-3.5 text-lg font-semibold transition-colors ${activeTab === 'modul' ? 'bg-[#7054dc] text-white shadow-md' : 'bg-[#ece7ff] text-[#7054dc] hover:bg-[#e2d8ff]'}`}
                 >
                   Modul
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveTab('kuis')}
+                  onClick={() => { setActiveTab('kuis'); setSearchQuery(''); }}
                   className={`rounded-full px-14 py-3.5 text-lg font-semibold transition-colors ${activeTab === 'kuis' ? 'bg-[#7054dc] text-white shadow-md' : 'bg-[#ece7ff] text-[#7054dc] hover:bg-[#e2d8ff]'}`}
                 >
                   Kuis
@@ -235,7 +319,9 @@ export default function ManajemenModulPage() {
                   <FaSearch size={12} className="text-[#a0a3b0]" />
                   <input
                     type="text"
-                    placeholder="Pencarian"
+                    placeholder={activeTab === 'modul' ? 'Cari judul atau guru modul...' : 'Cari nama modul atau guru...'}
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                     className="w-full bg-transparent text-sm text-[#202126] placeholder:text-[#a0a3b0] outline-none"
                   />
                 </label>
@@ -250,20 +336,28 @@ export default function ManajemenModulPage() {
                   >
                     <FaFilter size={12} />
                     Filter
+                    {activeSortId && (
+                      <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[#7054dc]">
+                        1
+                      </span>
+                    )}
                   </button>
                   {isFilterOpen && (
-                    <div className="absolute right-0 top-11 z-30 w-[300px] rounded-2xl border border-[#7f67de] bg-white p-3 shadow-xl">
-                      <p className="text-sm font-semibold text-[#7054dc]">Filter Urutkan Tampilan</p>
+                    <div className="absolute right-0 top-11 z-30 w-[280px] rounded-2xl border border-[#7f67de] bg-white p-3 shadow-xl">
+                      <p className="text-sm font-semibold text-[#7054dc]">Urutkan Tampilan</p>
                       <div className="mt-2 h-px w-full bg-[#c7b9ff]" />
-                      <div className="mt-2 space-y-2">
+                      <div className="mt-2 space-y-1">
                         {filterOptions.map((option) => {
-                          const isSelected = selectedFilters.includes(option.id);
+                          const isSelected = activeSortId === option.id;
                           return (
                             <button
                               key={option.id}
                               type="button"
-                              onClick={() => toggleFilterOption(option.id)}
-                              className="flex items-center gap-2 text-left text-sm text-[#30323a]"
+                              onClick={() => {
+                                setActiveSortId(option.id);
+                                setIsFilterOpen(false);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#30323a] hover:bg-[#f5f1ff]"
                             >
                               <span className={isSelected ? 'text-[#7054dc]' : 'text-[#a8adb8]'}>
                                 {isSelected ? <FaCheckSquare size={15} /> : <FaRegSquare size={15} />}
@@ -325,7 +419,9 @@ export default function ManajemenModulPage() {
                       </tr>
                     ) : paginatedRows.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="py-32 text-center text-sm text-[#9396a3]">Tidak ada data.</td>
+                        <td colSpan={5} className="py-32 text-center text-sm text-[#9396a3]">
+                          {searchQuery ? 'Tidak ada data yang cocok dengan pencarian.' : 'Tidak ada data.'}
+                        </td>
                       </tr>
                     ) : activeTab === 'modul' ? (
                       (paginatedRows as AdminModulItem[]).map((row) => (
@@ -436,7 +532,7 @@ export default function ManajemenModulPage() {
 
               <div className="flex items-center justify-between border-t border-[#f0eff6] px-4 py-3">
                 <p className="text-xs text-[#9396a3]">
-                  {currentRows.length} data · Hal {safePage}/{totalPages}
+                  {processedRows.length} data · Hal {safePage}/{totalPages}
                 </p>
                 <div className="flex items-center gap-1">
                   <button
@@ -452,8 +548,7 @@ export default function ManajemenModulPage() {
                       page === totalPages ||
                       Math.abs(page - safePage) <= 1
                     )
-                    .reduce<(number | '...')[]
-                    >((acc, page, idx, arr) => {
+                    .reduce<(number | '...')[]>((acc, page, idx, arr) => {
                       if (idx > 0 && (page as number) - (arr[idx - 1] as number) > 1) acc.push('...');
                       acc.push(page);
                       return acc;

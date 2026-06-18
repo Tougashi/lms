@@ -513,7 +513,7 @@ export const notificationApi = {
     },
 
     markAllRead() {
-        return apiFetch<{ message: string }>("/notifications", {
+        return apiFetch<{ message: string }>("/notifications/read-all", {
             method: "PATCH",
             data: {},
         });

@@ -35,13 +35,35 @@ import type { AdminTutorItem, AdminSiswaItem, AdminUserItem } from '../../lib/ty
 
 type UserTab = 'guru' | 'siswa' | 'admin';
 
-const filterOptions = [
-  { id: 'nama-lengkap', label: 'Nama Lengkap' },
-  { id: 'tingkat-pengajar', label: 'Tingkat Pengajar' },
-  { id: 'bidang-pengajar', label: 'Bidang Pengajar' },
-  { id: 'no-wa', label: 'No WA' },
-  { id: 'email', label: 'Email' },
-];
+// Per-tab filter / sort options
+const filterOptionsByTab: Record<
+  UserTab,
+  { id: string; label: string; sortKey: string; dir: 'asc' | 'desc' }[]
+> = {
+  guru: [
+    { id: 'nama-az', label: 'Nama Lengkap A → Z', sortKey: 'nama', dir: 'asc' },
+    { id: 'nama-za', label: 'Nama Lengkap Z → A', sortKey: 'nama', dir: 'desc' },
+    { id: 'email-az', label: 'Email A → Z', sortKey: 'email', dir: 'asc' },
+    { id: 'nowa-az', label: 'No WA A → Z', sortKey: 'nowa', dir: 'asc' },
+    { id: 'aktif', label: 'Tampilkan Aktif Dulu', sortKey: 'status', dir: 'desc' },
+    { id: 'nonaktif', label: 'Tampilkan Nonaktif Dulu', sortKey: 'status', dir: 'asc' },
+  ],
+  siswa: [
+    { id: 'nama-az', label: 'Nama Lengkap A → Z', sortKey: 'nama', dir: 'asc' },
+    { id: 'nama-za', label: 'Nama Lengkap Z → A', sortKey: 'nama', dir: 'desc' },
+    { id: 'email-az', label: 'Email A → Z', sortKey: 'email', dir: 'asc' },
+    { id: 'aktif', label: 'Tampilkan Aktif Dulu', sortKey: 'status', dir: 'desc' },
+    { id: 'nonaktif', label: 'Tampilkan Nonaktif Dulu', sortKey: 'status', dir: 'asc' },
+    { id: 'jenjang-az', label: 'Tingkat A → Z', sortKey: 'jenjang', dir: 'asc' },
+  ],
+  admin: [
+    { id: 'nama-az', label: 'Nama Lengkap A → Z', sortKey: 'nama', dir: 'asc' },
+    { id: 'nama-za', label: 'Nama Lengkap Z → A', sortKey: 'nama', dir: 'desc' },
+    { id: 'email-az', label: 'Email A → Z', sortKey: 'email', dir: 'asc' },
+    { id: 'username-az', label: 'Username A → Z', sortKey: 'username', dir: 'asc' },
+    { id: 'aktif', label: 'Tampilkan Aktif Dulu', sortKey: 'status', dir: 'desc' },
+  ],
+};
 
 function StatCard({
   label,
@@ -76,13 +98,42 @@ function StatCard({
   );
 }
 
+// Helpers to get sortable values per row
+function getGuruSortValue(r: AdminTutorItem, sortKey: string): string {
+  switch (sortKey) {
+    case 'nama': return r.fullName?.toLowerCase() ?? '';
+    case 'email': return r.email?.toLowerCase() ?? '';
+    case 'nowa': return r.whatsappNumber?.toLowerCase() ?? '';
+    case 'status': return r.isActive !== false ? 'z' : 'a'; // z = aktif sorts last in asc
+    default: return '';
+  }
+}
+function getSiswaSortValue(r: AdminSiswaItem, sortKey: string): string {
+  switch (sortKey) {
+    case 'nama': return r.nama_lengkap?.toLowerCase() ?? '';
+    case 'email': return r.email?.toLowerCase() ?? '';
+    case 'status': return r.isActive !== false ? 'z' : 'a';
+    case 'jenjang': return r.jenjang?.toLowerCase() ?? '';
+    default: return '';
+  }
+}
+function getAdminSortValue(r: AdminUserItem, sortKey: string): string {
+  switch (sortKey) {
+    case 'nama': return r.fullName?.toLowerCase() ?? '';
+    case 'email': return r.email?.toLowerCase() ?? '';
+    case 'username': return r.username?.toLowerCase() ?? '';
+    case 'status': return r.isActive !== false ? 'z' : 'a';
+    default: return '';
+  }
+}
+
 export default function ManajemenPenggunaPage() {
   const [activeTab, setActiveTab] = useState<UserTab>('guru');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRowIds, setSelectedRowIds] = useState<Record<string, boolean>>({});
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState<string[]>(['nama-lengkap']);
+  const [activeSortId, setActiveSortId] = useState<string>('nama-az');
 
   // Toast & confirm
   const { toasts, showToast, dismissToast } = useAdminToast();
@@ -148,25 +199,56 @@ export default function ManajemenPenggunaPage() {
     }
   }, [searchQuery, activeTab, fetchData]);
 
-  const currentRows = activeTab === 'guru' ? guruList : activeTab === 'siswa' ? siswaList : adminList;
+  // Current filter options per tab
+  const filterOptions = filterOptionsByTab[activeTab] ?? [];
+
+  const currentRawRows = activeTab === 'guru' ? guruList : activeTab === 'siswa' ? siswaList : adminList;
 
   const filteredRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return currentRows;
-    if (activeTab === 'guru') {
-      return (currentRows as AdminTutorItem[]).filter((r) =>
-        r.fullName.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
-      );
-    }
-    if (activeTab === 'siswa') {
-      return (currentRows as AdminSiswaItem[]).filter((r) =>
+
+    // 1. Text search
+    let rows: typeof currentRawRows;
+    if (!q) {
+      rows = currentRawRows;
+    } else if (activeTab === 'guru') {
+      rows = (currentRawRows as AdminTutorItem[]).filter((r) =>
+        r.fullName.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) ||
+        (r.whatsappNumber ?? '').toLowerCase().includes(q)
+      ) as typeof currentRawRows;
+    } else if (activeTab === 'siswa') {
+      rows = (currentRawRows as AdminSiswaItem[]).filter((r) =>
         r.nama_lengkap.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
-      );
+      ) as typeof currentRawRows;
+    } else {
+      rows = (currentRawRows as AdminUserItem[]).filter((r) =>
+        r.fullName.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) ||
+        (r.username ?? '').toLowerCase().includes(q)
+      ) as typeof currentRawRows;
     }
-    return (currentRows as AdminUserItem[]).filter((r) =>
-      r.fullName.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
-    );
-  }, [currentRows, searchQuery, activeTab]);
+
+    // 2. Sort based on active sort option
+    const sortOpt = filterOptions.find((o) => o.id === activeSortId);
+    if (!sortOpt) return rows;
+
+    const { sortKey, dir } = sortOpt;
+    return [...rows].sort((a, b) => {
+      let av = '';
+      let bv = '';
+      if (activeTab === 'guru') {
+        av = getGuruSortValue(a as AdminTutorItem, sortKey);
+        bv = getGuruSortValue(b as AdminTutorItem, sortKey);
+      } else if (activeTab === 'siswa') {
+        av = getSiswaSortValue(a as AdminSiswaItem, sortKey);
+        bv = getSiswaSortValue(b as AdminSiswaItem, sortKey);
+      } else {
+        av = getAdminSortValue(a as AdminUserItem, sortKey);
+        bv = getAdminSortValue(b as AdminUserItem, sortKey);
+      }
+      const cmp = av.localeCompare(bv);
+      return dir === 'asc' ? cmp : -cmp;
+    }) as typeof currentRawRows;
+  }, [currentRawRows, searchQuery, activeTab, activeSortId, filterOptions]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
@@ -174,6 +256,9 @@ export default function ManajemenPenggunaPage() {
 
   // Reset page when tab or search changes
   useEffect(() => { setCurrentPage(1); }, [activeTab, searchQuery]);
+
+  // Reset sort when tab changes
+  useEffect(() => { setActiveSortId('nama-az'); }, [activeTab]);
 
   const allRowsSelected =
     filteredRows.length > 0 && filteredRows.every((row) => selectedRowIds[row.id]);
@@ -192,12 +277,6 @@ export default function ManajemenPenggunaPage() {
 
   const toggleRow = (id: string) => {
     setSelectedRowIds((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const toggleFilterOption = (id: string) => {
-    setSelectedFilters((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
   };
 
   const handleDeactivate = (id: string) => {
@@ -249,8 +328,6 @@ export default function ManajemenPenggunaPage() {
   const handleBulkDelete = async () => {
     const ids = Object.keys(selectedRowIds).filter((id) => selectedRowIds[id]);
     if (ids.length === 0) return;
-    // Use the confirm flow — set a bulk target via a special marker
-    // We delete sequentially after confirmation
     setConfirmState({ id: '__bulk__', action: 'delete', bulkIds: ids });
   };
 
@@ -286,10 +363,18 @@ export default function ManajemenPenggunaPage() {
               ? confirmState.bulkIds
                 ? `Yakin ingin menghapus ${confirmState.bulkIds.length} data yang dipilih? Tindakan ini tidak dapat dibatalkan.`
                 : 'Yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.'
+              : confirmState.action === 'activate'
+              ? 'Yakin ingin mengaktifkan akun ini?'
               : 'Yakin ingin menonaktifkan akun ini?'
           }
           danger={confirmState.action === 'delete'}
-          confirmLabel={confirmState.action === 'delete' ? 'Ya, Hapus' : 'Ya, Nonaktifkan'}
+          confirmLabel={
+            confirmState.action === 'delete'
+              ? 'Ya, Hapus'
+              : confirmState.action === 'activate'
+              ? 'Ya, Aktifkan'
+              : 'Ya, Nonaktifkan'
+          }
           onConfirm={executeConfirm}
           onCancel={() => setConfirmState(null)}
         />
@@ -365,20 +450,28 @@ export default function ManajemenPenggunaPage() {
                   >
                     <FaFilter size={12} />
                     Filter
+                    {activeSortId && (
+                      <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[#7054dc]">
+                        1
+                      </span>
+                    )}
                   </button>
                   {isFilterOpen && (
-                    <div className="absolute right-0 top-11 z-30 w-[300px] rounded-2xl border border-[#7f67de] bg-white p-3 shadow-xl">
-                      <p className="text-sm font-semibold text-[#7054dc]">Filter Urutkan Tampilan</p>
+                    <div className="absolute right-0 top-11 z-30 w-[280px] rounded-2xl border border-[#7f67de] bg-white p-3 shadow-xl">
+                      <p className="text-sm font-semibold text-[#7054dc]">Urutkan Tampilan</p>
                       <div className="mt-2 h-px w-full bg-[#c7b9ff]" />
-                      <div className="mt-2 space-y-2">
+                      <div className="mt-2 space-y-1">
                         {filterOptions.map((option) => {
-                          const isSelected = selectedFilters.includes(option.id);
+                          const isSelected = activeSortId === option.id;
                           return (
                             <button
                               key={option.id}
                               type="button"
-                              onClick={() => toggleFilterOption(option.id)}
-                              className="flex items-center gap-2 text-left text-sm text-[#30323a]"
+                              onClick={() => {
+                                setActiveSortId(option.id);
+                                setIsFilterOpen(false);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#30323a] hover:bg-[#f5f1ff]"
                             >
                               <span className={isSelected ? 'text-[#7054dc]' : 'text-[#a8adb8]'}>
                                 {isSelected ? <FaCheckSquare size={15} /> : <FaRegSquare size={15} />}
@@ -560,8 +653,7 @@ export default function ManajemenPenggunaPage() {
                       page === totalPages ||
                       Math.abs(page - safePage) <= 1
                     )
-                    .reduce<(number | '...')[]
-                    >((acc, page, idx, arr) => {
+                    .reduce<(number | '...') []>((acc, page, idx, arr) => {
                       if (idx > 0 && (page as number) - (arr[idx - 1] as number) > 1) acc.push('...');
                       acc.push(page);
                       return acc;
