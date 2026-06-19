@@ -24,7 +24,7 @@ import {
   adminModulApi,
   adminTopikApi,
   adminMateriApi,
-  guruKuisApi,
+  adminTopikKuisApi,
   uploadApi,
   guruMateriApi,
 } from "../../../lib/api";
@@ -631,7 +631,7 @@ function TambahModulKontenPageContent() {
     setIsSavingQuiz(true);
     showLoading("Membuat kuis...");
     try {
-      const created = await guruKuisApi.create({
+      const created = await adminTopikKuisApi.create({
         quiz: {
           topikId: topicId,
           quizType: false ? "COMPUTATIONAL_THINKING" : "REGULER",
@@ -884,8 +884,8 @@ function TambahModulKontenPageContent() {
 
     showLoading("Menghapus kuis...");
     try {
-      if (apiId) await guruKuisApi.delete(apiId);
-      for (const sid of subIds) await guruKuisApi.delete(sid);
+      if (apiId) await adminTopikKuisApi.delete(apiId);
+      for (const sid of subIds) await adminTopikKuisApi.delete(sid);
     } catch (err) {
       console.error("Delete quiz error:", err);
       toast("Gagal menghapus kuis.", "error");
@@ -1034,9 +1034,9 @@ function TambahModulKontenPageContent() {
             if (!firstSaved) {
               const apiId = quizApiIds[quizId];
               if (apiId) {
-                await guruKuisApi.update(apiId, payload);
+                await adminTopikKuisApi.update(apiId, payload);
               } else {
-                const created = await guruKuisApi.create({
+                const created = await adminTopikKuisApi.create({
                   quiz: {
                     topikId: topicId!,
                     question: payload.question,
@@ -1053,9 +1053,9 @@ function TambahModulKontenPageContent() {
             } else {
               const existingApiId = subQuizApiIds[sq.id];
               if (existingApiId) {
-                await guruKuisApi.update(existingApiId, payload);
+                await adminTopikKuisApi.update(existingApiId, payload);
               } else {
-                const created = await guruKuisApi.create({
+                const created = await adminTopikKuisApi.create({
                   quiz: {
                     topikId: topicId!,
                     question: payload.question,
@@ -1085,7 +1085,7 @@ function TambahModulKontenPageContent() {
 
         const apiId = quizApiIds[quizId];
         if (apiId) {
-          await guruKuisApi.update(apiId, {
+          await adminTopikKuisApi.update(apiId, {
             question,
             correctAnswer,
             skor: quiz.scorePerQuestion || 10,
@@ -1101,7 +1101,7 @@ function TambahModulKontenPageContent() {
           });
           toast("Kuis berhasil diperbarui.", "success");
         } else {
-          const created = await guruKuisApi.create({
+          const created = await adminTopikKuisApi.create({
             quiz: {
               topikId: topicId!,
               quizType: "REGULER",

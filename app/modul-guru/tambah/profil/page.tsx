@@ -666,28 +666,21 @@ function TambahModulProfilPageContent() {
                                                     onChange={(e) =>
                                                         setKelas(e.target.value)
                                                     }
+                                                    disabled={!level}
                                                 >
                                                     <option value="" disabled>
-                                                        Pilih Tingkatan Kelas
+                                                        {level
+                                                            ? "Pilih Tingkatan Kelas"
+                                                            : "Pilih jenjang terlebih dahulu"}
                                                     </option>
-                                                    <option value="4">
-                                                        Kelas 4
-                                                    </option>
-                                                    <option value="5">
-                                                        Kelas 5
-                                                    </option>
-                                                    <option value="6">
-                                                        Kelas 6
-                                                    </option>
-                                                    <option value="10">
-                                                        Kelas 10
-                                                    </option>
-                                                    <option value="11">
-                                                        Kelas 11
-                                                    </option>
-                                                    <option value="12">
-                                                        Kelas 12
-                                                    </option>
+                                                    {kelasOptions.map((k) => (
+                                                        <option
+                                                            key={k}
+                                                            value={k}
+                                                        >
+                                                            Kelas {k}
+                                                        </option>
+                                                    ))}
                                                 </select>
                                                 <p className="mt-1 text-[11px] text-[#7e8290]">
                                                     Berapa lama pengerjaan modul

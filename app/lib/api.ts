@@ -459,7 +459,9 @@ export const siswaCertificateApi = {
     },
 
     getByModul(modulId: string) {
-        return apiFetch<StudyRoomCertificate>(`/siswa/certificates/modul/${modulId}`);
+        return apiFetch<StudyRoomCertificate>(
+            `/siswa/certificates/modul/${modulId}`,
+        );
     },
 
     claim(modulId: string) {
@@ -627,7 +629,7 @@ export const guruRangkumanApi = {
 
 export const guruMateriApi = {
     getByModul(modulId: string) {
-        return apiFetch<GuruTopikWithMateri[]>(`/tutor/materi/${modulId}`);
+        return apiFetch<GuruTopikWithMateri[]>(`/admin/materi/${modulId}`);
     },
 
     create(payload: GuruMateriCreatePayload) {
@@ -792,9 +794,7 @@ export const guruPretestApi = {
     },
 
     getAccessRules(pretestId: string) {
-        return apiFetch<unknown[]>(
-            `/tutor/pretest/${pretestId}/access-rules`,
-        );
+        return apiFetch<unknown[]>(`/tutor/pretest/${pretestId}/access-rules`);
     },
 
     createAccessRule(payload: {
@@ -952,7 +952,9 @@ export const adminPosttestApi = {
         return apiFetch<GuruPosttestItem>(`/admin/posttest/${modulId}`);
     },
     getDetail(posttestId: string) {
-        return apiFetch<GuruPosttestItem>(`/admin/posttest/detail/${posttestId}`);
+        return apiFetch<GuruPosttestItem>(
+            `/admin/posttest/detail/${posttestId}`,
+        );
     },
     create(payload: { modul_id: string }) {
         return apiFetch<GuruPosttestItem>("/admin/posttest", {
@@ -1043,7 +1045,9 @@ export const guruKuisApi = {
 // memiliki limit body 4MB bawaan Vercel/Next.js, kita langsung fetch ke backend.
 // ---------------------------------------------------------------------------
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://lms-express-api-o5uk.vercel.app/api/v1";
+const BACKEND_URL =
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://lms-express-api-o5uk.vercel.app/api/v1";
 
 export const uploadApi = {
     async upload(file: File, fileType?: string): Promise<UploadResponse> {
@@ -1061,11 +1065,7 @@ export const uploadApi = {
 
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new ApiError(
-                err.message ?? "Upload gagal",
-                res.status,
-                err,
-            );
+            throw new ApiError(err.message ?? "Upload gagal", res.status, err);
         }
         return res.json() as Promise<UploadResponse>;
     },
@@ -1138,8 +1138,10 @@ export const guruProgressApi = {
     },
 
     analyze(studentId: string, modulId?: string) {
-        const params = modulId ? `?modulId=${modulId}` : '';
-        return apiFetch<CTAnalysisResponse>(`/tutor/progress/${studentId}/analyze${params}`);
+        const params = modulId ? `?modulId=${modulId}` : "";
+        return apiFetch<CTAnalysisResponse>(
+            `/tutor/progress/${studentId}/analyze${params}`,
+        );
     },
 };
 
@@ -1236,7 +1238,7 @@ export const adminTopikApi = {
                 ...item,
                 name: item.nama || item.name,
                 modulId: item.modul_id || item.modulId,
-            }))
+            })),
         );
     },
 
@@ -1280,7 +1282,7 @@ export const adminMateriApi = {
                 title: item.judul || item.title,
                 topikId: item.topik_id || item.topikId,
                 modulId: item.modul_id || item.modulId,
-            }))
+            })),
         );
     },
 
@@ -1353,6 +1355,32 @@ export const adminKuisApi = {
 
     delete(id: string) {
         return apiFetch<AdminKuisItem>(`/admin/kuis/${id}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Admin – Topik Kuis endpoints (same payload contract as guruKuisApi)
+// ---------------------------------------------------------------------------
+
+export const adminTopikKuisApi = {
+    create(payload: GuruKuisCreatePayload) {
+        return apiFetch<GuruKuisItem>("/admin/kuis", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    update(id: string, payload: GuruKuisUpdatePayload) {
+        return apiFetch<GuruKuisItem>(`/admin/kuis/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/admin/kuis/${id}`, {
             method: "DELETE",
         });
     },
@@ -1470,10 +1498,13 @@ export const adminUserApi = {
     },
 
     create(payload: AdminUserCreatePayload) {
-        return apiFetch<{ message: string; user: AdminUserItem }>("/admin/pengelola", {
-            method: "POST",
-            data: payload,
-        });
+        return apiFetch<{ message: string; user: AdminUserItem }>(
+            "/admin/pengelola",
+            {
+                method: "POST",
+                data: payload,
+            },
+        );
     },
 
     update(id: string, payload: AdminUserUpdatePayload) {
@@ -1536,7 +1567,12 @@ export const adminProfileApi = {
     get() {
         return apiFetch<AdminProfile>("/admin/profile/profile");
     },
-    update(payload: Partial<AdminProfile> & { password?: string; newPassword?: string }) {
+    update(
+        payload: Partial<AdminProfile> & {
+            password?: string;
+            newPassword?: string;
+        },
+    ) {
         return apiFetch<AdminProfile>("/auth/update", {
             method: "PUT",
             data: { ...payload, role: "admin" },

@@ -744,6 +744,18 @@ function TambahModulKontenPageContent() {
     setRangkumanApiIds((prev) => ({ ...prev, ...rIds }));
   }, [getYoutubeThumb, makeCTStory]);
 
+  const switchToTopik = useCallback(async (topik: GuruTopikWithMateri) => {
+    if (!modulId) return;
+    try {
+      const fresh = await guruMateriApi.getByModul(modulId);
+      setTopiks(fresh);
+      const freshTopik = fresh.find((t) => t.id === topik.id) ?? topik;
+      loadTopicData(freshTopik);
+    } catch {
+      loadTopicData(topik);
+    }
+  }, [modulId, loadTopicData]);
+
   const handleCreateQuiz = async () => {
     if (!topicId) {
       toast(
@@ -842,6 +854,9 @@ function TambahModulKontenPageContent() {
     try {
       await guruRangkumanApi.update(apiId, { judul: r.title, konten: r.konten });
       toast("Rangkuman berhasil disimpan.", "success");
+      setRangkumans((prev) =>
+        prev.map((r) => (r.id === rangkumanId ? { ...r, isExpanded: false } : r)),
+      );
     } catch (err) {
       console.error("Save rangkuman error:", err);
       toast("Gagal menyimpan rangkuman.", "error");
@@ -1303,6 +1318,9 @@ function TambahModulKontenPageContent() {
           toast("Kuis berhasil disimpan.", "success");
         }
       }
+      setQuizzes((prev) =>
+        prev.map((q) => (q.id === quizId ? { ...q, isExpanded: false } : q)),
+      );
     } catch (err) {
       console.error("Submit quiz error:", err);
       toast("Gagal menyimpan kuis.", "error");
@@ -1332,6 +1350,13 @@ function TambahModulKontenPageContent() {
       setIsFormOpen(false);
       setActiveMaterialId(null);
       setActiveTopikId(created.id);
+      setMaterials([]);
+      setQuizzes([]);
+      setRangkumans([]);
+      setMaterialApiIds({});
+      setQuizApiIds({});
+      setSubQuizApiIds({});
+      setRangkumanApiIds({});
       setTopiks((prev) => [...prev, { ...created, materis: [], quizzes: [], rangkumans: [] }]);
     } catch (err: unknown) {
       console.error("Create topic error:", err);
@@ -1625,7 +1650,7 @@ function TambahModulKontenPageContent() {
                                 setEditTopicTitle(topik.nama);
                                 setIsEditingTopic(true);
                                 if (activeTopikId !== topik.id) {
-                                  loadTopicData(topik);
+                                  void switchToTopik(topik);
                                 }
                               }}
                               className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"
@@ -2617,6 +2642,13 @@ function TambahModulKontenPageContent() {
                                               </button>
                                             </div>
                                           ))}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleAddCTAnswer(quiz.id, story.id, sq.id)}
+                                            className="mt-1 text-[11px] font-semibold text-[#7054dc]"
+                                          >
+                                            + Tambah Opsi Jawaban
+                                          </button>
                                         </div>
                                       </div>
                                     ))}
@@ -2739,6 +2771,13 @@ function TambahModulKontenPageContent() {
                                           </button>
                                         </div>
                                       ))}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddAnswer(quiz.id, question.id)}
+                                        className="mt-1 text-[11px] font-semibold text-[#7054dc]"
+                                      >
+                                        + Tambah Opsi Jawaban
+                                      </button>
                                     </div>
                                   </div>
                                 ))}
@@ -2871,7 +2910,7 @@ function TambahModulKontenPageContent() {
                       type="button"
                       onClick={() => {
                         if (activeTopikId !== topik.id) {
-                          loadTopicData(topik);
+                          void switchToTopik(topik);
                         }
                       }}
                       className="mt-2 text-[12px] font-semibold text-[#7054dc] hover:underline"
