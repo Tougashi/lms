@@ -1,17 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
-  FiBookOpen,
-  FiCheckSquare,
   FiChevronDown,
-  FiDollarSign,
   FiEdit2,
-  FiFileText,
-  FiLayers,
   FiPlus,
   FiSettings,
   FiTrash2,
@@ -149,7 +143,7 @@ function TambahModulKontenPageContent() {
     if (!modulId) { setIsLoading(false); return; }
     const loadContent = async () => {
       try {
-        const items = await guruMateriApi.getByModul(modulId);
+        const items = await adminMateriApi.getByModul(modulId);
         setTopiks(items);
         if (items.length > 0) {
           const firstTopik = items[0];
@@ -631,7 +625,11 @@ function TambahModulKontenPageContent() {
     setIsSavingQuiz(true);
     showLoading("Membuat kuis...");
     try {
+<<<<<<< HEAD
       const created = await adminTopikKuisApi.create({
+=======
+      const created = await adminKuisApi.create({
+>>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
         quiz: {
           topikId: topicId,
           quizType: false ? "COMPUTATIONAL_THINKING" : "REGULER",
@@ -884,8 +882,13 @@ function TambahModulKontenPageContent() {
 
     showLoading("Menghapus kuis...");
     try {
+<<<<<<< HEAD
       if (apiId) await adminTopikKuisApi.delete(apiId);
       for (const sid of subIds) await adminTopikKuisApi.delete(sid);
+=======
+      if (apiId) await adminKuisApi.delete(apiId);
+      for (const sid of subIds) await adminKuisApi.delete(sid);
+>>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
     } catch (err) {
       console.error("Delete quiz error:", err);
       toast("Gagal menghapus kuis.", "error");
@@ -1034,9 +1037,15 @@ function TambahModulKontenPageContent() {
             if (!firstSaved) {
               const apiId = quizApiIds[quizId];
               if (apiId) {
+<<<<<<< HEAD
                 await adminTopikKuisApi.update(apiId, payload);
               } else {
                 const created = await adminTopikKuisApi.create({
+=======
+                await adminKuisApi.update(apiId, payload);
+              } else {
+                const created = await adminKuisApi.create({
+>>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
                   quiz: {
                     topikId: topicId!,
                     question: payload.question,
@@ -1053,9 +1062,15 @@ function TambahModulKontenPageContent() {
             } else {
               const existingApiId = subQuizApiIds[sq.id];
               if (existingApiId) {
+<<<<<<< HEAD
                 await adminTopikKuisApi.update(existingApiId, payload);
               } else {
                 const created = await adminTopikKuisApi.create({
+=======
+                await adminKuisApi.update(existingApiId, payload);
+              } else {
+                const created = await adminKuisApi.create({
+>>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
                   quiz: {
                     topikId: topicId!,
                     question: payload.question,
@@ -1085,7 +1100,11 @@ function TambahModulKontenPageContent() {
 
         const apiId = quizApiIds[quizId];
         if (apiId) {
+<<<<<<< HEAD
           await adminTopikKuisApi.update(apiId, {
+=======
+          await adminKuisApi.update(apiId, {
+>>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
             question,
             correctAnswer,
             skor: quiz.scorePerQuestion || 10,
@@ -1101,7 +1120,11 @@ function TambahModulKontenPageContent() {
           });
           toast("Kuis berhasil diperbarui.", "success");
         } else {
+<<<<<<< HEAD
           const created = await adminTopikKuisApi.create({
+=======
+          const created = await adminKuisApi.create({
+>>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
             quiz: {
               topikId: topicId!,
               quizType: "REGULER",
@@ -1228,7 +1251,7 @@ function TambahModulKontenPageContent() {
     showLoading("Menerbitkan modul...");
     try {
       await adminModulApi.update(modulId, { isDraft: false });
-      router.push("/modul-guru?tab=published");
+      router.push("/admin/manajemen-modul");
     } catch (err: unknown) {
       console.error("Publish error:", err);
       toast(

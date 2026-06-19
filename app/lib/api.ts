@@ -1057,7 +1057,7 @@ export const uploadApi = {
         formData.append("type", type);
         formData.append("fileType", type);
 
-        const res = await fetch(`${BACKEND_URL}/upload`, {
+        const res = await fetch(`/api/upload`, {
             method: "POST",
             body: formData,
             credentials: "include",

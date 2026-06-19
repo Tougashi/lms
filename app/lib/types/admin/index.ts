@@ -230,23 +230,38 @@ export interface AdminKuisItem {
 }
 
 export interface AdminKuisCreatePayload {
-  question: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  answer: "A" | "B" | "C" | "D";
-  knowledgeComponentId?: string;
-  submateriId?: string;
+  quiz: {
+    topikId: string;
+    quizType?: "REGULER" | "COMPUTATIONAL_THINKING";
+    question: string;
+    correctAnswer: string;
+    skor?: number;
+    quizImgQuestionUrl?: string | null;
+  };
+  answerOptions: { option: string }[];
+  setting: {
+    timeLimit?: number | null;
+    allowMultipleAttempts?: boolean;
+    isComputationalThinkingEnabled?: boolean;
+    minScoreTreshold?: number | null;
+    standardScorePerQuestion?: number;
+  };
 }
 
 export interface AdminKuisUpdatePayload {
   question?: string;
-  optionA?: string;
-  optionB?: string;
-  optionC?: string;
-  optionD?: string;
-  answer?: "A" | "B" | "C" | "D";
+  correctAnswer?: string;
+  skor?: number;
+  quizType?: "REGULER" | "COMPUTATIONAL_THINKING";
+  quizImgQuestionUrl?: string | null;
+  answerOptions?: { option: string }[];
+  setting?: {
+    timeLimit?: number | null;
+    allowMultipleAttempts?: boolean;
+    isComputationalThinkingEnabled?: boolean;
+    minScoreTreshold?: number | null;
+    standardScorePerQuestion?: number;
+  };
 }
 
 // ── Siswa ────────────────────────────────────────────────────────────────────
