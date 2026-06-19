@@ -26,6 +26,7 @@ import {
   adminMateriApi,
   guruKuisApi,
   uploadApi,
+  guruMateriApi,
 } from "../../../lib/api";
 import type { GuruTopikWithMateri } from "../../../lib/types/guru";
 
@@ -148,7 +149,7 @@ function TambahModulKontenPageContent() {
     if (!modulId) { setIsLoading(false); return; }
     const loadContent = async () => {
       try {
-        const items = await adminMateriApi.getByModul(modulId);
+        const items = await guruMateriApi.getByModul(modulId);
         setTopiks(items);
         if (items.length > 0) {
           const firstTopik = items[0];
