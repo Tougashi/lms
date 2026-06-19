@@ -41,6 +41,12 @@ const getYoutubeThumb = (url: string) => {
     return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
 };
 
+// Bug 3: Strip HTML tags (dari TrixEditor) saat simpan/tampilkan
+const stripHtml = (html: string): string => {
+    if (!html) return "";
+    return html.replace(/<[^>]*>?/gm, "").trim();
+};
+
 function EditModulKontenPageContent() {
     const isAuthorized = true;
     const searchParams = useSearchParams();
@@ -167,76 +173,81 @@ function EditModulKontenPageContent() {
                     setTopicId(firstTopik.id);
                     setIsTopicAdded(true);
 
-                    if (firstTopik.materis.length > 0) {
-                        const loaded = firstTopik.materis.map(
-                            (item: any, idx: number) => {
-                                const localId = Date.now() + idx;
-                                setMaterialApiIds((prev) => ({
-                                    ...prev,
-                                    [localId]: item.id,
-                                }));
-                                return {
-                                    id: localId,
-                                    title: item.isVideo
+                    // Bug 1: Gunakan offset berbasis index agar localId tidak collision
+                    const baseId = Date.now();
+                    const newMaterialApiIds: Record<number, string> = {};
+                    const loaded = firstTopik.materis.map(
+                        (item: any, idx: number) => {
+                            const localId = baseId + idx * 10;
+                            newMaterialApiIds[localId] = item.id;
+                            return {
+                                id: localId,
+                                title: item.title ||
+                                    (item.isVideo
                                         ? `Video ${idx + 1}`
-                                        : `Materi ${idx + 1}`,
-                                    type: (item.isVideo
-                                        ? "video"
-                                        : "artikel") as "video" | "artikel",
-                                    isSaved: true,
-                                    isExpanded: false,
-                                    videoSource: "link" as const,
-                                    linkUrl: item.videoUrl || "",
-                                    linkPreviewTitle: "",
-                                    linkPreviewThumb: item.videoUrl
-                                        ? getYoutubeThumb(item.videoUrl)
-                                        : "",
-                                    linkVideoTitle: "",
-                                    linkVideoDuration: "",
-                                    showUploadSuccess: false,
-                                    fileName: "",
-                                    fileSize: "",
-                                    uploadProgress: 100,
-                                    uploadStatus: "done" as const,
-                                    previewUrl: "",
-                                    duration: "00:00",
-                                    articleContent: item.article || "",
-                                };
-                            },
-                        );
-                        setMaterials(loaded);
-                        if (loaded.length > 0)
-                            setActiveMaterialId(loaded[0].id);
-                    }
+                                        : `Materi ${idx + 1}`),
+                                type: (item.isVideo
+                                    ? "video"
+                                    : "artikel") as "video" | "artikel",
+                                isSaved: true,
+                                isExpanded: false,
+                                videoSource: "link" as const,
+                                linkUrl: item.videoUrl || "",
+                                linkPreviewTitle: "",
+                                linkPreviewThumb: item.videoUrl
+                                    ? getYoutubeThumb(item.videoUrl)
+                                    : "",
+                                linkVideoTitle: "",
+                                linkVideoDuration: "",
+                                showUploadSuccess: false,
+                                fileName: "",
+                                fileSize: "",
+                                uploadProgress: 100,
+                                uploadStatus: "done" as const,
+                                previewUrl: "",
+                                duration: "00:00",
+                                articleContent: item.article || "",
+                            };
+                        },
+                    );
+                    setMaterialApiIds(newMaterialApiIds);
+                    setMaterials(loaded);
+                    if (loaded.length > 0)
+                        setActiveMaterialId(loaded[0].id);
+                    else
+                        setActiveMaterialId(null);
 
                     // Load quizzes from API
+                    // Bug 3: Strip HTML dari quiz title
                     const quizIds: Record<number, string> = {};
+                    const baseQuizId = Date.now() + 100000;
                     const mappedQuizzes = (firstTopik.quizzes || []).map(
                         (q: any, qIdx: number) => {
-                            const localId = Date.now() + qIdx + 1000;
+                            const localId = baseQuizId + qIdx * 10;
                             quizIds[localId] = q.id;
+                            const rawTitle = stripHtml(q.question || "");
                             return {
                                 id: localId,
                                 title:
-                                    q.question.length > 40
-                                        ? q.question.substring(0, 40) + "…"
-                                        : q.question,
+                                    rawTitle.length > 40
+                                        ? rawTitle.substring(0, 40) + "…"
+                                        : rawTitle || "Untitled",
                                 isExpanded: false,
                                 ctMode: q.quizType === "COMPUTATIONAL_THINKING",
-                                duration: q.quizSettings[0]?.timeLimit
+                                duration: q.quizSettings?.[0]?.timeLimit
                                     ? Math.round(
                                           q.quizSettings[0].timeLimit / 60,
                                       )
                                     : 90,
                                 minScore:
-                                    q.quizSettings[0]?.minScoreTreshold ?? 0,
+                                    q.quizSettings?.[0]?.minScoreTreshold ?? 0,
                                 scorePerQuestion:
-                                    q.quizSettings[0]
+                                    q.quizSettings?.[0]
                                         ?.standardScorePerQuestion ?? 10,
                                 questions: [
                                     {
                                         id: localId + 1,
-                                        label: q.question,
+                                        label: q.question || "",
                                         answers: (
                                             q.quizAnswerOptions || []
                                         ).map((opt: any, oIdx: number) => ({
@@ -252,7 +263,11 @@ function EditModulKontenPageContent() {
                         },
                     );
                     setQuizzes(mappedQuizzes);
-                    setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+                    setQuizApiIds(quizIds);
+                } else {
+                    // Tidak ada topik, pastikan state bersih
+                    setMaterials([]);
+                    setQuizzes([]);
                 }
             } catch (err) {
                 console.error("Load content error:", err);
@@ -488,27 +503,32 @@ function EditModulKontenPageContent() {
     const handleSaveMaterialContent = async (materialId: number) => {
         const material = materials.find((m) => m.id === materialId);
         const apiId = materialApiIds[materialId];
-        if (material && apiId) {
+        if (!material) return;
+
+        // Bug 5: Selalu kirim ke API (baik ada apiId atau tidak)
+        if (apiId) {
             setIsSavingMaterial(materialId);
             showLoading("Menyimpan materi...");
             try {
+                const videoUrl =
+                    material.type === "video"
+                        ? material.videoSource === "link"
+                            ? material.linkUrl
+                            : material.previewUrl
+                        : undefined;
                 await adminMateriApi.update(apiId, {
                     isVideo: material.type === "video",
-                    videoUrl:
-                        material.type === "video"
-                            ? material.videoSource === "link"
-                                ? material.linkUrl
-                                : material.previewUrl
-                            : undefined,
-                    article:
-                        material.type === "artikel" ||
-                        (material.type === "video" && material.articleContent)
-                            ? material.articleContent
-                            : undefined,
+                    title: material.title,
+                    videoUrl: videoUrl || undefined,
+                    article: material.articleContent || undefined,
                 });
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Save material error:", err);
-                toast("Gagal menyimpan materi.", "error");
+                const msg =
+                    err?.response?.data?.message ||
+                    err?.message ||
+                    "Gagal menyimpan materi.";
+                toast(msg, "error");
                 hideLoading();
                 setIsSavingMaterial(null);
                 return;
@@ -516,7 +536,11 @@ function EditModulKontenPageContent() {
                 hideLoading();
                 setIsSavingMaterial(null);
             }
+        } else {
+            toast("Materi belum memiliki ID dari server.", "error");
+            return;
         }
+
         setMaterials((prev) =>
             prev.map((item) =>
                 item.id === materialId
@@ -529,6 +553,7 @@ function EditModulKontenPageContent() {
                     : item,
             ),
         );
+        toast("Materi berhasil disimpan.", "success");
     };
 
     const handleEditMaterialContent = (materialId: number) => {
@@ -599,23 +624,32 @@ function EditModulKontenPageContent() {
 
     const loadTopicData = useCallback(
         (topik: any) => {
+            // Bug 6: Reset semua state terkait materi/quiz saat ganti topik
+            setEditingMaterialId(null);
+            setOpenTypeMenuId(null);
+            setIsMaterialFormOpen(false);
+            setNewMaterialTitle("");
+            setEditingQuizId(null);
+            setIsEditingTopic(false);
+
             setActiveTopikId(topik.id);
             setTopicTitle(topik.nama);
             setTopicId(topik.id);
-            if (!topik.materis) topik.materis = [];
-            if (!topik.quizzes) topik.quizzes = [];
+            const materis = topik.materis || [];
+            const quizzes = topik.quizzes || [];
 
-            const loaded = topik.materis.map((item: any, idx: number) => {
-                const localId = Date.now() + idx;
-                setMaterialApiIds((prev) => ({
-                    ...prev,
-                    [localId]: item.id,
-                }));
+            // Bug 1: Gunakan offset berbasis index agar localId tidak collision
+            const baseId = Date.now();
+            const newMaterialApiIds: Record<number, string> = {};
+            const loaded = materis.map((item: any, idx: number) => {
+                const localId = baseId + idx * 10;
+                newMaterialApiIds[localId] = item.id;
                 return {
                     id: localId,
-                    title: item.article
-                        ? `Materi ${idx + 1}`
-                        : `Video ${idx + 1}`,
+                    title: item.title ||
+                        (item.isVideo
+                            ? `Video ${idx + 1}`
+                            : `Materi ${idx + 1}`),
                     type: (item.isVideo ? "video" : "artikel") as
                         | "video"
                         | "artikel",
@@ -639,20 +673,24 @@ function EditModulKontenPageContent() {
                     articleContent: item.article || "",
                 };
             });
+            setMaterialApiIds(newMaterialApiIds);
             setMaterials(loaded);
             if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
             else setActiveMaterialId(null);
 
+            // Bug 3: Strip HTML dari quiz title
+            const baseQuizId = baseId + 100000;
             const quizIds: Record<number, string> = {};
-            const mappedQuiz = topik.quizzes.map((q: any, qIdx: number) => {
-                const localId = Date.now() + qIdx + 1000;
+            const mappedQuiz = quizzes.map((q: any, qIdx: number) => {
+                const localId = baseQuizId + qIdx * 10;
                 quizIds[localId] = q.id;
+                const rawTitle = stripHtml(q.question || "");
                 return {
                     id: localId,
                     title:
-                        q.question?.length > 40
-                            ? q.question.substring(0, 40) + "…"
-                            : q.question || "Untitled",
+                        rawTitle.length > 40
+                            ? rawTitle.substring(0, 40) + "…"
+                            : rawTitle || "Untitled",
                     isExpanded: false,
                     ctMode: q.quizType === "COMPUTATIONAL_THINKING",
                     duration: q.quizSettings?.[0]?.timeLimit
@@ -664,7 +702,7 @@ function EditModulKontenPageContent() {
                     questions: [
                         {
                             id: localId + 1,
-                            label: q.question || "Soal Kuis",
+                            label: q.question || "",
                             answers: (q.quizAnswerOptions || []).map(
                                 (opt: any, oIdx: number) => ({
                                     id: localId + 10 + oIdx,
@@ -678,9 +716,10 @@ function EditModulKontenPageContent() {
                 };
             });
             setQuizzes(mappedQuiz);
-            setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+            setQuizApiIds(quizIds);
         },
-        [getYoutubeThumb, makeCTStory],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
     );
 
     const handleCreateQuiz = async () => {
@@ -1172,7 +1211,8 @@ function EditModulKontenPageContent() {
                 }
                 toast("Kuis CT berhasil disimpan.", "success");
             } else {
-                const question = quiz.questions[0]?.label || "Soal Kuis";
+                // Bug 3: Strip HTML dari question label saat submit
+                const question = stripHtml(quiz.questions[0]?.label || "Soal Kuis");
                 const answers = quiz.questions[0]?.answers || [];
                 const correctAnswer =
                     answers.find((a) => a.isCorrect)?.text ||
@@ -1196,6 +1236,13 @@ function EditModulKontenPageContent() {
                             standardScorePerQuestion: quiz.scorePerQuestion,
                         },
                     });
+                    // Update title di state lokal setelah simpan berhasil
+                    const newTitle = question.length > 40 ? question.substring(0, 40) + "…" : question;
+                    setQuizzes((prev) =>
+                        prev.map((q) =>
+                            q.id === quizId ? { ...q, title: newTitle } : q,
+                        ),
+                    );
                     toast("Kuis berhasil diperbarui.", "success");
                 } else {
                     const created = await adminTopikKuisApi.create({
@@ -1250,8 +1297,16 @@ function EditModulKontenPageContent() {
             setTopicId(created.id);
             setIsTopicAdded(true);
             setIsFormOpen(false);
-            setActiveMaterialId(null);
             setActiveTopikId(created.id);
+            // Bug 2: Reset materials & quizzes saat topik baru dibuat
+            setMaterials([]);
+            setQuizzes([]);
+            setActiveMaterialId(null);
+            setMaterialApiIds({});
+            setQuizApiIds({});
+            setEditingMaterialId(null);
+            setOpenTypeMenuId(null);
+            setIsMaterialFormOpen(false);
             setTopiks((prev) => [
                 ...prev,
                 {
@@ -1608,8 +1663,31 @@ function EditModulKontenPageContent() {
                                                                                 :
                                                                             </span>
                                                                         </button>
-                                                                        {editingMaterialId ===
-                                                                        material.id ? (
+                                                                        {/* Saat mode edit: input title inline langsung */}
+                                                                        {!material.isSaved ? (
+                                                                            <input
+                                                                                type="text"
+                                                                                value={material.title}
+                                                                                onChange={(e) =>
+                                                                                    setMaterials(
+                                                                                        (prev) =>
+                                                                                            prev.map(
+                                                                                                (m) =>
+                                                                                                    m.id ===
+                                                                                                    material.id
+                                                                                                        ? {
+                                                                                                              ...m,
+                                                                                                              title: e.target.value,
+                                                                                                          }
+                                                                                                        : m,
+                                                                                            ),
+                                                                                    )
+                                                                                }
+                                                                                placeholder="Judul materi..."
+                                                                                className="h-[30px] w-[200px] rounded-md border border-[#8e7bff] bg-white px-2 text-[12px] text-[#232530] outline-none focus:border-[#7054dc]"
+                                                                            />
+                                                                        ) : editingMaterialId ===
+                                                                          material.id ? (
                                                                             <input
                                                                                 type="text"
                                                                                 value={
@@ -1641,35 +1719,40 @@ function EditModulKontenPageContent() {
                                                                                 }
                                                                             </button>
                                                                         )}
-                                                                        {editingMaterialId ===
-                                                                        material.id ? (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={
-                                                                                    handleSaveEdit
-                                                                                }
-                                                                                className="text-[12px] font-semibold text-[#7054dc]"
-                                                                            >
-                                                                                Simpan
-                                                                            </button>
-                                                                        ) : (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() =>
-                                                                                    handleStartEdit(
-                                                                                        material.id,
-                                                                                        material.title,
-                                                                                    )
-                                                                                }
-                                                                                className="cursor-pointer text-[#7a7e8a]"
-                                                                                aria-label="Edit materi"
-                                                                            >
-                                                                                <FiEdit2
-                                                                                    size={
-                                                                                        14
-                                                                                    }
-                                                                                />
-                                                                            </button>
+                                                                        {/* Tombol simpan/edit title hanya untuk mode non-edit (isSaved=true) */}
+                                                                        {material.isSaved && (
+                                                                            <>
+                                                                                {editingMaterialId ===
+                                                                                material.id ? (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={
+                                                                                            handleSaveEdit
+                                                                                        }
+                                                                                        className="text-[12px] font-semibold text-[#7054dc]"
+                                                                                    >
+                                                                                        Simpan
+                                                                                    </button>
+                                                                                ) : (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() =>
+                                                                                            handleStartEdit(
+                                                                                                material.id,
+                                                                                                material.title,
+                                                                                            )
+                                                                                        }
+                                                                                        className="cursor-pointer text-[#7a7e8a]"
+                                                                                        aria-label="Edit materi"
+                                                                                    >
+                                                                                        <FiEdit2
+                                                                                            size={
+                                                                                                14
+                                                                                            }
+                                                                                        />
+                                                                                    </button>
+                                                                                )}
+                                                                            </>
                                                                         )}
                                                                         <button
                                                                             type="button"
@@ -1827,11 +1910,8 @@ function EditModulKontenPageContent() {
                                                                     </div>
                                                                 </div>
 
-                                                                {((material.isSaved &&
-                                                                    material.isExpanded) ||
-                                                                    (activeMaterialId ===
-                                                                        material.id &&
-                                                                        material.isExpanded)) && (
+                                                                {/* Bug 4: Tampilkan expanded content selama isExpanded = true, tidak peduli isSaved */}
+                                                                {material.isExpanded && (
                                                                     <div className="mt-4 rounded-2xl border border-[#e5e3ee] bg-white px-4 py-4">
                                                                         {material.isSaved ? (
                                                                             <div>
@@ -2690,17 +2770,20 @@ function EditModulKontenPageContent() {
                                                                         }
                                                                     />
                                                                 </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        handleSubmitQuiz(
-                                                                            quiz.id,
-                                                                        )
-                                                                    }
-                                                                    className="inline-flex h-[26px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-3 text-[11px] font-semibold text-white hover:bg-[#5f46cc]"
-                                                                >
-                                                                    Simpan
-                                                                </button>
+                                                                {/* Bug 7: Tombol Simpan kuis hanya muncul saat isExpanded (sedang di-edit) */}
+                                                                {quiz.isExpanded && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            handleSubmitQuiz(
+                                                                                quiz.id,
+                                                                            )
+                                                                        }
+                                                                        className="inline-flex h-[26px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-3 text-[11px] font-semibold text-white hover:bg-[#5f46cc]"
+                                                                    >
+                                                                        Simpan
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                             <div className="flex items-center gap-2">
                                                                 <button
