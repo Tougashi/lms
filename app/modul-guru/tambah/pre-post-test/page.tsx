@@ -485,7 +485,7 @@ function PrePostTestPageContent() {
 
     // Create bank soal → calls API to create pretest or posttest
     const handleSaveNewBank = useCallback(async () => {
-        if (!modulId) return;
+        if (!modulId) { setIsLoading(false); return; }
         const name = newBankName.trim() || `Bank Soal ${banks.length + 1}`;
         const nid = Date.now();
 
@@ -1104,7 +1104,7 @@ function PrePostTestPageContent() {
 
     // Publish module
     const handlePublish = useCallback(async () => {
-        if (!modulId) return;
+        if (!modulId) { setIsLoading(false); return; }
         const ok = await confirm({
             message: "Apakah Anda yakin ingin menerbitkan modul ini?",
             confirmText: "Terbitkan",

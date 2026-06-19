@@ -153,7 +153,7 @@ function TambahModulKontenPageContent() {
 
   // Load existing topics & materials from unified API
   useEffect(() => {
-    if (!modulId) return;
+    if (!modulId) { setIsLoading(false); return; }
     const loadContent = async () => {
       try {
         const [items, modul] = await Promise.all([
@@ -1401,7 +1401,7 @@ function TambahModulKontenPageContent() {
 
   // Publish module
   const handlePublish = useCallback(async () => {
-    if (!modulId) return;
+    if (!modulId) { setIsLoading(false); return; }
     const ok2 = await confirm({
       message: "Apakah Anda yakin ingin menerbitkan modul ini?",
       confirmText: "Terbitkan",
@@ -1508,14 +1508,7 @@ function TambahModulKontenPageContent() {
             <h1 className="text-[18px] font-semibold text-[#232530]">
               Membuat konten modul anda
             </h1>
-            <p className="mt-2 max-w-[620px] text-[12px] leading-[1.6] text-[#7e8290]">
-              Mulailah menyusun kursus Anda dengan membuat bagian, pelajaran,
-              dan aktivitas praktik (kuis, latihan coding, dan tugas). Gunakan
-              garis besar kursus untuk menyusun konten serta melalui bagian dan
-              pelajaran Anda dengan jelas. Jika Anda berniat menawarkan kursus
-              secara gratis, total durasi konten video untuk kursus tidak boleh
-              melebihi 2 jam.
-            </p>
+            
 
             <div className="mt-6">
               <p className="text-[12px] font-semibold text-[#232530]">
