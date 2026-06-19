@@ -624,12 +624,42 @@ export const guruRangkumanApi = {
 };
 
 // ---------------------------------------------------------------------------
+// Admin – Materi endpoints
+// ---------------------------------------------------------------------------
+
+// export const adminMateriApi = {
+//     getByModul(modulId: string) {
+//         return apiFetch<GuruTopikWithMateri[]>(`/admin/materi/${modulId}`);
+//     },
+
+//     create(payload: GuruMateriCreatePayload) {
+//         return apiFetch<GuruMateriItem>("/tutor/materi", {
+//             method: "POST",
+//             data: payload,
+//         });
+//     },
+
+//     update(id: string, payload: GuruMateriUpdatePayload) {
+//         return apiFetch<GuruMateriItem>(`/tutor/materi/${id}`, {
+//             method: "PUT",
+//             data: payload,
+//         });
+//     },
+
+//     delete(id: string) {
+//         return apiFetch<{ message: string }>(`/tutor/materi/${id}`, {
+//             method: "DELETE",
+//         });
+//     },
+// };
+
+// ---------------------------------------------------------------------------
 // Guru / Tutor – Materi endpoints
 // ---------------------------------------------------------------------------
 
 export const guruMateriApi = {
     getByModul(modulId: string) {
-        return apiFetch<GuruTopikWithMateri[]>(`/admin/materi/${modulId}`);
+        return apiFetch<GuruTopikWithMateri[]>(`/tutor/materi/${modulId}`);
     },
 
     create(payload: GuruMateriCreatePayload) {
