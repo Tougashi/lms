@@ -336,6 +336,7 @@ export interface StudyRoomMateri {
 export interface StudyRoomItem {
   id: string;
   itemType: 'MATERI' | 'QUIZ' | 'RANGKUMAN_TOPIK';
+  quizType?: 'REGULER' | 'COMPUTATIONAL_THINKING';
   judul: string;
   isVideo?: boolean;
   videoUrl?: string | null;

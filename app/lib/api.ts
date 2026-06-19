@@ -61,6 +61,10 @@ import type {
     TutorProgressByStudent,
     TutorProgressPaginatedResponse,
     GuruModuleProgressItem,
+    CTAnalysisResponse,
+    GuruRangkumanItem,
+    GuruRangkumanCreatePayload,
+    GuruRangkumanUpdatePayload,
 } from "./types/guru";
 import type {
     MateriItem,
@@ -594,6 +598,30 @@ export const guruModulApi = {
 };
 
 // ---------------------------------------------------------------------------
+// Guru / Tutor – Rangkuman endpoints
+// ---------------------------------------------------------------------------
+
+export const guruRangkumanApi = {
+    create(payload: GuruRangkumanCreatePayload) {
+        return apiFetch<GuruRangkumanItem>("/tutor/rangkuman", {
+            method: "POST",
+            data: payload,
+        });
+    },
+    update(id: string, payload: GuruRangkumanUpdatePayload) {
+        return apiFetch<GuruRangkumanItem>(`/tutor/rangkuman/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/tutor/rangkuman/${id}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
 // Guru / Tutor – Materi endpoints
 // ---------------------------------------------------------------------------
 
@@ -1109,10 +1137,9 @@ export const guruProgressApi = {
         return apiFetch<TutorProgressByStudent>(`/tutor/progress/${studentId}`);
     },
 
-    analyze(studentId: string) {
-        return apiFetch<Record<string, unknown>[]>(
-            `/tutor/progress/${studentId}/analyze`,
-        );
+    analyze(studentId: string, modulId?: string) {
+        const params = modulId ? `?modulId=${modulId}` : '';
+        return apiFetch<CTAnalysisResponse>(`/tutor/progress/${studentId}/analyze${params}`);
     },
 };
 

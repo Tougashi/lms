@@ -65,10 +65,14 @@ function getDurationForQuiz(
 
 function formatRemainingTime(totalSeconds: number) {
     const safeValue = Math.max(0, totalSeconds);
-    const minutes = Math.floor(safeValue / 60)
+    const hours = Math.floor(safeValue / 3600);
+    const minutes = Math.floor((safeValue % 3600) / 60)
         .toString()
         .padStart(2, "0");
     const seconds = (safeValue % 60).toString().padStart(2, "0");
+    if (hours > 0) {
+        return `${hours.toString().padStart(2, "0")}:${minutes}:${seconds}`;
+    }
     return `${minutes}:${seconds}`;
 }
 
@@ -79,6 +83,7 @@ type SequenceItemType =
     | "pretest"
     | "materi"
     | "quiz"
+    | "quiz-ct"
     | "summary"
     | "rangkuman-akhir"
     | "posttest"
@@ -94,6 +99,7 @@ type SequenceItem = {
     videoUrl?: string;
     konten?: string;
     duration?: string;
+    ctSubIds?: string[];
 };
 
 type ContentSection = {
@@ -118,8 +124,24 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
     }
 
     for (const topik of modul.curriculum.topiks) {
+        const ctBuffer: typeof topik.items = [];
+
+        const flushCT = () => {
+            if (ctBuffer.length === 0) return;
+            seq.push({
+                id: ctBuffer[0].id,
+                title: "Kuis CT",
+                type: "quiz-ct",
+                topikId: topik.id,
+                topikName: topik.nama,
+                ctSubIds: ctBuffer.map((q) => q.id),
+            });
+            ctBuffer.length = 0;
+        };
+
         for (const item of topik.items) {
             if (item.itemType === "MATERI") {
+                flushCT();
                 seq.push({
                     id: item.id,
                     title: item.judul || "Materi",
@@ -134,14 +156,22 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                 item.itemType === "QUIZ" ||
                 (item.itemType as string)?.toUpperCase() === "KUIS"
             ) {
-                seq.push({
-                    id: item.id,
-                    title: item.judul ? item.judul.replace(/<[^>]*>?/gm, '') : "Kuis",
-                    type: "quiz",
-                    topikId: topik.id,
-                    topikName: topik.nama,
-                });
+                if (item.quizType === "COMPUTATIONAL_THINKING") {
+                    ctBuffer.push(item);
+                } else {
+                    flushCT();
+                    seq.push({
+                        id: item.id,
+                        title: item.judul
+                            ? item.judul.replace(/<[^>]*>?/gm, "")
+                            : "Kuis",
+                        type: "quiz",
+                        topikId: topik.id,
+                        topikName: topik.nama,
+                    });
+                }
             } else if (item.itemType === "RANGKUMAN_TOPIK") {
+                flushCT();
                 seq.push({
                     id: item.id,
                     title: item.judul,
@@ -152,6 +182,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                 });
             }
         }
+        flushCT();
     }
 
     if (modul.curriculum.rangkumanAkhir) {
@@ -180,8 +211,24 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
     const tree: ContentSection[] = [];
     for (const topik of modul.curriculum.topiks) {
         const items: SequenceItem[] = [];
+        const ctBuffer: typeof topik.items = [];
+
+        const flushCT = () => {
+            if (ctBuffer.length === 0) return;
+            items.push({
+                id: ctBuffer[0].id,
+                title: "Kuis CT",
+                type: "quiz-ct",
+                topikId: topik.id,
+                topikName: topik.nama,
+                ctSubIds: ctBuffer.map((q) => q.id),
+            });
+            ctBuffer.length = 0;
+        };
+
         for (const item of topik.items) {
             if (item.itemType === "MATERI") {
+                flushCT();
                 items.push({
                     id: item.id,
                     title: item.judul,
@@ -196,17 +243,34 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                 item.itemType === "QUIZ" ||
                 (item.itemType as string)?.toUpperCase() === "KUIS"
             ) {
+                if (item.quizType === "COMPUTATIONAL_THINKING") {
+                    ctBuffer.push(item);
+                } else {
+                    flushCT();
+                    items.push({
+                        id: item.id,
+                        title: item.judul
+                            ? item.judul.replace(/<[^>]*>?/gm, "")
+                            : "Kuis",
+                        type: "quiz",
+                        topikId: topik.id,
+                        topikName: topik.nama,
+                    });
+                }
+            } else if (item.itemType === "RANGKUMAN_TOPIK") {
+                flushCT();
                 items.push({
                     id: item.id,
-                    title: item.judul ? item.judul.replace(/<[^>]*>?/gm, '') : "Kuis",
-                    type: "quiz",
+                    title: item.judul,
+                    type: "summary",
                     topikId: topik.id,
                     topikName: topik.nama,
+                    konten: item.article ?? undefined,
                 });
             }
-            // RANGKUMAN_TOPIK items are excluded from clickable sidebar items.
-            // The text is surfaced via topik.rangkumanTopik as a non-clickable block.
         }
+        flushCT();
+
         tree.push({
             id: topik.id,
             title: topik.nama,
@@ -271,6 +335,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const [activeQuizItemId, setActiveQuizItemId] = useState<string | null>(
         null,
     );
+    const [activeCtSubIds, setActiveCtSubIds] = useState<string[]>([]);
     const [currentView, setCurrentView] = useState<
         | "pretest-intro"
         | "pretest-quiz"
@@ -406,7 +471,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                     topik.items.push({
                                         id: q.id,
                                         itemType: "QUIZ",
-                                        judul: (q.question ? q.question.replace(/<[^>]*>?/gm, '') : "Kuis"),
+                                        quizType: q.quizType,
+                                        judul: q.question
+                                            ? q.question.replace(
+                                                  /<[^>]*>?/gm,
+                                                  "",
+                                              )
+                                            : "Kuis",
                                         question: q.question,
                                         correctAnswer: q.correctAnswer,
                                         quizImgQuestionUrl:
@@ -493,7 +564,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         const firstUncompletedIdx = seq.findIndex(
                             (item) =>
                                 !completedMap[item.id] &&
-                                item.type !== "summary" &&
                                 item.type !== "rangkuman-akhir",
                         );
                         const startIdx =
@@ -579,6 +649,36 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const kuisSoal = useMemo(() => {
         if (assessmentType !== "kuis" || !activeQuizItemId || !modulDetail)
             return [];
+
+        // CT group: collect all 4 sub-questions across topiks
+        if (activeCtSubIds.length > 0) {
+            const soals: SoalItem[] = [];
+            const itemMap = new Map<string, (typeof modulDetail.curriculum.topiks[0]["items"][0])>();
+            for (const topik of modulDetail.curriculum.topiks) {
+                for (const it of topik.items) {
+                    itemMap.set(it.id, it);
+                }
+            }
+            for (const subId of activeCtSubIds) {
+                const it = itemMap.get(subId);
+                if (it && it.question) {
+                    soals.push({
+                        id: it.id,
+                        pertanyaan: it.question,
+                        pilihan_a: it.quizAnswerOptions?.[0]?.option || "A",
+                        pilihan_b: it.quizAnswerOptions?.[1]?.option || "B",
+                        pilihan_c: it.quizAnswerOptions?.[2]?.option || "C",
+                        pilihan_d: it.quizAnswerOptions?.[3]?.option || "D",
+                        kunci_jawaban: it.correctAnswer,
+                        gambar_url: it.quizImgQuestionUrl || null,
+                        knowledgeComponentId: undefined,
+                    });
+                }
+            }
+            if (soals.length > 0) return soals;
+        }
+
+        // Regular single-question quiz
         for (const topik of modulDetail.curriculum.topiks) {
             const item = topik.items.find((i) => i.id === activeQuizItemId);
             if (
@@ -603,7 +703,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             }
         }
         return [];
-    }, [assessmentType, activeQuizItemId, modulDetail]);
+    }, [assessmentType, activeQuizItemId, activeCtSubIds, modulDetail]);
 
     const currentSoal =
         assessmentType === "posttest"
@@ -640,6 +740,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         (index: number): boolean => {
             if (index === 0) return true;
             if (index >= sequence.length) return false;
+            // Direct unlock: item was explicitly unlocked by pretest (auto-access rule)
+            if (completedContentItemMap[sequence[index].id]) return true;
+            // Sequential unlock: previous item completed
             const prevId = sequence[index - 1].id;
             return completedContentItemMap[prevId] === true;
         },
@@ -656,13 +759,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     }, [sequence, isItemUnlockedByIndex]);
 
     // ─── Progress calculation ──────────────────────────────────────────────
-    // Single source of truth: count non‑summary items from the local map,
-    // matching the backend's methodology (summaries are never persisted).
+    // "summary" type = DB-backed Rangkuman (tracked). "rangkuman-akhir" = synthetic, excluded.
     const totalSteps = useMemo(
         () =>
             sequence.filter(
                 (item) =>
-                    item.type !== "summary" &&
                     item.type !== "rangkuman-akhir" &&
                     item.type !== "rating",
             ).length,
@@ -673,7 +774,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             sequence.filter(
                 (item) =>
                     completedContentItemMap[item.id] &&
-                    item.type !== "summary" &&
                     item.type !== "rangkuman-akhir" &&
                     item.type !== "rating",
             ).length,
@@ -688,7 +788,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
     const markContentItemAsCompleted = useCallback(
         async (itemId: string, itemType?: string) => {
-            // Skip API call if it's a summary item
+            // Skip API call for synthetic IDs only (rangkuman-akhir is module-level, not DB-backed)
             if (itemId.startsWith("summary-") || itemId === "rangkuman-akhir") {
                 setCompletedContentItemMap((prev) => {
                     if (prev[itemId]) return prev;
@@ -799,8 +899,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     }
                 }
             } else if (assessmentType === "kuis") {
-                // Submit kuis answers
-                await Promise.all(
+                // Submit kuis answers, collect per-question results
+                const kuisResults = await Promise.all(
                     currentSoal.map(async (soal, idx) => {
                         const selectedIdx = selectedAnswers[idx] ?? 0;
                         const answerText =
@@ -811,28 +911,52 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                 soal.pilihan_d,
                             ][selectedIdx] || "";
                         try {
-                            await siswaKuisApi.submit({
+                            const res = await siswaKuisApi.submit({
                                 quizId: soal.id,
                                 answer: answerText,
                                 knowledgeComponentId:
                                     soal.knowledgeComponentId ?? "unknown",
                                 timeSpent: elapsed,
                             });
+                            return res?.isCorrect === true;
                         } catch (e) {
                             console.error("Failed to submit kuis answer", e);
+                            return false;
                         }
                     }),
                 );
                 if (activeQuizItemId) {
                     await markContentItemAsCompleted(activeQuizItemId, "quiz");
                 }
-                result = { score: 100, message: "Kuis selesai" };
+                const kuisBenar = kuisResults.filter(Boolean).length;
+                const kuisScore = currentSoal.length > 0
+                    ? Math.round((kuisBenar / currentSoal.length) * 100)
+                    : 0;
+                result = {
+                    score: kuisScore,
+                    totalBenar: kuisBenar,
+                    totalSalah: currentSoal.length - kuisBenar,
+                    message: "Kuis selesai",
+                };
             }
 
-            // Refetch study room to get updated progress & certificate
+            // Refetch study room to get updated progress & newly-unlocked content
             try {
                 const updated = await siswaStudyRoomApi.getByModul(modulId);
-                if (updated.progress) setProgress(updated.progress);
+                if (updated.progress) {
+                    setProgress(updated.progress);
+                    // Rebuild completedContentItemMap so auto-unlocked materis
+                    // (e.g. after pretest BKT) immediately appear unlocked in sidebar
+                    const newMap: Record<string, boolean> = {};
+                    (updated.progress.completedContentItems ?? []).forEach(
+                        (id) => { newMap[id] = true; },
+                    );
+                    if (updated.progress.pretestScore != null)
+                        newMap["pretest"] = true;
+                    if (updated.progress.posttestScore != null)
+                        newMap["posttest"] = true;
+                    setCompletedContentItemMap(newMap);
+                }
                 if (updated.certificate) setCertificate(updated.certificate);
             } catch {
                 /* study-room refetch failed, non-critical */
@@ -843,7 +967,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 currentSoal.reduce((acc, soal, idx) => {
                     const selectedIdx = selectedAnswers[idx] ?? -1;
                     if (selectedIdx === -1) return acc;
-                    return acc;
+                    const answerText =
+                        [
+                            soal.pilihan_a,
+                            soal.pilihan_b,
+                            soal.pilihan_c,
+                            soal.pilihan_d,
+                        ][selectedIdx] || "";
+                    return answerText === soal.kunci_jawaban ? acc + 1 : acc;
                 }, 0);
             const totalSalah =
                 result?.totalSalah ?? currentSoal.length - totalBenar;
@@ -926,9 +1057,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 const nextIdx = currentSeqIndex + 1;
                 const nextItem = sequence[nextIdx];
                 setCurrentSeqIndex(nextIdx);
-                if (nextItem?.type === "quiz") {
+                if (nextItem?.type === "quiz" || nextItem?.type === "quiz-ct") {
                     setAssessmentType("kuis");
                     setActiveQuizItemId(nextItem.id);
+                    setActiveCtSubIds(nextItem.ctSubIds ?? []);
                     setCurrentView("pretest-intro");
                     setIsMaterialMode(false);
                     setIsFinalSummaryView(false);
@@ -1205,7 +1337,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                         item.id
                                                     ];
                                                 const isQuizItem =
-                                                    item.type === "quiz";
+                                                    item.type === "quiz" ||
+                                                    item.type === "quiz-ct";
 
                                                 return (
                                                     <button
@@ -1232,6 +1365,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                                 );
                                                                 setActiveQuizItemId(
                                                                     item.id,
+                                                                );
+                                                                setActiveCtSubIds(
+                                                                    item.ctSubIds ?? [],
                                                                 );
                                                                 setCurrentView(
                                                                     "pretest-intro",
@@ -1311,11 +1447,23 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             )}
                                                             <span>
                                                                 <span className="block text-xs font-medium leading-tight">
-                                                                    {isQuizItem ? (
+                                                                    {item.type === "quiz-ct" ? (
+                                                                        <>
+                                                                            Kuis
+                                                                            CT
+                                                                        </>
+                                                                    ) : isQuizItem ? (
                                                                         <>
                                                                             Kuis
                                                                             Reguler
                                                                             -{" "}
+                                                                            {
+                                                                                item.title
+                                                                            }
+                                                                        </>
+                                                                    ) : item.type ===
+                                                                      "summary" ? (
+                                                                        <>
                                                                             {
                                                                                 item.title
                                                                             }
@@ -1345,25 +1493,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                     </button>
                                                 );
                                             })}
-
-                                            {/* Non-clickable rangkumanTopik summary block */}
-                                            {section.rangkumanTopik &&
-                                                section.rangkumanTopik.trim() !==
-                                                    "" && (
-                                                    <div className="border-t border-[#f0eef7] bg-[#faf9ff] px-3 py-2.5">
-                                                        <div className="flex items-start gap-2">
-                                                            <FaBookOpen
-                                                                size={9}
-                                                                className="mt-0.5 shrink-0 text-[#9ca0af]"
-                                                            />
-                                                            <p className="text-[10px] leading-relaxed italic text-[#6b6f7e]">
-                                                                {
-                                                                    section.rangkumanTopik.replace(/<[^>]*>?/gm, '')
-                                                                }
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                )}
                                         </div>
                                     )}
                                 </div>
@@ -1814,9 +1943,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 </div>
                                             )}
 
-                                            <div 
+                                            <div
                                                 className="text-base font-semibold text-[#202126] prose prose-sm max-w-none"
-                                                dangerouslySetInnerHTML={{ __html: activeQuestion.pertanyaan }}
+                                                dangerouslySetInnerHTML={{
+                                                    __html: activeQuestion.pertanyaan,
+                                                }}
                                             />
 
                                             <div className="mt-6 space-y-3">

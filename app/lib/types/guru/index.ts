@@ -142,9 +142,28 @@ export interface GuruTopikItem {
     updatedAt?: string;
 }
 
+export interface GuruRangkumanItem {
+    id: string;
+    judul: string;
+    konten: string | null;
+    topikId: string;
+}
+
+export interface GuruRangkumanCreatePayload {
+    topik_id: string;
+    judul: string;
+    konten?: string | null;
+}
+
+export interface GuruRangkumanUpdatePayload {
+    judul?: string;
+    konten?: string | null;
+}
+
 export interface GuruTopikWithMateri extends GuruTopikItem {
     materis: GuruMateriItem[];
     quizzes: GuruTopikQuizItem[];
+    rangkumans: GuruRangkumanItem[];
 }
 
 export interface GuruTopikQuizItem {
@@ -442,5 +461,36 @@ export interface GuruModuleProgressItem {
     progressPercentage: number;
     status: string;
     isGraduated: boolean;
+    recommendation: string;
+}
+
+export interface CTAnalysisResponse {
+    studentInfo: { fullName: string; email: string; avatarUrl: string | null };
+    moduleProgress: {
+        moduleId: string;
+        moduleName: string;
+        level?: string | null;
+        class?: string | null;
+        moduleImgUrl?: string | null;
+        isTestComputationalThinking?: boolean;
+        pretestScore?: number | null;
+        posttestScore?: number | null;
+        progressPercentage: number;
+        totalMateri: number;
+        completedMateri: number;
+    } | null;
+    computationalThinking: {
+        decomposition:      { score: number; label: string; preTest: number; postTest: number };
+        patternRecognition: { score: number; label: string; preTest: number; postTest: number };
+        abstraction:        { score: number; label: string; preTest: number; postTest: number };
+        algorithm:          { score: number; label: string; preTest: number; postTest: number };
+    };
+    quizRecords: Array<{
+        topik: string;
+        quizType: 'REGULER' | 'COMPUTATIONAL_THINKING';
+        score: number;
+        minScoreTreshold: number | null;
+        status: 'tuntas' | 'di-bawah';
+    }>;
     recommendation: string;
 }

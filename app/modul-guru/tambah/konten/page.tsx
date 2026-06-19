@@ -24,6 +24,7 @@ import {
   guruTopikApi,
   guruMateriApi,
   guruKuisApi,
+  guruRangkumanApi,
   uploadApi,
 } from "../../../lib/api";
 import type { GuruTopikWithMateri } from "../../../lib/types/guru";
@@ -134,6 +135,14 @@ function TambahModulKontenPageContent() {
     null,
   );
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
+  const [isModuleCT, setIsModuleCT] = useState(false);
+
+  const [rangkumans, setRangkumans] = useState<
+    { id: number; title: string; konten: string; isExpanded: boolean }[]
+  >([]);
+  const [rangkumanApiIds, setRangkumanApiIds] = useState<Record<number, string>>({});
+  const [isSavingRangkuman, setIsSavingRangkuman] = useState<number | null>(null);
+  const [isDeletingRangkuman, setIsDeletingRangkuman] = useState<number | null>(null);
 
   const uploadSuccessTimersRef = useRef<Record<number, number>>({});
   const materialsRef = useRef(materials);
@@ -147,7 +156,11 @@ function TambahModulKontenPageContent() {
     if (!modulId) return;
     const loadContent = async () => {
       try {
-        const items = await guruMateriApi.getByModul(modulId);
+        const [items, modul] = await Promise.all([
+          guruMateriApi.getByModul(modulId),
+          guruModulApi.detail(modulId),
+        ]);
+        setIsModuleCT(modul.isTestComputationalThinking ?? false);
         setTopiks(items);
         if (items.length > 0) {
           const firstTopik = items[0];
@@ -191,41 +204,88 @@ function TambahModulKontenPageContent() {
             if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
           }
 
-          // Load quizzes from API
+          // Load quizzes from API — group consecutive CT quizzes into one entry
+          const rawQuizzes = firstTopik.quizzes || [];
           const quizIds: Record<number, string> = {};
-          const mappedQuizzes = (firstTopik.quizzes || []).map((q, qIdx) => {
-            const localId = Date.now() + qIdx + 1000;
-            quizIds[localId] = q.id;
-            return {
-              id: localId,
-              title:
-                q.question.length > 40
-                  ? q.question.substring(0, 40) + "…"
-                  : q.question,
-              isExpanded: false,
-              ctMode: q.quizType === "COMPUTATIONAL_THINKING",
-              duration: q.quizSettings[0]?.timeLimit
-                ? Math.round(q.quizSettings[0].timeLimit / 60)
-                : 90,
-              minScore: q.quizSettings[0]?.minScoreTreshold ?? 0,
-              scorePerQuestion:
-                q.quizSettings[0]?.standardScorePerQuestion ?? 10,
-              questions: [
-                {
-                  id: localId + 1,
-                  label: q.question,
-                  answers: (q.quizAnswerOptions || []).map((opt, oIdx) => ({
-                    id: localId + 10 + oIdx,
+          const subQuizIds: Record<number, string> = {};
+          const mappedQuizzes: typeof quizzes = [];
+          let qi = 0;
+          const baseTs = Date.now();
+          while (qi < rawQuizzes.length) {
+            const q = rawQuizzes[qi];
+            if (q.quizType === "COMPUTATIONAL_THINKING") {
+              const ctGroup: typeof rawQuizzes = [];
+              while (qi < rawQuizzes.length && rawQuizzes[qi].quizType === "COMPUTATIONAL_THINKING") {
+                ctGroup.push(rawQuizzes[qi]);
+                qi++;
+              }
+              const localId = baseTs + mappedQuizzes.length * 100 + 1000;
+              quizIds[localId] = ctGroup[0].id;
+              const subQs = ctGroup.map((ctQ, ctIdx) => {
+                const sqId = baseTs + mappedQuizzes.length * 1000 + ctIdx * 10 + 5000;
+                if (ctIdx > 0) subQuizIds[sqId] = ctQ.id;
+                return {
+                  id: sqId,
+                  label: ctQ.question || ctSubLabels[ctIdx] || `Soal CT ${ctIdx + 1}`,
+                  answers: (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
+                    id: baseTs + mappedQuizzes.length * 1000 + ctIdx * 10 + oIdx + 9000,
                     text: opt.option,
-                    isCorrect: opt.option === q.correctAnswer,
+                    isCorrect: opt.option === ctQ.correctAnswer,
                   })),
-                },
-              ],
-              ctStories: [makeCTStory()],
-            };
-          });
+                };
+              });
+              while (subQs.length < ctSubLabels.length) {
+                const padIdx = subQs.length;
+                const padId = baseTs + mappedQuizzes.length * 1000 + padIdx * 10 + 3000;
+                subQs.push({ id: padId, label: ctSubLabels[padIdx], answers: [
+                  { id: padId * 2 + 1, text: "", isCorrect: false },
+                  { id: padId * 2 + 2, text: "", isCorrect: false },
+                ]});
+              }
+              mappedQuizzes.push({
+                id: localId, title: "Kuis CT", isExpanded: false, ctMode: true,
+                duration: ctGroup[0].quizSettings[0]?.timeLimit ? Math.round(ctGroup[0].quizSettings[0].timeLimit / 60) : 90,
+                minScore: ctGroup[0].quizSettings[0]?.minScoreTreshold ?? 0,
+                scorePerQuestion: ctGroup[0].quizSettings[0]?.standardScorePerQuestion ?? 10,
+                questions: [{ id: localId + 1, label: "Soal Kuis 1", answers: [
+                  { id: localId + 10, text: "", isCorrect: false },
+                  { id: localId + 11, text: "", isCorrect: false },
+                ]}],
+                ctStories: [{ id: localId + 2, subQuestions: subQs }],
+              });
+            } else {
+              const localId = baseTs + mappedQuizzes.length * 100 + 1000;
+              quizIds[localId] = q.id;
+              mappedQuizzes.push({
+                id: localId,
+                title: q.question?.length > 40 ? q.question.substring(0, 40) + "…" : q.question,
+                isExpanded: false, ctMode: false,
+                duration: q.quizSettings[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
+                minScore: q.quizSettings[0]?.minScoreTreshold ?? 0,
+                scorePerQuestion: q.quizSettings[0]?.standardScorePerQuestion ?? 10,
+                questions: [{ id: localId + 1, label: q.question,
+                  answers: (q.quizAnswerOptions || []).map((opt, oIdx) => ({
+                    id: localId + 10 + oIdx, text: opt.option, isCorrect: opt.option === q.correctAnswer,
+                  })),
+                }],
+                ctStories: [makeCTStory()],
+              });
+              qi++;
+            }
+          }
           setQuizzes(mappedQuizzes);
           setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+          setSubQuizApiIds((prev) => ({ ...prev, ...subQuizIds }));
+
+          // Load rangkumans
+          const rIds: Record<number, string> = {};
+          const mappedRangkumans = (firstTopik.rangkumans || []).map((r: any, rIdx: number) => {
+            const localId = Date.now() + rIdx + 10000;
+            rIds[localId] = r.id;
+            return { id: localId, title: r.judul, konten: r.konten ?? "", isExpanded: false };
+          });
+          setRangkumans(mappedRangkumans);
+          setRangkumanApiIds((prev) => ({ ...prev, ...rIds }));
         }
       } catch (err) {
         console.error("Load content error:", err);
@@ -601,34 +661,87 @@ function TambahModulKontenPageContent() {
     if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
     else setActiveMaterialId(null);
 
+    // Group consecutive CT quizzes into one entry
+    const rawTopikQuizzes: any[] = topik.quizzes || [];
     const quizIds: Record<number, string> = {};
-    const mappedQuiz = topik.quizzes.map((q: any, qIdx: number) => {
-      const localId = Date.now() + qIdx + 1000;
-      quizIds[localId] = q.id;
-      return {
-        id: localId,
-        title: q.question?.length > 40 ? q.question.substring(0, 40) + "…" : q.question || "Untitled",
-        isExpanded: false,
-        ctMode: q.quizType === "COMPUTATIONAL_THINKING",
-        duration: q.quizSettings?.[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
-        minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
-        scorePerQuestion: q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
-        questions: [
-          {
-            id: localId + 1,
-            label: q.question || "Soal Kuis",
-            answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
-              id: localId + 10 + oIdx,
+    const subQIds: Record<number, string> = {};
+    const mappedQuiz: typeof quizzes = [];
+    let tqi = 0;
+    const bTs = Date.now();
+    while (tqi < rawTopikQuizzes.length) {
+      const q = rawTopikQuizzes[tqi];
+      if (q.quizType === "COMPUTATIONAL_THINKING") {
+        const ctGrp: any[] = [];
+        while (tqi < rawTopikQuizzes.length && rawTopikQuizzes[tqi].quizType === "COMPUTATIONAL_THINKING") {
+          ctGrp.push(rawTopikQuizzes[tqi]);
+          tqi++;
+        }
+        const localId = bTs + mappedQuiz.length * 100 + 1000;
+        quizIds[localId] = ctGrp[0].id;
+        const subQs = ctGrp.map((ctQ: any, ctIdx: number) => {
+          const sqId = bTs + mappedQuiz.length * 1000 + ctIdx * 10 + 5000;
+          if (ctIdx > 0) subQIds[sqId] = ctQ.id;
+          return {
+            id: sqId,
+            label: ctQ.question || ctSubLabels[ctIdx] || `Soal CT ${ctIdx + 1}`,
+            answers: (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
+              id: bTs + mappedQuiz.length * 1000 + ctIdx * 10 + oIdx + 9000,
               text: opt.option,
-              isCorrect: opt.option === q.correctAnswer,
+              isCorrect: opt.option === ctQ.correctAnswer,
             })),
-          },
-        ],
-        ctStories: [makeCTStory()],
-      };
-    });
+          };
+        });
+        while (subQs.length < ctSubLabels.length) {
+          const padIdx = subQs.length;
+          const padId = bTs + mappedQuiz.length * 1000 + padIdx * 10 + 3000;
+          subQs.push({ id: padId, label: ctSubLabels[padIdx], answers: [
+            { id: padId * 2 + 1, text: "", isCorrect: false },
+            { id: padId * 2 + 2, text: "", isCorrect: false },
+          ]});
+        }
+        mappedQuiz.push({
+          id: localId, title: "Kuis CT", isExpanded: false, ctMode: true,
+          duration: ctGrp[0].quizSettings?.[0]?.timeLimit ? Math.round(ctGrp[0].quizSettings[0].timeLimit / 60) : 90,
+          minScore: ctGrp[0].quizSettings?.[0]?.minScoreTreshold ?? 0,
+          scorePerQuestion: ctGrp[0].quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+          questions: [{ id: localId + 1, label: "Soal Kuis 1", answers: [
+            { id: localId + 10, text: "", isCorrect: false },
+            { id: localId + 11, text: "", isCorrect: false },
+          ]}],
+          ctStories: [{ id: localId + 2, subQuestions: subQs }],
+        });
+      } else {
+        const localId = bTs + mappedQuiz.length * 100 + 1000;
+        quizIds[localId] = q.id;
+        mappedQuiz.push({
+          id: localId,
+          title: q.question?.length > 40 ? q.question.substring(0, 40) + "…" : (q.question || "Untitled"),
+          isExpanded: false, ctMode: false,
+          duration: q.quizSettings?.[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
+          minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
+          scorePerQuestion: q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+          questions: [{ id: localId + 1, label: q.question || "Soal Kuis",
+            answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
+              id: localId + 10 + oIdx, text: opt.option, isCorrect: opt.option === q.correctAnswer,
+            })),
+          }],
+          ctStories: [makeCTStory()],
+        });
+        tqi++;
+      }
+    }
     setQuizzes(mappedQuiz);
     setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+    setSubQuizApiIds((prev) => ({ ...prev, ...subQIds }));
+
+    const rIds: Record<number, string> = {};
+    const mappedRangkumans = (topik.rangkumans || []).map((r: any, rIdx: number) => {
+      const localId = Date.now() + rIdx + 10000;
+      rIds[localId] = r.id;
+      return { id: localId, title: r.judul, konten: r.konten ?? "", isExpanded: false };
+    });
+    setRangkumans(mappedRangkumans);
+    setRangkumanApiIds((prev) => ({ ...prev, ...rIds }));
   }, [getYoutubeThumb, makeCTStory]);
 
   const handleCreateQuiz = async () => {
@@ -700,6 +813,59 @@ function TambahModulKontenPageContent() {
       },
     ]);
     setActiveQuizId(nextId);
+  };
+
+  const handleCreateRangkuman = async () => {
+    if (!topicId) {
+      toast("Pilih topik terlebih dahulu sebelum membuat rangkuman.", "warning");
+      return;
+    }
+    const nextId = Date.now();
+    showLoading("Menambahkan rangkuman...");
+    try {
+      const created = await guruRangkumanApi.create({ topik_id: topicId, judul: "Rangkuman", konten: "" });
+      setRangkumanApiIds((prev) => ({ ...prev, [nextId]: created.id }));
+      setRangkumans((prev) => [...prev, { id: nextId, title: "Rangkuman", konten: "", isExpanded: true }]);
+    } catch (err) {
+      console.error("Create rangkuman error:", err);
+      toast("Gagal membuat rangkuman.", "error");
+    } finally {
+      hideLoading();
+    }
+  };
+
+  const handleSaveRangkuman = async (rangkumanId: number) => {
+    const r = rangkumans.find((x) => x.id === rangkumanId);
+    const apiId = rangkumanApiIds[rangkumanId];
+    if (!r || !apiId) return;
+    setIsSavingRangkuman(rangkumanId);
+    try {
+      await guruRangkumanApi.update(apiId, { judul: r.title, konten: r.konten });
+      toast("Rangkuman berhasil disimpan.", "success");
+    } catch (err) {
+      console.error("Save rangkuman error:", err);
+      toast("Gagal menyimpan rangkuman.", "error");
+    } finally {
+      setIsSavingRangkuman(null);
+    }
+  };
+
+  const handleDeleteRangkuman = async (rangkumanId: number) => {
+    const apiId = rangkumanApiIds[rangkumanId];
+    const confirmed = await confirm({ message: "Apakah Anda yakin ingin menghapus rangkuman ini?" });
+    if (!confirmed) return;
+    setIsDeletingRangkuman(rangkumanId);
+    try {
+      if (apiId) await guruRangkumanApi.delete(apiId);
+      setRangkumans((prev) => prev.filter((x) => x.id !== rangkumanId));
+      setRangkumanApiIds((prev) => { const n = { ...prev }; delete n[rangkumanId]; return n; });
+      toast("Rangkuman berhasil dihapus.", "success");
+    } catch (err) {
+      console.error("Delete rangkuman error:", err);
+      toast("Gagal menghapus rangkuman.", "error");
+    } finally {
+      setIsDeletingRangkuman(null);
+    }
   };
 
   const handleAddQuestion = (quizId: number) => {
@@ -866,7 +1032,7 @@ function TambahModulKontenPageContent() {
   };
 
   const activeTopik = topiks.find(t => t.id === activeTopikId);
-  const isTopicCT = activeTopik?.isComputationalThinking ?? false;
+  const isTopicCT = isModuleCT || (activeTopik?.isComputationalThinking ?? false);
 
   const handleToggleCTMode = (quizId: number, enabled: boolean) => {
     if (isTopicCT) return;
@@ -1166,7 +1332,7 @@ function TambahModulKontenPageContent() {
       setIsFormOpen(false);
       setActiveMaterialId(null);
       setActiveTopikId(created.id);
-      setTopiks((prev) => [...prev, { ...created, materis: [], quizzes: [] }]);
+      setTopiks((prev) => [...prev, { ...created, materis: [], quizzes: [], rangkumans: [] }]);
     } catch (err: unknown) {
       console.error("Create topic error:", err);
       setTopicError(
@@ -2597,6 +2763,84 @@ function TambahModulKontenPageContent() {
                       </div>
                     ))}
 
+                    {rangkumans.map((r) => (
+                      <div
+                        key={r.id}
+                        className="mt-4 rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4 shadow-[0_8px_20px_rgba(20,20,30,0.05)]"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <FiFileText size={16} className="text-[#7054dc] shrink-0" />
+                            {r.isExpanded ? (
+                              <input
+                                type="text"
+                                value={r.title}
+                                onChange={(e) =>
+                                  setRangkumans((prev) =>
+                                    prev.map((x) => x.id === r.id ? { ...x, title: e.target.value } : x)
+                                  )
+                                }
+                                className="flex-1 min-w-0 rounded-lg border border-[#e5e3ee] px-3 py-1 text-[13px] font-semibold text-[#22223a] outline-none focus:border-[#7054dc]"
+                              />
+                            ) : (
+                              <span className="truncate text-[13px] font-semibold text-[#22223a]">{r.title}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {r.isExpanded && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isSavingRangkuman === r.id}
+                                  onClick={() => handleSaveRangkuman(r.id)}
+                                  className="rounded-lg bg-[#7054dc] px-3 py-1 text-[12px] font-semibold text-white disabled:opacity-60"
+                                >
+                                  {isSavingRangkuman === r.id ? "Menyimpan..." : "Simpan"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isDeletingRangkuman === r.id}
+                                  onClick={() => handleDeleteRangkuman(r.id)}
+                                  className="text-red-500 hover:text-red-700 disabled:opacity-60"
+                                >
+                                  <FiTrash2 size={16} />
+                                </button>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRangkumans((prev) =>
+                                  prev.map((x) => x.id === r.id ? { ...x, isExpanded: !x.isExpanded } : x)
+                                )
+                              }
+                              className="text-[#7a7e8a] hover:text-[#7054dc]"
+                            >
+                              <FiChevronDown
+                                size={18}
+                                className={`transition-transform ${r.isExpanded ? "rotate-180" : ""}`}
+                              />
+                            </button>
+                          </div>
+                        </div>
+
+                        {r.isExpanded && (
+                          <div className="mt-3">
+                            <TrixEditor
+                              id={`rangkuman-editor-${r.id}`}
+                              value={r.konten}
+                              onChange={(val) =>
+                                setRangkumans((prev) =>
+                                  prev.map((x) => x.id === r.id ? { ...x, konten: val } : x)
+                                )
+                              }
+                              placeholder="Tulis konten rangkuman di sini..."
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
                     {!isMaterialFormOpen && (
                       <div className="mt-4 rounded-2xl border border-dashed border-[#8e7bff] bg-[#f7f6ff] px-4 py-4">
                         <div className="flex flex-wrap items-center gap-3">
@@ -2613,6 +2857,13 @@ function TambahModulKontenPageContent() {
                             className="inline-flex h-[34px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-[#8e7bff] bg-white px-4 text-[12px] font-semibold text-[#7054dc]"
                           >
                             Kuis <FiPlus size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCreateRangkuman}
+                            className="inline-flex h-[34px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-[#8e7bff] bg-white px-4 text-[12px] font-semibold text-[#7054dc]"
+                          >
+                            Rangkuman <FiPlus size={14} />
                           </button>
                         </div>
                       </div>

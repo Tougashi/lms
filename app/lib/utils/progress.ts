@@ -4,7 +4,7 @@ export interface ProgressSequenceItem {
 }
 
 /** Types excluded from progress counting: client-side-only items and optional feedback. */
-const CLIENT_ONLY_TYPES = new Set(["summary", "rangkuman-akhir", "rating"]);
+const CLIENT_ONLY_TYPES = new Set(["rangkuman-akhir", "rating"]);
 
 /**
  * Compute progress percentage from local completion state.

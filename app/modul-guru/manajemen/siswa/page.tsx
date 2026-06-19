@@ -2,215 +2,468 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { FiArrowLeft } from 'react-icons/fi';
+import { HiCheckCircle, HiExclamationCircle } from 'react-icons/hi2';
+import { IoPersonCircle } from 'react-icons/io5';
+import { FaHandsClapping } from 'react-icons/fa6';
 
 import GuruHeader from '../../../component/guru/GuruHeader';
+import CursorPagination from '../../../component/ui/CursorPagination';
 import { guruProgressApi } from '../../../lib/api';
-import type { TutorProgressByStudent, TutorProgressItem } from '../../../lib/types/guru';
-import { useRoleGuard } from '../../../lib/hooks/useRoleGuard';
+import type { CTAnalysisResponse } from '../../../lib/types/guru';
+
+/* ─── Types ─── */
+
+type CTKey = 'decomposition' | 'patternRecognition' | 'abstraction' | 'algorithm';
+type ViewMode = 'ct-analysis' | 'ct-comparison' | 'quiz-table';
+
+/* ─── Helpers ─── */
+
+const PILLAR_META: Record<CTKey, { label: string; subLabel: string; color: string }> = {
+  decomposition:    { label: 'Pemecahan Masalah',  subLabel: 'Decomposition',      color: '#5bb3f0' },
+  patternRecognition: { label: 'Pengenalan Pola',  subLabel: 'Pattern Recognition', color: '#c565d4' },
+  abstraction:      { label: 'Menyaring Informasi', subLabel: 'Abstraction',        color: '#4b7bf5' },
+  algorithm:        { label: 'Menyusun Langkah',   subLabel: 'Algorithm',           color: '#f5a623' },
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  'Sangat Baik':       '#22c55e',
+  'Baik':              '#22c55e',
+  'Perlu Penguatan':   '#e8963a',
+  'Butuh Intervensi':  '#d63c3c',
+};
+
+function getLabel(score: number): { grade: string; gradeColor: string } {
+  if (score >= 85) return { grade: 'Sangat Baik',      gradeColor: '#22c55e' };
+  if (score >= 70) return { grade: 'Baik',             gradeColor: '#22c55e' };
+  if (score >= 50) return { grade: 'Perlu Penguatan',  gradeColor: '#e8963a' };
+  return              { grade: 'Butuh Intervensi',     gradeColor: '#d63c3c' };
+}
+
+function getRecStyle(rec: string) {
+  if (rec === 'Siap Pengayaan') return { bg: 'bg-[#e6f9ed]', text: 'text-[#2a9d5c]', icon: <FaHandsClapping size={18} className="text-[#2a9d5c]" /> };
+  if (rec === 'Perlu Remedial') return { bg: 'bg-[#fdeaea]', text: 'text-[#d63c3c]', icon: <FaHandsClapping size={18} className="text-[#d63c3c]" /> };
+  return { bg: 'bg-[#e8f4fc]', text: 'text-[#2a7fbf]', icon: <FaHandsClapping size={18} className="text-[#2a7fbf]" /> };
+}
+
+function getRecDesc(rec: string): string {
+  if (rec === 'Siap Pengayaan') return 'Siswa menunjukkan pemahaman yang sangat baik pada semua topik.';
+  if (rec === 'Perlu Remedial')  return 'Siswa perlu mengulang beberapa topik untuk memperkuat pemahaman.';
+  return 'Siswa menunjukkan pemahaman yang baik pada sebagian besar topik, namun perlu mengulas kembali topik tertentu karena skor kuis di bawah ambang batas.';
+}
+
+/* ─── Pie Chart ─── */
+
+function PieChart({ data }: { data: CTAnalysisResponse['computationalThinking'] | null }) {
+  if (!data) return <div className="flex h-[240px] w-[240px] items-center justify-center rounded-full border-4 border-dashed border-[#e5e3ee]"><p className="text-[12px] text-[#8a8d98]">Belum ada data</p></div>;
+
+  const entries = Object.entries(data) as [CTKey, { score: number }][];
+  const sum = entries.reduce((a, [, v]) => a + v.score, 0);
+
+  if (sum === 0) return <div className="flex h-[240px] w-[240px] items-center justify-center rounded-full border-4 border-dashed border-[#e5e3ee]"><p className="text-[12px] text-[#8a8d98]">Belum ada data CT</p></div>;
+
+  const size = 240;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = 100;
+  let cumulative = 0;
+
+  const slices = entries.map(([key, val]) => {
+    const startAngle = (cumulative / sum) * 360;
+    cumulative += val.score;
+    const endAngle = (cumulative / sum) * 360;
+    const startRad = ((startAngle - 90) * Math.PI) / 180;
+    const endRad = ((endAngle - 90) * Math.PI) / 180;
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+    const x1 = cx + radius * Math.cos(startRad);
+    const y1 = cy + radius * Math.sin(startRad);
+    const x2 = cx + radius * Math.cos(endRad);
+    const y2 = cy + radius * Math.sin(endRad);
+    const midAngle = ((startAngle + endAngle) / 2 - 90) * (Math.PI / 180);
+    const labelR = radius * 0.6;
+    return (
+      <g key={key}>
+        <path d={`M${cx},${cy} L${x1},${y1} A${radius},${radius} 0 ${largeArc},1 ${x2},${y2} Z`} fill={PILLAR_META[key].color} stroke="white" strokeWidth="3" />
+        <text x={cx + Math.cos(midAngle) * labelR} y={cy + Math.sin(midAngle) * labelR} textAnchor="middle" dominantBaseline="central" fill="white" fontSize="14" fontWeight="700">{val.score}%</text>
+      </g>
+    );
+  });
+
+  return <svg viewBox={`0 0 ${size} ${size}`} className="h-[240px] w-[240px] shrink-0">{slices}</svg>;
+}
+
+/* ─── Comparison Bar ─── */
+
+function ComparisonBar({ label, subLabel, preTest, postTest, color, isHighest }: {
+  label: string; subLabel: string; preTest: number; postTest: number; color: string; isHighest: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-[#eceaf4] bg-white px-5 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[14px] font-semibold text-[#232530]">{label}</span>
+          <span className="text-[12px] text-[#8a8d98]">{subLabel}</span>
+        </div>
+        {isHighest && <span className="text-[12px] font-semibold text-[#22c55e]">↗ Tertinggi</span>}
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <span className="w-[60px] text-[11px] text-[#8a8d98]">Pre-Test</span>
+        <div className="flex-1"><div className="h-2.5 w-full rounded-full bg-[#eceaf4]"><div className="h-full rounded-full" style={{ width: `${preTest}%`, backgroundColor: '#c5bfe0' }} /></div></div>
+        <span className="w-[36px] text-right text-[12px] font-semibold text-[#555968]">{preTest}%</span>
+      </div>
+      <div className="mt-2 flex items-center gap-3">
+        <span className="w-[60px] text-[11px] text-[#d63c3c]">Post-Test</span>
+        <div className="flex-1"><div className="h-2.5 w-full rounded-full bg-[#eceaf4]"><div className="h-full rounded-full" style={{ width: `${postTest}%`, backgroundColor: color }} /></div></div>
+        <span className="w-[36px] text-right text-[12px] font-semibold text-[#555968]">{postTest}%</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main Page ─── */
 
 function SiswaDetailPageContent() {
-  const { isAuthorized } = useRoleGuard(['tutor']);
   const searchParams = useSearchParams();
   const studentId = searchParams.get('studentId');
   const modulId = searchParams.get('modulId');
 
-  const [studentData, setStudentData] = useState<TutorProgressByStudent | null>(null);
+  const [data, setData] = useState<CTAnalysisResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const loadStudentData = useCallback(async () => {
-    if (!studentId) {
-      setError('Student ID tidak ditemukan.');
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    setError('');
-    try {
-      const data = await guruProgressApi.getByStudent(studentId);
-      setStudentData(data);
-    } catch (err: unknown) {
-      console.error('Load student progress error:', err);
-      setError(err instanceof Error ? err.message : 'Gagal memuat data progress siswa.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [studentId]);
+  const [activeView, setActiveView] = useState<ViewMode>('ct-analysis');
 
   useEffect(() => {
-    loadStudentData();
-  }, [loadStudentData]);
+    if (!studentId) { setError('Student ID tidak ditemukan'); setIsLoading(false); return; }
+    guruProgressApi.analyze(studentId, modulId ?? undefined)
+      .then(d => {
+        setData(d);
+        if (!d.moduleProgress?.isTestComputationalThinking) {
+          setActiveView('quiz-table');
+        }
+      })
+      .catch(() => setError('Gagal memuat data analisis siswa'))
+      .finally(() => setIsLoading(false));
+  }, [studentId, modulId]);
 
-  // Aggregate scores from progress items
-  const aggregateProgress = (items: TutorProgressItem[]) => {
-    if (!items || items.length === 0) {
-      return { preTest: 0, postTest: 0, progressPct: 0, totalModules: 0, completedModules: 0 };
-    }
-    const validPretest = items.filter(p => p.pretestScore != null);
-    const validPosttest = items.filter(p => p.posttestScore != null);
-    const preTest = validPretest.length > 0
-      ? Math.round(validPretest.reduce((sum, p) => sum + (p.pretestScore ?? 0), 0) / validPretest.length)
-      : 0;
-    const postTest = validPosttest.length > 0
-      ? Math.round(validPosttest.reduce((sum, p) => sum + (p.posttestScore ?? 0), 0) / validPosttest.length)
-      : 0;
-    const progressPct = Math.round(
-      items.reduce((sum, p) => sum + (p.progressPercentage ?? 0), 0) / items.length
-    );
-    const completedModules = items.filter(p => p.isGraduated).length;
-    return { preTest, postTest, progressPct, totalModules: items.length, completedModules };
-  };
+  const student = data?.studentInfo;
+  const mod = data?.moduleProgress;
+  const ct = data?.computationalThinking ?? null;
+  const quizRecs = data?.quizRecords ?? [];
+  const rec = data?.recommendation ?? '';
+  const isCT = mod?.isTestComputationalThinking ?? false;
 
-  if (!isAuthorized || isLoading) {
-    return (
-      <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
-        <GuruHeader />
-        <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
-          <div className="flex items-center justify-center py-20">
-            <div className="flex flex-col items-center gap-4">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent"></div>
-              <p className="text-sm text-[#8a8d98]">
-                {isLoading ? 'Memuat data siswa...' : 'Memeriksa otorisasi...'}
-              </p>
-            </div>
+  // Quiz table pagination
+  const QUIZ_PER_PAGE = 5;
+  const [quizPage, setQuizPage] = useState(1);
+  const totalQuizPages = Math.ceil(quizRecs.length / QUIZ_PER_PAGE);
+  const paginatedQuiz = useMemo(() => quizRecs.slice((quizPage - 1) * QUIZ_PER_PAGE, quizPage * QUIZ_PER_PAGE), [quizPage, quizRecs]);
+
+  // Highest CT improvement
+  const improvements = ct
+    ? (Object.entries(ct) as [CTKey, { preTest: number; postTest: number }][]).map(([key, val]) => ({ key, improvement: val.postTest - val.preTest }))
+    : [{ key: 'algorithm' as CTKey, improvement: 0 }];
+  const highestImprovement = improvements.reduce((max, curr) => curr.improvement > max.improvement ? curr : max, improvements[0]);
+
+  const recStyle = getRecStyle(rec);
+  const recDesc = getRecDesc(rec);
+
+  if (isLoading) return (
+    <div className="min-h-screen bg-[#f7f6fb]">
+      <GuruHeader />
+      <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-6 sm:px-6">
+        <div className="h-5 w-40 animate-pulse rounded-lg bg-[#e8e6f0]" />
+        <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_250px]">
+          <div className="space-y-4">
+            <div className="h-16 animate-pulse rounded-2xl bg-[#e8e6f0]" />
+            <div className="flex gap-3"><div className="h-16 w-36 animate-pulse rounded-2xl bg-[#e8e6f0]" /><div className="h-16 w-36 animate-pulse rounded-2xl bg-[#e8e6f0]" /><div className="h-16 flex-1 animate-pulse rounded-2xl bg-[#e8e6f0]" /></div>
+            <div className="h-64 animate-pulse rounded-2xl bg-[#e8e6f0]" />
           </div>
-        </main>
-      </div>
-    );
-  }
+          <div className="h-80 animate-pulse rounded-2xl bg-[#e8e6f0]" />
+        </div>
+      </main>
+    </div>
+  );
 
-  if (error || !studentData) {
-    return (
-      <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
-        <GuruHeader />
-        <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
-          <Link href={modulId ? `/modul-guru/manajemen?modulId=${modulId}` : '/modul-guru/manajemen'} className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530]">
-            <span>←</span> Kembali ke Manajemen Modul
-          </Link>
-          <div className="mt-8 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error || 'Data siswa tidak ditemukan.'}
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  const progressItems = studentData.progress || [];
-  const { preTest, postTest, progressPct, totalModules, completedModules } = aggregateProgress(progressItems);
+  if (error) return (
+    <div className="min-h-screen bg-[#f7f6fb]">
+      <GuruHeader />
+      <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-6 sm:px-6">
+        <div className="flex flex-col items-center gap-4 pt-20 text-center">
+          <HiExclamationCircle size={48} className="text-[#f36e65]" />
+          <p className="text-[14px] text-red-500">{error}</p>
+          <Link href={modulId ? `/modul-guru/manajemen?modulId=${modulId}` : '/modul-guru/manajemen'} className="mt-2 inline-flex h-[36px] items-center justify-center rounded-lg bg-[#7054dc] px-5 text-[13px] font-semibold text-white">Kembali</Link>
+        </div>
+      </main>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
       <GuruHeader />
 
       <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
-        <Link href={modulId ? `/modul-guru/manajemen?modulId=${modulId}` : '/modul-guru/manajemen'} className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530]">
-          <span>←</span> Kembali ke Halaman Modul
+        {/* Back link */}
+        <Link
+          href={modulId ? `/modul-guru/manajemen?modulId=${modulId}` : '/modul-guru/manajemen'}
+          className="inline-flex items-center gap-2 text-[13px] font-medium text-[#232530] transition-colors hover:text-[#7054dc]"
+        >
+          <FiArrowLeft size={15} />
+          Kembali ke Daftar Siswa
         </Link>
 
-        <div className="mt-4 flex flex-col gap-6 sm:mt-6 lg:flex-row lg:gap-8">
-          <div className="flex-1">
+        <div className="mt-5 grid gap-8 lg:grid-cols-[1fr_250px]">
+          {/* ── LEFT COLUMN ── */}
+          <div>
+            {/* Module info */}
             <div className="flex items-center gap-4">
-              <div className="flex h-[50px] w-[50px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f0ebff]">
-                <span className="text-xl font-bold text-[#7054dc]">
-                  {(studentData.siswaName || 'S').charAt(0).toUpperCase()}
-                </span>
+              <div className="h-[50px] w-[50px] shrink-0 overflow-hidden rounded-xl border border-[#e5e3ee] bg-[#f3f4f8]">
+                {mod?.moduleImgUrl ? (
+                  <Image src={mod.moduleImgUrl} alt={mod.moduleName ?? ''} width={50} height={50} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-2xl">📚</div>
+                )}
               </div>
               <div>
-                <h1 className="text-[16px] font-bold text-[#232530]">{studentData.siswaName || 'Siswa'}</h1>
-                <p className="text-[12px] text-[#7a7e8a]">{studentData.email || '-'}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-stretch gap-3 sm:mt-6 sm:gap-4">
-              <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-[#f8e8f0] to-[#fdf4f8] px-5 py-4">
-                <span className="text-[28px] font-bold text-[#e85d8a]">{preTest}</span>
-                <span className="text-[12px] font-medium text-[#7a7e8a]">Rata-rata Pre-Test</span>
-              </div>
-              <div className="flex items-center gap-3 rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
-                <span className="text-[28px] font-bold text-[#7054dc]">{postTest}</span>
-                <span className="text-[12px] font-medium text-[#7a7e8a]">Rata-rata Post-Test</span>
-              </div>
-              <div className="flex flex-1 flex-col justify-center gap-2 rounded-2xl border border-[#e5e3ee] bg-white px-4 py-3 sm:px-5 sm:py-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-2 flex-1 rounded-full bg-[#e7e2f6]">
-                    <div className="h-full rounded-full bg-[#7054dc] transition-all" style={{ width: `${progressPct}%` }} />
-                  </div>
-                  <span className="text-[12px] font-semibold text-[#232530]">{progressPct}%</span>
-                </div>
-                <p className="text-[11px] text-[#7a7e8a]">{completedModules} dari {totalModules} Modul Selesai</p>
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <h2 className="text-[14px] font-semibold text-[#232530]">Rincian Progress per Modul</h2>
-              <div className="mt-3 overflow-x-auto rounded-2xl border border-[#e5e3ee] bg-white">
-                <div className="min-w-[550px]">
-                  {progressItems.length === 0 ? (
-                    <div className="px-5 py-12 text-center text-[13px] text-[#8a8d98]">
-                      Belum ada data progress untuk siswa ini.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-[1fr_0.7fr_0.7fr_0.7fr_0.6fr_0.8fr] gap-4 bg-[#f0eff5] px-5 py-3 text-[12px] font-semibold text-[#232530]">
-                        <span>Modul ID</span>
-                        <span>Pre-Test</span>
-                        <span>Post-Test</span>
-                        <span>Progress</span>
-                        <span>Nilai</span>
-                        <span>Status</span>
-                      </div>
-                      {progressItems.map((item) => (
-                        <div key={item.id} className="grid grid-cols-[1fr_0.7fr_0.7fr_0.7fr_0.6fr_0.8fr] items-center gap-4 border-t border-[#f0eff5] px-5 py-3.5 text-[12px]">
-                          <span className="truncate text-[#232530]" title={item.modulId}>
-                            {item.modulId.length > 12 ? `${item.modulId.slice(0, 12)}...` : item.modulId}
-                          </span>
-                          <span className="text-[#232530]">{item.pretestScore ?? '-'}</span>
-                          <span className="text-[#232530]">{item.posttestScore ?? '-'}</span>
-                          <span className="text-[#232530]">{Math.round(item.progressPercentage)}%</span>
-                          <span className="text-[#232530]">{item.finalScore ?? '-'}</span>
-                          <span>
-                            {item.isGraduated ? (
-                              <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#2a9d5c]">✅ Lulus</span>
-                            ) : item.status === 'COMPLETED' ? (
-                              <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#f39b39]">⏳ Selesai</span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#7a7e8a]">📝 {item.status}</span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full shrink-0 lg:w-[220px]">
-            <div className="flex flex-col items-center">
-              <div className="flex h-[120px] w-[120px] items-center justify-center overflow-hidden rounded-full border-4 border-[#e5e3ee] bg-[#f0eff5]">
-                <span className="text-4xl font-bold text-[#7054dc]">
-                  {(studentData.siswaName || 'S').charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <h3 className="mt-4 text-[16px] font-bold text-[#232530]">{studentData.siswaName || 'Siswa'}</h3>
-              <p className="mt-1 text-[12px] text-[#7a7e8a]">{studentData.email || '-'}</p>
-            </div>
-
-            {progressItems.length > 0 && (
-              <div className="mt-6 rounded-2xl border border-[#e5e3ee] bg-[#f0f4ff] px-4 py-5">
-                <p className="text-center text-[13px] font-semibold text-[#2a7fbf]">📘 Ringkasan</p>
-                <p className="mt-3 text-[11px] leading-[1.7] text-[#5a5d6a]">
-                  Siswa telah menyelesaikan {completedModules} dari {totalModules} modul
-                  dengan rata-rata progress {progressPct}%.
-                  {postTest > preTest && ` Nilai post-test (${postTest}) lebih tinggi dari pre-test (${preTest}), menunjukkan peningkatan pemahaman.`}
-                  {postTest <= preTest && preTest > 0 && ` Perlu perhatian karena nilai post-test (${postTest}) tidak lebih tinggi dari pre-test (${preTest}).`}
+                <h1 className="text-[17px] font-bold text-[#232530]">{mod?.moduleName ?? '—'}</h1>
+                <p className="text-[12px] text-[#7a7e8a]">
+                  {mod?.level ? `Jenjang ${mod.level}` : ''}{mod?.class ? ` | ${mod.class}` : ''}
                 </p>
+              </div>
+            </div>
+
+            {/* Score cards */}
+            <div className="mt-5 flex flex-wrap items-stretch gap-3 sm:gap-4">
+              <div className="flex items-center gap-3 rounded-2xl border border-[#f0e6d3] bg-gradient-to-r from-[#fff4e6] to-[#fffaf2] px-5 py-3.5">
+                <span className="text-[32px] font-bold leading-none text-[#f39b39]">{mod?.pretestScore ?? '—'}</span>
+                <span className="text-[12px] font-medium text-[#7a7e8a]">Nilai Pre-Test</span>
+              </div>
+              <div className="flex items-center gap-3 rounded-2xl border border-[#d8d3f0] bg-gradient-to-r from-[#f0ecff] to-[#f5f2ff] px-5 py-3.5">
+                <span className="text-[32px] font-bold leading-none text-[#7054dc]">{mod?.posttestScore ?? '—'}</span>
+                <span className="text-[12px] font-medium text-[#7a7e8a]">Nilai Post-Test</span>
+              </div>
+              <div className="flex min-w-[200px] flex-1 items-center gap-3 rounded-2xl border border-[#e5e3ee] bg-white px-4 py-3.5">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#eceaf4]">
+                      <div className="h-full rounded-full bg-[#7054dc] transition-all" style={{ width: `${mod?.progressPercentage ?? 0}%` }} />
+                    </div>
+                    <span className="text-[13px] font-semibold text-[#232530]">{Math.round(mod?.progressPercentage ?? 0)}%</span>
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-[#7a7e8a]">{mod?.completedMateri ?? 0} dari {mod?.totalMateri ?? 0} Materi Selesai</p>
+                </div>
+              </div>
+            </div>
+
+            {/* View switcher */}
+            <div className="mt-6 flex flex-wrap gap-2">
+              {isCT && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView('ct-analysis')}
+                    className={`rounded-xl px-5 py-2 text-[13px] font-semibold transition-all cursor-pointer ${activeView === 'ct-analysis' ? 'bg-[#7054dc] text-white shadow-[0_2px_10px_rgba(112,84,220,0.3)]' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}
+                  >
+                    Analisis CT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView('ct-comparison')}
+                    className={`rounded-xl px-5 py-2 text-[13px] font-semibold transition-all cursor-pointer ${activeView === 'ct-comparison' ? 'bg-[#7054dc] text-white shadow-[0_2px_10px_rgba(112,84,220,0.3)]' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}
+                  >
+                    Perbandingan CT
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setActiveView('quiz-table')}
+                className={`rounded-xl px-5 py-2 text-[13px] font-semibold transition-all cursor-pointer ${activeView === 'quiz-table' ? 'bg-[#7054dc] text-white shadow-[0_2px_10px_rgba(112,84,220,0.3)]' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}
+              >
+                Rincian Nilai Kuis
+              </button>
+            </div>
+
+            {/* ── VIEW: CT Analysis ── */}
+            {activeView === 'ct-analysis' && isCT && (
+              <div className="mt-6">
+                <h2 className="text-[16px] font-bold text-[#232530]">Analisis Computational Thinking</h2>
+                <div className="mt-4 flex flex-col items-center gap-8 sm:flex-row sm:items-start">
+                  <PieChart data={ct} />
+                  <div className="flex-1 space-y-5 pt-1">
+                    {ct && (Object.entries(ct) as [CTKey, { score: number; label: string }][]).map(([key, val]) => {
+                      const meta = PILLAR_META[key];
+                      const color = STATUS_COLORS[val.label] || meta.color;
+                      return (
+                        <div key={key} className="flex items-start gap-3">
+                          <span className="mt-[7px] h-[10px] w-[10px] shrink-0 rounded-full" style={{ backgroundColor: meta.color }} />
+                          <div>
+                            <p className="text-[13px] font-medium text-[#555968]">{meta.label} ({meta.subLabel})</p>
+                            <p className="mt-0.5 text-[20px] font-bold leading-tight text-[#232530]">{val.score}/100</p>
+                            <p className="mt-0.5 text-[12px] font-semibold italic" style={{ color }}>{val.label}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── VIEW: CT Comparison ── */}
+            {activeView === 'ct-comparison' && isCT && (
+              <div className="mt-6">
+                <h2 className="text-[16px] font-bold text-[#232530]">Analisis Perbandingan CT</h2>
+                <p className="mt-1 text-[12px] text-[#7a7e8a]">Perbandingan persentase Pre-Test dan Post-Test per pilar</p>
+                <div className="mt-4 space-y-3">
+                  {ct && (Object.entries(ct) as [CTKey, { preTest: number; postTest: number }][]).map(([key, val]) => (
+                    <ComparisonBar
+                      key={key}
+                      label={PILLAR_META[key].label}
+                      subLabel={PILLAR_META[key].subLabel}
+                      preTest={val.preTest}
+                      postTest={val.postTest}
+                      color={PILLAR_META[key].color}
+                      isHighest={key === highestImprovement.key}
+                    />
+                  ))}
+                </div>
+                <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#f5e6d0] bg-gradient-to-r from-[#fff8f0] to-[#fff4e6] px-5 py-4">
+                  <span className="mt-0.5 text-[18px]">😊</span>
+                  <div>
+                    <p className="text-[12px] font-semibold text-[#f39b39]">Ringkasan</p>
+                    <p className="mt-1 text-[12px] leading-[1.7] text-[#555968]">
+                      Peningkatan tertinggi pada pilar{' '}
+                      <span className="font-bold text-[#22c55e]">{PILLAR_META[highestImprovement.key].label} ({PILLAR_META[highestImprovement.key].subLabel})</span>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── VIEW: Rincian Nilai Kuis ── */}
+            {activeView === 'quiz-table' && (
+              <div className="mt-6">
+                <h2 className="text-[16px] font-bold text-[#232530]">Rincian Nilai Kuis</h2>
+                <div className="mt-4 overflow-hidden rounded-2xl border border-[#e8e6f0] bg-white">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[550px] border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#fafafe]">
+                          <th className="px-5 py-3.5 text-left text-[13px] font-semibold text-[#232530]">Topik</th>
+                          <th className="px-5 py-3.5 text-left text-[13px] font-semibold text-[#232530]">Kategori</th>
+                          <th className="px-5 py-3.5 text-left text-[13px] font-semibold text-[#232530]">Aktivitas</th>
+                          <th className="px-5 py-3.5 text-left text-[13px] font-semibold text-[#232530]">Nilai</th>
+                          <th className="px-5 py-3.5 text-left text-[13px] font-semibold text-[#232530]">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {quizRecs.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-5 py-8 text-center text-[13px] text-[#8a8d98]">Belum ada data kuis.</td>
+                          </tr>
+                        ) : (
+                          paginatedQuiz.map((row, i) => (
+                            <tr key={i} className="border-t border-[#f0eef6] text-[13px] text-[#232530]">
+                              <td className="px-5 py-4">{row.topik}</td>
+                              <td className="px-5 py-4">
+                                {row.quizType === 'COMPUTATIONAL_THINKING' ? (
+                                  <span className="text-[13px] font-medium text-[#7054dc]">Mode CT</span>
+                                ) : (
+                                  <span className="text-[#8a8d98]">Reguler</span>
+                                )}
+                              </td>
+                              <td className="px-5 py-4 text-[#555968]">Kuis</td>
+                              <td className="px-5 py-4 font-semibold">{row.score}</td>
+                              <td className="px-5 py-4">
+                                {row.status === 'tuntas' ? (
+                                  <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#22c55e]">
+                                    <HiCheckCircle size={16} /> Tuntas
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#f36e65]">
+                                    <HiExclamationCircle size={16} /> Di bawah nilai minimal
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                {totalQuizPages > 1 && (
+                  <CursorPagination
+                    currentPage={quizPage}
+                    totalPages={totalQuizPages}
+                    hasNext={quizPage < totalQuizPages}
+                    hasPrev={quizPage > 1}
+                    onNext={() => setQuizPage(p => Math.min(totalQuizPages, p + 1))}
+                    onPrev={() => setQuizPage(p => Math.max(1, p - 1))}
+                    onPageClick={page => setQuizPage(page)}
+                  />
+                )}
               </div>
             )}
           </div>
+
+          {/* ── RIGHT COLUMN — Student profile ── */}
+          <aside className="hidden lg:block">
+            <div className="flex flex-col items-center">
+              <div className="relative h-[140px] w-[140px]">
+                <div className="absolute inset-0 rounded-full border-[3px] border-[#d8b4fe]" />
+                <div className="absolute inset-[6px] overflow-hidden rounded-full bg-[#f3f4f8]">
+                  {student?.avatarUrl ? (
+                    <Image src={student.avatarUrl} alt={student.fullName} width={128} height={128} className="h-full w-full object-cover" />
+                  ) : (
+                    <IoPersonCircle className="h-[140px] w-[140px] text-[#d8d3f0] -ml-[6px] -mt-[6px]" />
+                  )}
+                </div>
+              </div>
+              <h3 className="mt-5 text-[18px] font-semibold text-[#232530]">{student?.fullName ?? '—'}</h3>
+              <p className="mt-1 text-[13px] text-[#8a8d98]">{student?.email ?? '—'}</p>
+
+              {/* Context card */}
+              <div className={`mt-6 w-full rounded-2xl border border-[#e8e6f0] px-5 py-5 text-center ${activeView === 'quiz-table' ? recStyle.bg : 'bg-[#fafafe]'}`}>
+                {activeView === 'quiz-table' ? (
+                  <>
+                    <div className="mb-3 flex items-center justify-center gap-2">
+                      {recStyle.icon}
+                      <span className={`text-[14px] font-semibold ${recStyle.text}`}>{rec}</span>
+                    </div>
+                    <p className="text-[13px] leading-[1.7] text-[#555968]">{recDesc}</p>
+                  </>
+                ) : activeView === 'ct-analysis' ? (
+                  <p className="text-[13px] leading-[1.7] text-[#555968]">
+                    Analisis Computational Thinking pada Modul {mod?.moduleName ?? ''}
+                  </p>
+                ) : (
+                  <p className="text-[13px] leading-[1.7] text-[#555968]">
+                    Perbandingan skor Pre-Test dan Post-Test untuk setiap pilar CT
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* View switcher (sidebar) */}
+            <div className="mt-8 flex flex-col gap-2">
+              {isCT && (
+                <>
+                  <button type="button" onClick={() => setActiveView('ct-analysis')} className={`w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors ${activeView === 'ct-analysis' ? 'bg-[#7054dc] text-white' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}>
+                    Analisis CT
+                  </button>
+                  <button type="button" onClick={() => setActiveView('ct-comparison')} className={`w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors ${activeView === 'ct-comparison' ? 'bg-[#7054dc] text-white' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}>
+                    Perbandingan CT
+                  </button>
+                </>
+              )}
+              <button type="button" onClick={() => setActiveView('quiz-table')} className={`w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors ${activeView === 'quiz-table' ? 'bg-[#7054dc] text-white' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}>
+                Rincian Nilai Kuis
+              </button>
+            </div>
+          </aside>
         </div>
       </main>
     </div>

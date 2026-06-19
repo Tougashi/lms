@@ -12,7 +12,7 @@ import {
     FiFilter,
     FiArrowLeft,
 } from "react-icons/fi";
-import { MdKeyboardArrowLeft, MdKeyboardArrowRight } from "react-icons/md";
+import CursorPagination from "../../component/ui/CursorPagination";
 
 import GuruHeader from "../../component/guru/GuruHeader";
 import { useGuruModules } from "../hooks/useGuruModules";
@@ -24,6 +24,7 @@ import {
 } from "../../lib/api";
 import { useRoleGuard } from "../../lib/hooks/useRoleGuard";
 import { usePopup } from "../../component/ui/PopupProvider";
+
 
 function ManajemenModulContent() {
     const { isAuthorized } = useRoleGuard(["tutor"]);
@@ -100,6 +101,8 @@ function ManajemenModulContent() {
     };
 
     // Load details and students if in Mode 1
+    const isCTModule = moduleDetail?.isTestComputationalThinking;
+
     const loadModuleDetails = useCallback(async () => {
         if (!modulId) return;
         setIsLoadingDetails(true);
@@ -272,9 +275,17 @@ function ManajemenModulContent() {
                                     />
                                 </div>
                                 <div>
-                                    <h1 className="text-[18px] font-bold text-[#232530] sm:text-[22px]">
-                                        {moduleDetail.moduleName}
-                                    </h1>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h1 className="text-[18px] font-bold text-[#232530] sm:text-[22px]">
+                                            {moduleDetail.moduleName}
+                                        </h1>
+                                        {isCTModule && (
+                                            <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#22c55e]">
+                                                <span className="h-2 w-2 rounded-full bg-[#22c55e]"></span>
+                                                Berbasis Computational Thinking
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#5a5d6a] sm:gap-x-4 sm:text-[12px]">
                                         <span className="flex items-center gap-1">
                                             📘 {topicCount} Topik
@@ -296,7 +307,7 @@ function ManajemenModulContent() {
                                         Jenjang {moduleDetail.level || "SMA"} |
                                         Kelas {moduleDetail.class || "-"}
                                     </p>
-                                    <p className="mt-2 text-[13px] font-semibold text-[#7054dc]">
+                                    <p className="mt-2 text-[13px] font-semibold text-[#f39b39]">
                                         Siswa Terdaftar:{" "}
                                         {enrolledStudents.length}
                                     </p>
@@ -415,13 +426,13 @@ function ManajemenModulContent() {
                                         <span>Siswa</span>
                                         <span>Progres</span>
                                         <span className="text-center">
-                                            Pre-Test
+                                            Pre-Test{isCTModule && ' (CT)'}
                                         </span>
                                         <span className="text-center">
-                                            Post-Test
+                                            Post-Test{isCTModule && ' (CT)'}
                                         </span>
                                         <span className="text-center">
-                                            Rata-rata Kuis
+                                            Rata-rata Kuis{isCTModule && ' (CT)'}
                                         </span>
                                         <span className="text-center">
                                             Rekomendasi
@@ -519,51 +530,15 @@ function ManajemenModulContent() {
 
                             {/* Student list pagination */}
                             {!isLoadingStudents && totalStudentPages > 1 && (
-                                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[#818694]">
-                                    <button
-                                        type="button"
-                                        disabled={studentPage === 1}
-                                        onClick={() =>
-                                            setStudentPage((p) =>
-                                                Math.max(1, p - 1),
-                                            )
-                                        }
-                                        className={`inline-flex items-center gap-1 rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
-                                            studentPage > 1
-                                                ? "border-[#7557ea] text-[#7557ea] hover:bg-[#f0ebff]"
-                                                : "border-[#d4d7e2] text-[#c6c8d0] cursor-not-allowed"
-                                        }`}
-                                    >
-                                        <MdKeyboardArrowLeft size={14} />
-                                        Sebelumnya
-                                    </button>
-                                    <span className="mx-3 text-xs font-semibold text-[#4d5260]">
-                                        Halaman {studentPage} dari{" "}
-                                        {totalStudentPages}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        disabled={
-                                            studentPage === totalStudentPages
-                                        }
-                                        onClick={() =>
-                                            setStudentPage((p) =>
-                                                Math.min(
-                                                    totalStudentPages,
-                                                    p + 1,
-                                                ),
-                                            )
-                                        }
-                                        className={`inline-flex items-center gap-1 rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
-                                            studentPage < totalStudentPages
-                                                ? "border-[#7557ea] text-[#7557ea] hover:bg-[#f0ebff]"
-                                                : "border-[#d4d7e2] text-[#c6c8d0] cursor-not-allowed"
-                                        }`}
-                                    >
-                                        Selanjutnya
-                                        <MdKeyboardArrowRight size={14} />
-                                    </button>
-                                </div>
+                                <CursorPagination
+                                    currentPage={studentPage}
+                                    totalPages={totalStudentPages}
+                                    hasNext={studentPage < totalStudentPages}
+                                    hasPrev={studentPage > 1}
+                                    onNext={() => setStudentPage((p) => Math.min(totalStudentPages, p + 1))}
+                                    onPrev={() => setStudentPage((p) => Math.max(1, p - 1))}
+                                    onPageClick={(page) => setStudentPage(page)}
+                                />
                             )}
                         </>
                     ) : (
@@ -731,37 +706,13 @@ function ManajemenModulContent() {
                 </div>
 
                 {!isLoadingModules && modules.length > 0 && (
-                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[#818694]">
-                        <button
-                            type="button"
-                            disabled={!hasPrev}
-                            onClick={prevPage}
-                            className={`inline-flex items-center gap-1 rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
-                                hasPrev
-                                    ? "border-[#7557ea] text-[#7557ea] hover:bg-[#f0ebff]"
-                                    : "border-[#d4d7e2] text-[#c6c8d0] cursor-not-allowed"
-                            }`}
-                        >
-                            <MdKeyboardArrowLeft size={14} />
-                            Sebelumnya
-                        </button>
-                        <span className="mx-3 text-xs font-semibold text-[#4d5260]">
-                            Halaman {currentPageNumber}
-                        </span>
-                        <button
-                            type="button"
-                            disabled={!hasNext}
-                            onClick={nextPage}
-                            className={`inline-flex items-center gap-1 rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
-                                hasNext
-                                    ? "border-[#7557ea] text-[#7557ea] hover:bg-[#f0ebff]"
-                                    : "border-[#d4d7e2] text-[#c6c8d0] cursor-not-allowed"
-                            }`}
-                        >
-                            Selanjutnya
-                            <MdKeyboardArrowRight size={14} />
-                        </button>
-                    </div>
+                    <CursorPagination
+                        currentPage={currentPageNumber}
+                        hasNext={hasNext}
+                        hasPrev={hasPrev}
+                        onNext={nextPage}
+                        onPrev={prevPage}
+                    />
                 )}
             </main>
         </div>
