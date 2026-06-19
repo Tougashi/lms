@@ -24,9 +24,8 @@ import {
   adminModulApi,
   adminTopikApi,
   adminMateriApi,
-  guruKuisApi,
-  uploadApi,
-  guruMateriApi,
+  adminKuisApi,
+  uploadApi
 } from "../../../../lib/api";
 import type { GuruTopikWithMateri } from "../../../../lib/types/guru";
 
@@ -149,7 +148,7 @@ function EditModulKontenPageContent() {
     if (!modulId) { setIsLoading(false); return; }
     const loadContent = async () => {
       try {
-        const items = await guruMateriApi.getByModul(modulId);
+        const items = await adminMateriApi.getByModul(modulId);
         setTopiks(items);
         if (items.length > 0) {
           const firstTopik = items[0];
@@ -631,7 +630,7 @@ function EditModulKontenPageContent() {
     setIsSavingQuiz(true);
     showLoading("Membuat kuis...");
     try {
-      const created = await guruKuisApi.create({
+      const created = await adminKuisApi.create({
         quiz: {
           topikId: topicId,
           quizType: false ? "COMPUTATIONAL_THINKING" : "REGULER",
@@ -884,8 +883,8 @@ function EditModulKontenPageContent() {
 
     showLoading("Menghapus kuis...");
     try {
-      if (apiId) await guruKuisApi.delete(apiId);
-      for (const sid of subIds) await guruKuisApi.delete(sid);
+      if (apiId) await adminKuisApi.delete(apiId);
+      for (const sid of subIds) await adminKuisApi.delete(sid);
     } catch (err) {
       console.error("Delete quiz error:", err);
       toast("Gagal menghapus kuis.", "error");
@@ -1034,9 +1033,9 @@ function EditModulKontenPageContent() {
             if (!firstSaved) {
               const apiId = quizApiIds[quizId];
               if (apiId) {
-                await guruKuisApi.update(apiId, payload);
+                await adminKuisApi.update(apiId, payload);
               } else {
-                const created = await guruKuisApi.create({
+                const created = await adminKuisApi.create({
                   quiz: {
                     topikId: topicId!,
                     question: payload.question,
@@ -1053,9 +1052,9 @@ function EditModulKontenPageContent() {
             } else {
               const existingApiId = subQuizApiIds[sq.id];
               if (existingApiId) {
-                await guruKuisApi.update(existingApiId, payload);
+                await adminKuisApi.update(existingApiId, payload);
               } else {
-                const created = await guruKuisApi.create({
+                const created = await adminKuisApi.create({
                   quiz: {
                     topikId: topicId!,
                     question: payload.question,
@@ -1085,7 +1084,7 @@ function EditModulKontenPageContent() {
 
         const apiId = quizApiIds[quizId];
         if (apiId) {
-          await guruKuisApi.update(apiId, {
+          await adminKuisApi.update(apiId, {
             question,
             correctAnswer,
             skor: quiz.scorePerQuestion || 10,
@@ -1101,7 +1100,7 @@ function EditModulKontenPageContent() {
           });
           toast("Kuis berhasil diperbarui.", "success");
         } else {
-          const created = await guruKuisApi.create({
+          const created = await adminKuisApi.create({
             quiz: {
               topikId: topicId!,
               quizType: "REGULER",
@@ -1228,7 +1227,7 @@ function EditModulKontenPageContent() {
     showLoading("Menerbitkan modul...");
     try {
       await adminModulApi.update(modulId, { isDraft: false });
-      router.push("/modul-guru?tab=published");
+      router.push("/admin/manajemen-modul");
     } catch (err: unknown) {
       console.error("Publish error:", err);
       toast(

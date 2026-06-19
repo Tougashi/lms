@@ -8,7 +8,7 @@ import {
 } from 'react-icons/fi';
 import AdminHeader from '../../../../component/admin/AdminHeader';
 import AdminModuleSidebar from '../../../components/AdminModuleSidebar';
-import { adminPretestApi as guruPretestApi, adminPosttestApi as guruPosttestApi, adminModulApi } from '../../../../lib/api';
+import { adminPretestApi, adminPosttestApi, adminModulApi } from '../../../../lib/api';
 import { usePopup } from '../../../../component/ui/PopupProvider';
 
 /* ─── Mini Editor ─── */
@@ -152,7 +152,7 @@ function EditModulPrePostContent() {
         } catch { /* ignore */ }
 
         try {
-          const pretest = await guruPretestApi.getByModul(modulId);
+          const pretest = await adminPretestApi.getByModul(modulId);
           if (pretest?.id) {
             const questions = (pretest.pretestQuestions || [])
               .filter((q: any) => !q.ctGroupId)
@@ -206,7 +206,7 @@ function EditModulPrePostContent() {
         } catch { /* no pretest yet */ }
 
         try {
-          const posttest = await guruPosttestApi.getByModul(modulId);
+          const posttest = await adminPosttestApi.getByModul(modulId);
           if (posttest?.id) {
             const questions = (posttest.soals || []).map((q: any, idx: number) => ({
               id: Date.now() + 5000 + idx, apiSoalId: q.id,
@@ -252,10 +252,10 @@ function EditModulPrePostContent() {
     try {
       let apiId: string | null = null;
       if (newBankType === 'pretest') {
-        const created = await guruPretestApi.create({ modul_id: modulId });
+        const created = await adminPretestApi.create({ modul_id: modulId });
         apiId = created.id;
       } else {
-        const created = await guruPosttestApi.create({ modul_id: modulId });
+        const created = await adminPosttestApi.create({ modul_id: modulId });
         apiId = created.id;
       }
       setBanks((p) => [...p, { id: nid, name, type: newBankType, apiId, questions: [], ctStories: [] }]);
@@ -269,8 +269,8 @@ function EditModulPrePostContent() {
     const bank = banks.find((b) => b.id === id);
     if (bank?.apiId) {
       try {
-        if (bank.type === 'pretest') await guruPretestApi.delete(bank.apiId);
-        else await guruPosttestApi.delete(bank.apiId);
+        if (bank.type === 'pretest') await adminPretestApi.delete(bank.apiId);
+        else await adminPosttestApi.delete(bank.apiId);
       } catch (err: unknown) {
         toast(err instanceof Error ? err.message : 'Gagal menghapus bank soal.', 'error'); return;
       }
@@ -301,8 +301,8 @@ function EditModulPrePostContent() {
     const question = activeBank.questions.find((q) => q.id === qId);
     if (question?.apiSoalId) {
       try {
-        if (activeBank.type === 'pretest') await guruPretestApi.deleteSoal(question.apiSoalId);
-        else await guruPosttestApi.deleteSoal(question.apiSoalId);
+        if (activeBank.type === 'pretest') await adminPretestApi.deleteSoal(question.apiSoalId);
+        else await adminPosttestApi.deleteSoal(question.apiSoalId);
       } catch (err: unknown) {
         toast(err instanceof Error ? err.message : 'Gagal menghapus soal.', 'error'); return;
       }
@@ -317,8 +317,8 @@ function EditModulPrePostContent() {
       for (const sq of story.subQuestions) {
         if (sq.apiSoalId) {
           try {
-            if (activeBank.type === 'pretest') await guruPretestApi.deleteSoal(sq.apiSoalId);
-            else await guruPosttestApi.deleteSoal(sq.apiSoalId);
+            if (activeBank.type === 'pretest') await adminPretestApi.deleteSoal(sq.apiSoalId);
+            else await adminPosttestApi.deleteSoal(sq.apiSoalId);
           } catch { /* ignore */ }
         }
       }
@@ -419,11 +419,11 @@ function EditModulPrePostContent() {
     try {
       const payload = { pertanyaan: question.pertanyaan, pilihan: filledAnswers.map((a) => a.text), jawaban_benar: correctAns.text, skor: question.skor };
       if (question.apiSoalId) {
-        if (activeBank.type === 'pretest') await guruPretestApi.updateSoal(question.apiSoalId, payload);
-        else await guruPosttestApi.updateSoal(question.apiSoalId, payload);
+        if (activeBank.type === 'pretest') await adminPretestApi.updateSoal(question.apiSoalId, payload);
+        else await adminPosttestApi.updateSoal(question.apiSoalId, payload);
       } else {
-        if (activeBank.type === 'pretest') await guruPretestApi.addSoal({ pretest_id: activeBank.apiId, ...payload });
-        else await guruPosttestApi.addSoal({ posttest_id: activeBank.apiId, ...payload });
+        if (activeBank.type === 'pretest') await adminPretestApi.addSoal({ pretest_id: activeBank.apiId, ...payload });
+        else await adminPosttestApi.addSoal({ posttest_id: activeBank.apiId, ...payload });
       }
       setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
         ...b, questions: b.questions.map((q) => q.id === question.id ? { ...q, isExpanded: false } : q),
@@ -464,12 +464,12 @@ function EditModulPrePostContent() {
         }
 
         if (sq.apiSoalId) {
-          if (activeBank.type === 'pretest') await guruPretestApi.updateSoal(sq.apiSoalId, payload);
-          else await guruPosttestApi.updateSoal(sq.apiSoalId, payload);
+          if (activeBank.type === 'pretest') await adminPretestApi.updateSoal(sq.apiSoalId, payload);
+          else await adminPosttestApi.updateSoal(sq.apiSoalId, payload);
         } else {
           let result: any;
-          if (activeBank.type === 'pretest') result = await guruPretestApi.addSoal(payload);
-          else result = await guruPosttestApi.addSoal(payload);
+          if (activeBank.type === 'pretest') result = await adminPretestApi.addSoal(payload);
+          else result = await adminPosttestApi.addSoal(payload);
           if (result?.id) updatedSubIds[sq.id] = result.id;
         }
       }
@@ -494,9 +494,9 @@ function EditModulPrePostContent() {
     setIsSaving(true);
     try {
       if (settingsTargetBank.type === 'pretest') {
-        await guruPretestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil });
+        await adminPretestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil });
       } else {
-        await guruPosttestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration });
+        await adminPosttestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration });
       }
       toast('Pengaturan berhasil disimpan!', 'success');
       setIsSettingsOpen(false); setSettingsTargetBankId(null);
@@ -566,6 +566,24 @@ function EditModulPrePostContent() {
                   <button type="button" onClick={() => { handleDeleteBank(activeBank.id); }} className="ml-auto text-[#7a7e8a] hover:text-red-500"><FiTrash2 size={14} /></button>
                 </div>
               </div>
+
+              {/* CT Mode Toggle — only visible when inside a bank */}
+              {modulId && (
+                <div className="mt-4 flex items-center gap-4 rounded-xl border border-[#e5e3ee] bg-white px-4 py-3">
+                  <div className="flex-1">
+                    <p className="text-[13px] font-semibold text-[#232530]">Mode Computational Thinking</p>
+                    <p className="text-[11px] text-[#7a7e8a]">Aktifkan untuk menambahkan soal CT (Dekomposisi, Pola, Abstraksi, Algoritma)</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isSavingCTMode}
+                    onClick={() => handleToggleCTMode(!isTestComputationalThinking)}
+                    className={`relative h-[28px] w-[52px] shrink-0 rounded-full transition-colors ${isTestComputationalThinking ? 'bg-[#7054dc]' : 'bg-[#d9d7df]'} disabled:opacity-50`}
+                  >
+                    <span className={`absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow transition-all ${isTestComputationalThinking ? 'left-[27px]' : 'left-[3px]'}`} />
+                  </button>
+                </div>
+              )}
 
               {/* Regular questions */}
               <div className="mt-5 space-y-4">
@@ -719,33 +737,7 @@ function EditModulPrePostContent() {
               <h1 className="text-[18px] font-bold text-[#232530]">Pre - Post Test Modul</h1>
               <p className="text-[12px] text-[#7a7e8a]">Buat soal evaluasi awal dan akhir modul</p>
             </div>
-            {/* Fixed: only show settings buttons for banks that actually exist */}
-            {banks.filter(b => b.type === 'pretest').map(pb => (
-              <button key={pb.id} type="button" onClick={() => { setSettingsTargetBankId(pb.id); setIsSettingsOpen(true); }} className="ml-2 text-[#7a7e8a] hover:text-[#7054dc]" title="Pengaturan Pre Test"><FiSettings size={18} /></button>
-            ))}
-            {banks.filter(b => b.type === 'posttest').map(pb => (
-              <button key={pb.id} type="button" onClick={() => { setSettingsTargetBankId(pb.id); setIsSettingsOpen(true); }} className="ml-2 text-[#7a7e8a] hover:text-[#7054dc]" title="Pengaturan Post Test"><FiSettings size={18} /></button>
-            ))}
           </div>
-
-          {/* CT Mode Toggle */}
-          {modulId && (
-            <div className="mt-5 flex items-center gap-4 rounded-xl border border-[#e5e3ee] bg-white px-4 py-3">
-              <div className="flex-1">
-                <p className="text-[13px] font-semibold text-[#232530]">Mode Computational Thinking</p>
-                <p className="text-[11px] text-[#7a7e8a]">Aktifkan untuk menambahkan soal dengan pendekatan CT (Dekomposisi, Pola, Abstraksi, Algoritma)</p>
-              </div>
-              <button
-                type="button"
-                disabled={isSavingCTMode}
-                onClick={() => handleToggleCTMode(!isTestComputationalThinking)}
-                className={`relative h-[28px] w-[52px] shrink-0 rounded-full transition-colors ${isTestComputationalThinking ? 'bg-[#7054dc]' : 'bg-[#d9d7df]'} disabled:opacity-50`}
-              >
-                <span className={`absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow transition-all ${isTestComputationalThinking ? 'left-[27px]' : 'left-[3px]'}`} />
-              </button>
-            </div>
-          )}
-
           {!modulId && <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-700">Simpan profil modul terlebih dahulu untuk membuat bank soal.</div>}
 
           {banks.length > 0 && (

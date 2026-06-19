@@ -1,17 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
-  FiBookOpen,
-  FiCheckSquare,
   FiChevronDown,
-  FiDollarSign,
   FiEdit2,
-  FiFileText,
-  FiLayers,
   FiPlus,
   FiSettings,
   FiTrash2,
@@ -24,9 +18,8 @@ import {
   adminModulApi,
   adminTopikApi,
   adminMateriApi,
-  guruKuisApi,
-  uploadApi,
-  guruMateriApi,
+  adminKuisApi,
+  uploadApi
 } from "../../../lib/api";
 import type { GuruTopikWithMateri } from "../../../lib/types/guru";
 
@@ -149,7 +142,7 @@ function TambahModulKontenPageContent() {
     if (!modulId) { setIsLoading(false); return; }
     const loadContent = async () => {
       try {
-        const items = await guruMateriApi.getByModul(modulId);
+        const items = await adminMateriApi.getByModul(modulId);
         setTopiks(items);
         if (items.length > 0) {
           const firstTopik = items[0];
@@ -631,7 +624,7 @@ function TambahModulKontenPageContent() {
     setIsSavingQuiz(true);
     showLoading("Membuat kuis...");
     try {
-      const created = await guruKuisApi.create({
+      const created = await adminKuisApi.create({
         quiz: {
           topikId: topicId,
           quizType: false ? "COMPUTATIONAL_THINKING" : "REGULER",
@@ -884,8 +877,8 @@ function TambahModulKontenPageContent() {
 
     showLoading("Menghapus kuis...");
     try {
-      if (apiId) await guruKuisApi.delete(apiId);
-      for (const sid of subIds) await guruKuisApi.delete(sid);
+      if (apiId) await adminKuisApi.delete(apiId);
+      for (const sid of subIds) await adminKuisApi.delete(sid);
     } catch (err) {
       console.error("Delete quiz error:", err);
       toast("Gagal menghapus kuis.", "error");
@@ -1034,9 +1027,9 @@ function TambahModulKontenPageContent() {
             if (!firstSaved) {
               const apiId = quizApiIds[quizId];
               if (apiId) {
-                await guruKuisApi.update(apiId, payload);
+                await adminKuisApi.update(apiId, payload);
               } else {
-                const created = await guruKuisApi.create({
+                const created = await adminKuisApi.create({
                   quiz: {
                     topikId: topicId!,
                     question: payload.question,
@@ -1053,9 +1046,9 @@ function TambahModulKontenPageContent() {
             } else {
               const existingApiId = subQuizApiIds[sq.id];
               if (existingApiId) {
-                await guruKuisApi.update(existingApiId, payload);
+                await adminKuisApi.update(existingApiId, payload);
               } else {
-                const created = await guruKuisApi.create({
+                const created = await adminKuisApi.create({
                   quiz: {
                     topikId: topicId!,
                     question: payload.question,
@@ -1085,7 +1078,7 @@ function TambahModulKontenPageContent() {
 
         const apiId = quizApiIds[quizId];
         if (apiId) {
-          await guruKuisApi.update(apiId, {
+          await adminKuisApi.update(apiId, {
             question,
             correctAnswer,
             skor: quiz.scorePerQuestion || 10,
@@ -1101,7 +1094,7 @@ function TambahModulKontenPageContent() {
           });
           toast("Kuis berhasil diperbarui.", "success");
         } else {
-          const created = await guruKuisApi.create({
+          const created = await adminKuisApi.create({
             quiz: {
               topikId: topicId!,
               quizType: "REGULER",
@@ -1228,7 +1221,7 @@ function TambahModulKontenPageContent() {
     showLoading("Menerbitkan modul...");
     try {
       await adminModulApi.update(modulId, { isDraft: false });
-      router.push("/modul-guru?tab=published");
+      router.push("/admin/manajemen-modul");
     } catch (err: unknown) {
       console.error("Publish error:", err);
       toast(

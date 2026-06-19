@@ -1053,7 +1053,7 @@ export const uploadApi = {
         formData.append("type", type);
         formData.append("fileType", type);
 
-        const res = await fetch(`${BACKEND_URL}/upload`, {
+        const res = await fetch(`/api/upload`, {
             method: "POST",
             body: formData,
             credentials: "include",
@@ -1274,14 +1274,7 @@ export const adminTopikApi = {
 
 export const adminMateriApi = {
     getByModul(modulId: string) {
-        return apiFetch<any[]>(`/admin/materi/${modulId}`).then((items) =>
-            items.map((item) => ({
-                ...item,
-                title: item.judul || item.title,
-                topikId: item.topik_id || item.topikId,
-                modulId: item.modul_id || item.modulId,
-            }))
-        );
+        return apiFetch<import('./types/guru').GuruTopikWithMateri[]>(`/admin/materi/${modulId}`);
     },
 
     create(payload: AdminMateriCreatePayload) {
