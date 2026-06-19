@@ -44,7 +44,7 @@ function TambahModulKontenPageContent() {
   const isAuthorized = true;
   const searchParams = useSearchParams();
   const router = useRouter();
-  const modulId = searchParams.get("modulId");
+  const modulId = searchParams.get("id") || searchParams.get("modulId");
   const { toast, confirm, showLoading, hideLoading } = usePopup();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -1263,14 +1263,7 @@ function TambahModulKontenPageContent() {
             <h1 className="text-[18px] font-semibold text-[#232530]">
               Membuat konten modul anda
             </h1>
-            <p className="mt-2 max-w-[620px] text-[12px] leading-[1.6] text-[#7e8290]">
-              Mulailah menyusun kursus Anda dengan membuat bagian, pelajaran,
-              dan aktivitas praktik (kuis, latihan coding, dan tugas). Gunakan
-              garis besar kursus untuk menyusun konten serta melalui bagian dan
-              pelajaran Anda dengan jelas. Jika Anda berniat menawarkan kursus
-              secara gratis, total durasi konten video untuk kursus tidak boleh
-              melebihi 2 jam.
-            </p>
+            
 
             <div className="mt-6">
               <p className="text-[12px] font-semibold text-[#232530]">
