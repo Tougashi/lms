@@ -4,7 +4,7 @@ import AnimateInView from "./AnimateInView";
 
 export default function Hero() {
   return (
-    <section className="mx-auto flex min-h-auto w-full flex-col items-center justify-between bg-[#F1EFFC] px-4  sm:px-7 md:pt-[72px] mt-16">
+    <section className="mx-auto flex min-h-auto w-full flex-col items-center justify-between bg-[#F1EFFC] px-4 sm:px-7 pt-[110px] sm:pt-[130px] md:pt-[150px]">
       <div className="w-full max-w-[790px] text-center">
         <AnimateInView>
           <h1 className="text-2xl font-bold leading-tight tracking-tight text-[#7054dc] sm:text-3xl md:text-5xl uppercase">
