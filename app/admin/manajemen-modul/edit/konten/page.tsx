@@ -145,7 +145,7 @@ function EditModulKontenPageContent() {
 
   // Load existing topics & materials from unified API
   useEffect(() => {
-    if (!modulId) return;
+    if (!modulId) { setIsLoading(false); return; }
     const loadContent = async () => {
       try {
         const items = await adminMateriApi.getByModul(modulId);
@@ -1218,7 +1218,7 @@ function EditModulKontenPageContent() {
 
   // Publish module
   const handlePublish = useCallback(async () => {
-    if (!modulId) return;
+    if (!modulId) { setIsLoading(false); return; }
     const ok2 = await confirm({
       message: "Apakah Anda yakin ingin menerbitkan modul ini?",
       confirmText: "Terbitkan",

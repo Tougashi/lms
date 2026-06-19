@@ -230,7 +230,7 @@ function AdminPrePostPageContent() {
   }, [modulId]);
 
   const handleToggleCTMode = async (enabled: boolean) => {
-    if (!modulId) return;
+    if (!modulId) { setIsLoading(false); return; }
     setIsTestComputationalThinking(enabled);
     setIsSavingCTMode(true);
     try {
