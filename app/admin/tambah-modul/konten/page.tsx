@@ -625,11 +625,7 @@ function TambahModulKontenPageContent() {
     setIsSavingQuiz(true);
     showLoading("Membuat kuis...");
     try {
-<<<<<<< HEAD
       const created = await adminTopikKuisApi.create({
-=======
-      const created = await adminKuisApi.create({
->>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
         quiz: {
           topikId: topicId,
           quizType: false ? "COMPUTATIONAL_THINKING" : "REGULER",
@@ -882,13 +878,8 @@ function TambahModulKontenPageContent() {
 
     showLoading("Menghapus kuis...");
     try {
-<<<<<<< HEAD
       if (apiId) await adminTopikKuisApi.delete(apiId);
       for (const sid of subIds) await adminTopikKuisApi.delete(sid);
-=======
-      if (apiId) await adminKuisApi.delete(apiId);
-      for (const sid of subIds) await adminKuisApi.delete(sid);
->>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
     } catch (err) {
       console.error("Delete quiz error:", err);
       toast("Gagal menghapus kuis.", "error");
