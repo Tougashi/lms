@@ -1028,15 +1028,9 @@ function TambahModulKontenPageContent() {
             if (!firstSaved) {
               const apiId = quizApiIds[quizId];
               if (apiId) {
-<<<<<<< HEAD
                 await adminTopikKuisApi.update(apiId, payload);
               } else {
                 const created = await adminTopikKuisApi.create({
-=======
-                await adminKuisApi.update(apiId, payload);
-              } else {
-                const created = await adminKuisApi.create({
->>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
                   quiz: {
                     topikId: topicId!,
                     question: payload.question,
@@ -1053,15 +1047,9 @@ function TambahModulKontenPageContent() {
             } else {
               const existingApiId = subQuizApiIds[sq.id];
               if (existingApiId) {
-<<<<<<< HEAD
                 await adminTopikKuisApi.update(existingApiId, payload);
               } else {
                 const created = await adminTopikKuisApi.create({
-=======
-                await adminKuisApi.update(existingApiId, payload);
-              } else {
-                const created = await adminKuisApi.create({
->>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
                   quiz: {
                     topikId: topicId!,
                     question: payload.question,
@@ -1091,11 +1079,7 @@ function TambahModulKontenPageContent() {
 
         const apiId = quizApiIds[quizId];
         if (apiId) {
-<<<<<<< HEAD
           await adminTopikKuisApi.update(apiId, {
-=======
-          await adminKuisApi.update(apiId, {
->>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
             question,
             correctAnswer,
             skor: quiz.scorePerQuestion || 10,
@@ -1111,11 +1095,7 @@ function TambahModulKontenPageContent() {
           });
           toast("Kuis berhasil diperbarui.", "success");
         } else {
-<<<<<<< HEAD
           const created = await adminTopikKuisApi.create({
-=======
-          const created = await adminKuisApi.create({
->>>>>>> ee58d62b498ff41d467f5f8d2d597935cee4c41f
             quiz: {
               topikId: topicId!,
               quizType: "REGULER",
