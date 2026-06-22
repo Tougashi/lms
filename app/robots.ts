@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://lms-express-api-o5uk.vercel.app';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://lms-woad-ten.vercel.app';
 
 export default function robots(): MetadataRoute.Robots {
   return {
