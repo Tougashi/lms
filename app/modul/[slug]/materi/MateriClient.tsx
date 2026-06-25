@@ -1340,7 +1340,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                     item.type === "quiz" ||
                                                     item.type === "quiz-ct";
 
-                                                return (
+                                                return isQuizItem ? (
                                                     <button
                                                         key={item.id}
                                                         type="button"
@@ -1359,50 +1359,35 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             setIsModuleSidebarOpen(
                                                                 false,
                                                             );
-                                                            if (isQuizItem) {
-                                                                setAssessmentType(
-                                                                    "kuis",
-                                                                );
-                                                                setActiveQuizItemId(
-                                                                    item.id,
-                                                                );
-                                                                setActiveCtSubIds(
-                                                                    item.ctSubIds ?? [],
-                                                                );
-                                                                setCurrentView(
-                                                                    "pretest-intro",
-                                                                );
-                                                                setIsMaterialMode(
-                                                                    false,
-                                                                );
-                                                                setIsFinalSummaryView(
-                                                                    false,
-                                                                );
-                                                                setActiveQuestionIndex(
-                                                                    0,
-                                                                );
-                                                                setSelectedAnswers(
-                                                                    {},
-                                                                );
-                                                                setWasTimeUp(
-                                                                    false,
-                                                                );
-                                                                setRemainingSeconds(
-                                                                    900,
-                                                                );
-                                                                return;
-                                                            }
+                                                            setAssessmentType(
+                                                                "kuis",
+                                                            );
                                                             setActiveQuizItemId(
-                                                                null,
+                                                                item.id,
+                                                            );
+                                                            setActiveCtSubIds(
+                                                                item.ctSubIds ?? [],
                                                             );
                                                             setCurrentView(
-                                                                "materi",
+                                                                "pretest-intro",
                                                             );
                                                             setIsMaterialMode(
-                                                                true,
+                                                                false,
                                                             );
                                                             setIsFinalSummaryView(
                                                                 false,
+                                                            );
+                                                            setActiveQuestionIndex(
+                                                                0,
+                                                            );
+                                                            setSelectedAnswers(
+                                                                {},
+                                                            );
+                                                            setWasTimeUp(
+                                                                false,
+                                                            );
+                                                            setRemainingSeconds(
+                                                                900,
                                                             );
                                                         }}
                                                         className={`flex w-full items-start border-b border-[#f0eef7] px-3 py-2 text-left text-xs last:border-b-0 ${
@@ -1429,12 +1414,57 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             ) : (
                                                                 <span className="inline-flex h-4 w-4" />
                                                             )}
-                                                            {isQuizItem ? (
-                                                                <PiMedalFill
-                                                                    size={14}
-                                                                    className={`mt-0.5 shrink-0 ${isItemLocked ? "text-[#8f95a3]" : isSelected ? "text-[#7054dc]" : "text-[#37b66a]"}`}
+                                                            <PiMedalFill
+                                                                size={14}
+                                                                className={`mt-0.5 shrink-0 ${isItemLocked ? "text-[#8f95a3]" : isSelected ? "text-[#7054dc]" : "text-[#37b66a]"}`}
+                                                            />
+                                                            <span>
+                                                                <span className="block text-xs font-medium leading-tight">
+                                                                    {item.type === "quiz-ct" ? (
+                                                                        <>
+                                                                            Kuis
+                                                                            CT
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            Kuis
+                                                                            Reguler
+                                                                            -{" "}
+                                                                            {
+                                                                                item.title
+                                                                            }
+                                                                        </>
+                                                                    )}
+                                                                </span>
+                                                            </span>
+                                                        </span>
+                                                    </button>
+                                                ) : (
+                                                    <div
+                                                        key={item.id}
+                                                        className={`flex w-full items-start border-b border-[#f0eef7] px-3 py-2 text-xs last:border-b-0 ${
+                                                            isSelected
+                                                                ? "bg-[#efe9ff] text-[#7054dc]"
+                                                                : "text-[#202126]"
+                                                        }`}
+                                                    >
+                                                        <span className="inline-flex items-start gap-2">
+                                                            {isItemCompleted ? (
+                                                                <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#7054dc]">
+                                                                    <FaCheck
+                                                                        size={8}
+                                                                        className="text-white"
+                                                                    />
+                                                                </span>
+                                                            ) : isItemLocked ? (
+                                                                <FaLock
+                                                                    size={10}
+                                                                    className="mt-1.5 text-[#8f95a3]"
                                                                 />
-                                                            ) : item.hasVideo ? (
+                                                            ) : (
+                                                                <span className="inline-flex h-4 w-4" />
+                                                            )}
+                                                            {item.hasVideo ? (
                                                                 <FaPlay
                                                                     size={9}
                                                                     className={`mt-1.5 ${isItemLocked ? "text-[#8f95a3]" : isSelected ? "text-[#7054dc]" : "text-[#f39b39]"}`}
@@ -1447,22 +1477,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             )}
                                                             <span>
                                                                 <span className="block text-xs font-medium leading-tight">
-                                                                    {item.type === "quiz-ct" ? (
-                                                                        <>
-                                                                            Kuis
-                                                                            CT
-                                                                        </>
-                                                                    ) : isQuizItem ? (
-                                                                        <>
-                                                                            Kuis
-                                                                            Reguler
-                                                                            -{" "}
-                                                                            {
-                                                                                item.title
-                                                                            }
-                                                                        </>
-                                                                    ) : item.type ===
-                                                                      "summary" ? (
+                                                                    {item.type === "summary" ? (
                                                                         <>
                                                                             {
                                                                                 item.title
@@ -1490,7 +1505,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                                 </span>
                                                             </span>
                                                         </span>
-                                                    </button>
+                                                    </div>
                                                 );
                                             })}
                                         </div>

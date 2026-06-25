@@ -136,6 +136,7 @@ function TambahModulKontenPageContent() {
   );
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [isModuleCT, setIsModuleCT] = useState(false);
+  const [tempCTMode, setTempCTMode] = useState(false);
 
   const [rangkumans, setRangkumans] = useState<
     { id: number; title: string; konten: string; isExpanded: boolean }[]
@@ -2439,6 +2440,7 @@ function TambahModulKontenPageContent() {
                               type="button"
                               onClick={() => {
                                 setActiveQuizId(quiz.id);
+                                setTempCTMode(quiz.ctMode);
                                 setIsQuizSettingsOpen(true);
                               }}
                               className="cursor-pointer text-[#7a7e8a]"
@@ -3008,6 +3010,36 @@ function TambahModulKontenPageContent() {
 
                 <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
                   <p className="text-[13px] font-semibold text-[#232530]">
+                    Mode Kuis
+                  </p>
+                  <div className="flex items-center gap-1 rounded-lg bg-[#f5f4fb] p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setTempCTMode(false)}
+                      className={`rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                        !tempCTMode
+                          ? "bg-white text-[#232530] shadow-sm"
+                          : "text-[#7a7e8a] hover:text-[#232530]"
+                      }`}
+                    >
+                      Reguler
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTempCTMode(true)}
+                      className={`rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                        tempCTMode
+                          ? "bg-white text-[#232530] shadow-sm"
+                          : "text-[#7a7e8a] hover:text-[#232530]"
+                      }`}
+                    >
+                      CT
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+                  <p className="text-[13px] font-semibold text-[#232530]">
                     Durasi Pengerjaan (Menit)
                   </p>
                   <div className="flex items-center gap-2">
@@ -3071,7 +3103,7 @@ function TambahModulKontenPageContent() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       const dur =
                         parseInt(
                           (
@@ -3096,12 +3128,109 @@ function TambahModulKontenPageContent() {
                             ) as HTMLInputElement
                           )?.value,
                         ) || 0;
-                      handleSaveQuizSettings(quiz.id, {
-                        duration: dur,
-                        minScore: min,
-                        scorePerQuestion: sps,
-                        ctMode: quiz.ctMode,
-                      });
+
+                      const modeChanged = tempCTMode !== quiz.ctMode;
+
+                      if (modeChanged) {
+                        const ok = await confirm({
+                          title: "Ubah Mode Kuis",
+                          message: tempCTMode
+                            ? "Mengubah ke mode CT akan menghapus soal reguler yang sudah ada dan membuat 4 soal CT otomatis. Lanjutkan?"
+                            : "Mengubah ke mode Reguler akan menghapus soal CT yang sudah ada. Lanjutkan?",
+                          confirmText: "Ya, Ubah",
+                        });
+                        if (!ok) return;
+
+                        const apiId = quizApiIds[quiz.id];
+
+                        if (tempCTMode) {
+                          // REGULER → CT
+                          if (apiId) {
+                            await guruKuisApi.update(apiId, {
+                              quizType: "COMPUTATIONAL_THINKING",
+                              answerOptions: [],
+                            });
+                          }
+                          setQuizzes((prev) =>
+                            prev.map((q) =>
+                              q.id === quiz.id
+                                ? {
+                                    ...q,
+                                    duration: dur,
+                                    minScore: min,
+                                    scorePerQuestion: sps,
+                                    ctMode: true,
+                                    questions: [],
+                                    ctStories: [makeCTStory()],
+                                  }
+                                : q,
+                            ),
+                          );
+                        } else {
+                          // CT → REGULER
+                          const subIds = Object.values(subQuizApiIds);
+                          for (const sid of subIds) {
+                            await guruKuisApi.delete(sid);
+                          }
+                          setSubQuizApiIds({});
+                          if (apiId) {
+                            await guruKuisApi.update(apiId, {
+                              quizType: "REGULER",
+                              answerOptions: [
+                                { option: "A" },
+                                { option: "B" },
+                                { option: "C" },
+                              ],
+                            });
+                          }
+                          setQuizzes((prev) =>
+                            prev.map((q) =>
+                              q.id === quiz.id
+                                ? {
+                                    ...q,
+                                    duration: dur,
+                                    minScore: min,
+                                    scorePerQuestion: sps,
+                                    ctMode: false,
+                                    ctStories: [],
+                                    questions: [
+                                      {
+                                        id: Date.now(),
+                                        label: "",
+                                        answers: [
+                                          {
+                                            id: Date.now() + 1,
+                                            text: "",
+                                            isCorrect: false,
+                                          },
+                                          {
+                                            id: Date.now() + 2,
+                                            text: "",
+                                            isCorrect: false,
+                                          },
+                                          {
+                                            id: Date.now() + 3,
+                                            text: "",
+                                            isCorrect: false,
+                                          },
+                                        ],
+                                      },
+                                    ],
+                                  }
+                                : q,
+                            ),
+                          );
+                        }
+                      } else {
+                        handleSaveQuizSettings(quiz.id, {
+                          duration: dur,
+                          minScore: min,
+                          scorePerQuestion: sps,
+                          ctMode: quiz.ctMode,
+                        });
+                      }
+
+                      setIsQuizSettingsOpen(false);
                     }}
                     className="inline-flex h-[32px] items-center justify-center rounded-lg bg-[#7054dc] px-5 text-[12px] font-semibold text-white hover:bg-[#5f46cc]"
                   >
