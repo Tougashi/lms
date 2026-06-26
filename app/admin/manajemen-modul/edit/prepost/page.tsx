@@ -415,8 +415,28 @@ function EditModulPrePostContent() {
     const filledAnswers = question.answers.filter((a) => a.text.trim());
     if (filledAnswers.length < 2) { toast('Minimal 2 pilihan jawaban harus diisi.', 'error'); return; }
 
-    const texts = filledAnswers.map((a) => a.text.trim().toLowerCase());
-    if (new Set(texts).size !== texts.length) { toast('Terdapat opsi jawaban dengan teks yang sama.', 'error'); return; }
+    let duplicateAnsId: number | null = null;
+    const seen = new Set<string>();
+    for (const a of filledAnswers) {
+      const t = a.text.trim().toLowerCase();
+      if (seen.has(t)) {
+        duplicateAnsId = a.id;
+        break;
+      }
+      seen.add(t);
+    }
+
+    if (duplicateAnsId) {
+      toast('Terdapat opsi jawaban dengan teks yang sama.', 'error');
+      setTimeout(() => {
+        const el = document.getElementById(`ans-input-${duplicateAnsId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.focus();
+        }
+      }, 100);
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -446,8 +466,28 @@ function EditModulPrePostContent() {
       const correct = sq.answers.find((a) => a.isCorrect);
       if (!correct?.text.trim()) { toast('Setiap sub-soal harus memiliki jawaban benar.', 'error'); return; }
 
-      const texts = filled.map((a) => a.text.trim().toLowerCase());
-      if (new Set(texts).size !== texts.length) { toast('Terdapat opsi jawaban dengan teks yang sama pada soal CT.', 'error'); return; }
+      let duplicateAnsId: number | null = null;
+      const seen = new Set<string>();
+      for (const a of filled) {
+        const t = a.text.trim().toLowerCase();
+        if (seen.has(t)) {
+          duplicateAnsId = a.id;
+          break;
+        }
+        seen.add(t);
+      }
+
+      if (duplicateAnsId) {
+        toast('Terdapat opsi jawaban dengan teks yang sama pada soal CT.', 'error');
+        setTimeout(() => {
+          const el = document.getElementById(`ans-input-${duplicateAnsId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.focus();
+          }
+        }, 100);
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -617,7 +657,7 @@ function EditModulPrePostContent() {
                               <button type="button" onClick={() => handleToggleCorrect(question.id, ans.id)} className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${ans.isCorrect ? 'border-[#7054dc] bg-[#7054dc]' : 'border-[#d9d7df] bg-white'}`}>
                                 {ans.isCorrect && <span className="h-2 w-2 rounded-full bg-white" />}
                               </button>
-                              <input type="text" value={ans.text} onChange={(e) => handleUpdateAnswerText(question.id, ans.id, e.target.value)} placeholder="Masukkan jawaban" className={`h-[36px] flex-1 rounded-lg border bg-white px-3 text-[12px] outline-none focus:border-[#7054dc] ${ans.isCorrect ? 'border-[#7054dc]' : 'border-[#e5e3ee]'}`} />
+                              <input id={`ans-input-${ans.id}`} type="text" value={ans.text} onChange={(e) => handleUpdateAnswerText(question.id, ans.id, e.target.value)} placeholder="Masukkan jawaban" className={`h-[36px] flex-1 rounded-lg border bg-white px-3 text-[12px] outline-none focus:border-[#7054dc] ${ans.isCorrect ? 'border-[#7054dc]' : 'border-[#e5e3ee]'}`} />
                               <button type="button" onClick={() => handleRemoveAnswer(question.id, ans.id)} className="text-[#7a7e8a] hover:text-red-500"><FiX size={16} /></button>
                             </div>
                           ))}
@@ -675,7 +715,7 @@ function EditModulPrePostContent() {
                                       <button type="button" onClick={() => handleToggleCTCorrect(story.id, sq.id, ans.id)} className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${ans.isCorrect ? 'border-[#7054dc] bg-[#7054dc]' : 'border-[#d9d7df] bg-white'}`}>
                                         {ans.isCorrect && <span className="h-2 w-2 rounded-full bg-white" />}
                                       </button>
-                                      <input type="text" value={ans.text} onChange={(e) => handleUpdateCTAnswer(story.id, sq.id, ans.id, e.target.value)} placeholder="Masukkan jawaban" className={`h-[34px] flex-1 rounded-lg border bg-white px-3 text-[12px] outline-none focus:border-[#7054dc] ${ans.isCorrect ? 'border-[#7054dc]' : 'border-[#e5e3ee]'}`} />
+                                      <input id={`ans-input-${ans.id}`} type="text" value={ans.text} onChange={(e) => handleUpdateCTAnswer(story.id, sq.id, ans.id, e.target.value)} placeholder="Masukkan jawaban" className={`h-[34px] flex-1 rounded-lg border bg-white px-3 text-[12px] outline-none focus:border-[#7054dc] ${ans.isCorrect ? 'border-[#7054dc]' : 'border-[#e5e3ee]'}`} />
                                       <button type="button" onClick={() => handleRemoveCTAnswer(story.id, sq.id, ans.id)} className="text-[#7a7e8a] hover:text-red-500"><FiX size={14} /></button>
                                     </div>
                                   ))}
