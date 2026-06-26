@@ -114,7 +114,7 @@ function makeCTStory(): LocalCTStory {
 function EditModulPrePostContent() {
   const searchParams = useSearchParams();
   const modulId = searchParams.get('id');
-  const { toast } = usePopup();
+  const { toast, confirm } = usePopup();
 
   const [banks, setBanks] = useState<BankSoal[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -208,17 +208,48 @@ function EditModulPrePostContent() {
         try {
           const posttest = await adminPosttestApi.getByModul(modulId);
           if (posttest?.id) {
-            const questions = (posttest.soals || []).map((q: any, idx: number) => ({
-              id: Date.now() + 5000 + idx, apiSoalId: q.id,
-              pertanyaan: q.question, isExpanded: false, skor: q.skor || 10,
-              answers: (q.pilihan || []).map((opt: string, aidx: number) => ({
-                id: Date.now() + 5000 + idx * 100 + aidx, text: opt,
-                isCorrect: opt === q.correctAnswer,
+            const questions = (posttest.soals || [])
+              .filter((q: any) => !q.ctGroupId)
+              .map((q: any, idx: number) => ({
+                id: Date.now() + 5000 + idx, apiSoalId: q.id,
+                pertanyaan: q.question, isExpanded: false, skor: q.skor || 10,
+                answers: (q.pilihan || []).map((opt: string, aidx: number) => ({
+                  id: Date.now() + 5000 + idx * 100 + aidx, text: opt,
+                  isCorrect: opt === q.correctAnswer,
+                })),
+              }));
+            
+            // Group CT questions by ctGroupId
+            const ctGroups: Record<string, any[]> = {};
+            (posttest.soals || [])
+              .filter((q: any) => q.ctGroupId)
+              .forEach((q: any) => {
+                if (!ctGroups[q.ctGroupId]) ctGroups[q.ctGroupId] = [];
+                ctGroups[q.ctGroupId].push(q);
+              });
+            
+            const ctStories: LocalCTStory[] = Object.entries(ctGroups).map(([gid, qs], si) => ({
+              id: Date.now() + 20000 + si,
+              groupId: gid,
+              cerita: qs[0]?.ctStory || '',
+              isExpanded: false,
+              subQuestions: qs.map((q: any, qi: number) => ({
+                id: Date.now() + 20000 + si * 100 + qi,
+                apiSoalId: q.id,
+                ctAspect: (q.ctAspect || CT_ASPECTS[qi % CT_ASPECTS.length]) as CTAspect,
+                label: q.question || `Soal ${q.ctAspect || qi + 1}`,
+                skor: q.skor || 10,
+                answers: (q.pilihan || []).map((opt: string, aidx: number) => ({
+                  id: Date.now() + 20000 + si * 1000 + qi * 10 + aidx,
+                  text: opt,
+                  isCorrect: opt === q.correctAnswer,
+                })),
               })),
             }));
+
             loadedBanks.push({
               id: Date.now() + 9000, name: 'Post Test',
-              type: 'posttest', apiId: posttest.id, questions, ctStories: [],
+              type: 'posttest', apiId: posttest.id, questions, ctStories,
             });
           }
         } catch { /* no posttest yet */ }
@@ -267,6 +298,15 @@ function EditModulPrePostContent() {
 
   const handleDeleteBank = useCallback(async (id: number) => {
     const bank = banks.find((b) => b.id === id);
+    const isConfirmed = await confirm({
+      title: 'Hapus Bank Soal',
+      message: `Apakah Anda yakin ingin menghapus bank soal "${bank?.name || 'ini'}"? Semua soal di dalamnya akan ikut terhapus secara permanen.`,
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      variant: 'danger',
+    });
+    if (!isConfirmed) return;
+
     if (bank?.apiId) {
       try {
         if (bank.type === 'pretest') await adminPretestApi.delete(bank.apiId);
@@ -298,6 +338,15 @@ function EditModulPrePostContent() {
 
   const handleDeleteQuestion = useCallback(async (qId: number) => {
     if (!activeBank) return;
+    const isConfirmed = await confirm({
+      title: 'Hapus Soal',
+      message: 'Apakah Anda yakin ingin menghapus soal ini?',
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      variant: 'danger',
+    });
+    if (!isConfirmed) return;
+
     const question = activeBank.questions.find((q) => q.id === qId);
     if (question?.apiSoalId) {
       try {
@@ -312,6 +361,15 @@ function EditModulPrePostContent() {
 
   const handleDeleteCTStory = useCallback(async (storyId: number) => {
     if (!activeBank) return;
+    const isConfirmed = await confirm({
+      title: 'Hapus Soal CT',
+      message: 'Apakah Anda yakin ingin menghapus soal CT ini beserta semua sub-soalnya?',
+      confirmText: 'Hapus',
+      cancelText: 'Batal',
+      variant: 'danger',
+    });
+    if (!isConfirmed) return;
+
     const story = activeBank.ctStories.find((s) => s.id === storyId);
     if (story) {
       for (const sq of story.subQuestions) {
@@ -495,7 +553,7 @@ function EditModulPrePostContent() {
       const updatedSubIds: Record<number, string> = {};
       for (const sq of story.subQuestions) {
         const payload: any = {
-          pertanyaan: story.cerita,
+          pertanyaan: sq.label,
           pilihan: sq.answers.filter((a) => a.text.trim()).map((a) => a.text),
           jawaban_benar: sq.answers.find((a) => a.isCorrect)?.text || '',
           skor: sq.skor,

@@ -459,9 +459,10 @@ function EditModulKontenPageContent() {
     };
 
     const handleDeleteMaterial = async (materialId: number) => {
+        const material = materials.find((m) => m.id === materialId);
         const isConfirmed = await confirm({
             title: "Hapus Materi",
-            message: "Apakah Anda yakin ingin menghapus materi ini?",
+            message: `Apakah Anda yakin ingin menghapus materi "${material?.title || 'ini'}"?`,
             confirmText: "Hapus",
             cancelText: "Batal",
             variant: "danger",
@@ -1123,9 +1124,10 @@ function EditModulKontenPageContent() {
     };
 
     const handleDeleteQuiz = async (quizId: number) => {
+        const quiz = quizzes.find((q) => q.id === quizId);
         const isConfirmed = await confirm({
             title: "Hapus Kuis",
-            message: "Apakah Anda yakin ingin menghapus kuis ini?",
+            message: `Apakah Anda yakin ingin menghapus kuis "${quiz?.title || 'ini'}" beserta semua soalnya?`,
             confirmText: "Hapus",
             cancelText: "Batal",
             variant: "danger",
@@ -1133,7 +1135,6 @@ function EditModulKontenPageContent() {
         if (!isConfirmed) return;
 
         const apiId = quizApiIds[quizId];
-        const quiz = quizzes.find((q) => q.id === quizId);
         const subIds =
             quiz?.ctStories.flatMap((s) =>
                 s.subQuestions
@@ -1567,14 +1568,15 @@ function EditModulKontenPageContent() {
         async (id?: string) => {
             const targetId = id || topicId;
             if (!targetId) return;
-            const ok = await confirm({
+            const topic = topiks.find((t) => t.id === targetId);
+            const isConfirmed = await confirm({
                 title: "Hapus Topik",
-                message: "Apakah Anda yakin ingin menghapus topik ini?",
+                message: `Apakah Anda yakin ingin menghapus topik "${topic?.nama || 'ini'}"? Semua materi dan quiz di dalamnya akan ikut terhapus.`,
                 confirmText: "Hapus",
                 cancelText: "Batal",
                 variant: "danger",
             });
-            if (!ok) return;
+            if (!isConfirmed) return;
             showLoading("Menghapus topik...");
             try {
                 await adminTopikApi.delete(targetId);
@@ -1597,7 +1599,7 @@ function EditModulKontenPageContent() {
                 hideLoading();
             }
         },
-        [topicId],
+        [topicId, topiks, confirm, toast, showLoading, hideLoading],
     );
 
     // Publish module
