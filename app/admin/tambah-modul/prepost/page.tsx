@@ -114,7 +114,7 @@ function makeCTStory(): LocalCTStory {
 function AdminPrePostPageContent() {
   const searchParams = useSearchParams();
   const modulId = searchParams.get('id');
-  const { toast } = usePopup();
+  const { toast, confirm } = usePopup();
 
   const [banks, setBanks] = useState<BankSoal[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -220,6 +220,11 @@ function AdminPrePostPageContent() {
               id: Date.now() + 9000, name: 'Post Test',
               type: 'posttest', apiId: posttest.id, questions, ctStories: [],
             });
+            const ptSettings = posttest.posttestSettings;
+            if (ptSettings?.length) {
+              setSettingsDuration(ptSettings[0].duration ?? 90);
+              setSettingsSoalTampil(ptSettings[0].countShownQuestions ?? 30);
+            }
           }
         } catch { /* no posttest yet */ }
 
@@ -231,9 +236,85 @@ function AdminPrePostPageContent() {
 
   const handleToggleCTMode = async (enabled: boolean) => {
     if (!modulId) { setIsLoading(false); return; }
+
+    if (!activeBank) {
+      setIsTestComputationalThinking(enabled);
+      setIsSavingCTMode(true);
+      try {
+        await adminModulApi.update(modulId, { isTestComputationalThinking: enabled } as any);
+        toast(`Mode Computational Thinking ${enabled ? 'diaktifkan' : 'dinonaktifkan'}.`, 'success');
+      } catch {
+        toast('Gagal menyimpan pengaturan CT.', 'error');
+        setIsTestComputationalThinking(!enabled);
+      } finally {
+        setIsSavingCTMode(false);
+      }
+      return;
+    }
+
+    const hasQuestions = activeBank.questions.length > 0 || activeBank.ctStories.length > 0;
+    if (hasQuestions) {
+      const ok = await confirm({
+        title: 'Ubah Mode Test',
+        message: enabled
+          ? 'Mengubah ke mode CT akan menghapus soal reguler yang sudah ada dan membuat 4 soal CT otomatis. Lanjutkan?'
+          : 'Mengubah ke mode Reguler akan menghapus soal CT yang sudah ada. Lanjutkan?',
+        confirmText: 'Ya, Ubah',
+        variant: 'danger',
+      });
+      if (!ok) return;
+    }
+
     setIsTestComputationalThinking(enabled);
     setIsSavingCTMode(true);
     try {
+      if (activeBank.apiId) {
+        if (enabled) {
+          if (activeBank.type === 'pretest') {
+            await adminPretestApi.deleteAllQuestions(activeBank.apiId);
+          } else {
+            await adminPosttestApi.deleteAllQuestions(activeBank.apiId);
+          }
+          setBanks((p) =>
+            p.map((b) =>
+              b.id !== activeBank.id
+                ? b
+                : { ...b, questions: [], ctStories: [makeCTStory()] },
+            ),
+          );
+        } else {
+          if (activeBank.type === 'pretest') {
+            await adminPretestApi.deleteAllQuestions(activeBank.apiId);
+          } else {
+            await adminPosttestApi.deleteAllQuestions(activeBank.apiId);
+          }
+          setBanks((p) =>
+            p.map((b) =>
+              b.id !== activeBank.id
+                ? b
+                : {
+                    ...b,
+                    ctStories: [],
+                    questions: [
+                      {
+                        id: Date.now(),
+                        apiSoalId: null,
+                        pertanyaan: '',
+                        isExpanded: true,
+                        skor: 10,
+                        answers: [
+                          { id: Date.now() + 10, text: '', isCorrect: false },
+                          { id: Date.now() + 11, text: '', isCorrect: false },
+                          { id: Date.now() + 12, text: '', isCorrect: false },
+                        ],
+                      },
+                    ],
+                  },
+            ),
+          );
+        }
+      }
+
       await adminModulApi.update(modulId, { isTestComputationalThinking: enabled } as any);
       toast(`Mode Computational Thinking ${enabled ? 'diaktifkan' : 'dinonaktifkan'}.`, 'success');
     } catch {
@@ -496,7 +577,7 @@ function AdminPrePostPageContent() {
       if (settingsTargetBank.type === 'pretest') {
         await adminPretestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil });
       } else {
-        await adminPosttestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration });
+        await adminPosttestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil });
       }
       toast('Pengaturan berhasil disimpan!', 'success');
       setIsSettingsOpen(false); setSettingsTargetBankId(null);
@@ -516,12 +597,10 @@ function AdminPrePostPageContent() {
           <div><p className="text-[13px] font-semibold text-[#232530]">Durasi Pengerjaan (Menit)</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Batas waktu siswa untuk menyelesaikan</p></div>
           <div className="flex items-center gap-2"><input type="number" value={settingsDuration} onChange={(e) => setSettingsDuration(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] outline-none" /><span className="text-[12px] text-[#7a7e8a]">Menit</span></div>
         </div>
-        {settingsTargetBank?.type === 'pretest' && (
         <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
           <div><p className="text-[13px] font-semibold text-[#232530]">Jumlah Soal Tampil</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Jumlah soal acak dari bank soal</p></div>
           <div className="flex items-center gap-2"><input type="number" value={settingsSoalTampil} onChange={(e) => setSettingsSoalTampil(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] outline-none" /><span className="text-[12px] text-[#7a7e8a]">Soal</span></div>
         </div>
-        )}
         <div className="mt-5 flex items-center justify-end gap-3">
           <button type="button" onClick={() => setIsSettingsOpen(false)} className="text-[12px] font-semibold text-[#7a7e8a]">Batal</button>
           <button type="button" onClick={handleSaveSettings} disabled={isSaving} className="inline-flex h-[32px] items-center justify-center rounded-lg bg-[#7054dc] px-5 text-[12px] font-semibold text-white hover:bg-[#5f46cc] disabled:opacity-50">{isSaving ? 'Menyimpan...' : 'Simpan'}</button>

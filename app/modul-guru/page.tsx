@@ -258,7 +258,7 @@ function ModulGuruPageContent() {
                                         {openMenuId === modul.id && (
                                             <div className="absolute right-4 top-[56px] w-[170px] overflow-hidden rounded-xl border border-[#eceaf4] bg-white shadow-[0_12px_26px_rgba(14,14,20,0.18)]">
                                                 <Link
-                                                    href={`/modul-guru/tambah/profil?modulId=${modul.id}`}
+                                                    href={`/modul-guru/tambah/konten?modulId=${modul.id}`}
                                                     className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#4b4f5c] hover:bg-[#f6f6fb]"
                                                 >
                                                     <FiEdit2 size={16} />

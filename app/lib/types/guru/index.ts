@@ -280,11 +280,13 @@ export interface GuruPosttestSetting {
     id: string;
     posttestId: string;
     duration: number;
+    countShownQuestions?: number;
     createdAt?: string;
 }
 
 export interface GuruPosttestSettingsPayload {
     duration: number;
+    countShownQuestions?: number;
 }
 
 export interface GuruPosttestItem {

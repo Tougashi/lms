@@ -816,6 +816,11 @@ export const guruPretestApi = {
         });
     },
 
+    deleteAllQuestions(pretestId: string) {
+        return apiFetch<{ message: string }>(`/tutor/pretest/${pretestId}/questions`, {
+            method: "DELETE",
+        });
+    },
     updateSettings(pretestId: string, payload: GuruPretestSettingsPayload) {
         return apiFetch<unknown>(`/tutor/pretest/settings/${pretestId}`, {
             method: "PUT",
@@ -916,6 +921,11 @@ export const guruPosttestApi = {
         });
     },
 
+    deleteAllQuestions(posttestId: string) {
+        return apiFetch<{ message: string }>(`/tutor/posttest/${posttestId}/questions`, {
+            method: "DELETE",
+        });
+    },
     updateSettings(posttestId: string, payload: GuruPosttestSettingsPayload) {
         return apiFetch<unknown>(`/tutor/posttest/settings/${posttestId}`, {
             method: "PUT",
@@ -969,6 +979,11 @@ export const adminPretestApi = {
             method: "DELETE",
         });
     },
+    deleteAllQuestions(pretestId: string) {
+        return apiFetch<{ message: string }>(`/admin/pretest/${pretestId}/questions`, {
+            method: "DELETE",
+        });
+    },
     updateSettings(pretestId: string, payload: GuruPretestSettingsPayload) {
         return apiFetch<unknown>(`/admin/pretest/settings/${pretestId}`, {
             method: "PUT",
@@ -1017,6 +1032,11 @@ export const adminPosttestApi = {
     },
     deleteSoal(soalId: string) {
         return apiFetch<{ message: string }>(`/admin/posttest/soal/${soalId}`, {
+            method: "DELETE",
+        });
+    },
+    deleteAllQuestions(posttestId: string) {
+        return apiFetch<{ message: string }>(`/admin/posttest/${posttestId}/questions`, {
             method: "DELETE",
         });
     },
