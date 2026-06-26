@@ -33,12 +33,15 @@ import type { GuruTopikWithMateri } from "../../../../lib/types/guru";
 import { usePopup } from "../../../../component/ui/PopupProvider";
 import TrixEditor from "../../../../component/ui/TrixEditor";
 
-const getYoutubeThumb = (url: string) => {
+const getYoutubeVideoId = (url: string) => {
     const match = url.match(/(?:v=|be\/)([a-zA-Z0-9_-]{6,})/);
-    if (!match) {
-        return "";
-    }
-    return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
+    return match ? match[1] : null;
+};
+
+const getYoutubeThumb = (url: string) => {
+    const id = getYoutubeVideoId(url);
+    if (!id) return "";
+    return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
 };
 
 // Bug 3: Strip HTML tags (dari TrixEditor) saat simpan/tampilkan
@@ -191,8 +194,8 @@ function EditModulKontenPageContent() {
                                     : "artikel") as "video" | "artikel",
                                 isSaved: true,
                                 isExpanded: false,
-                                videoSource: "link" as const,
-                                linkUrl: item.videoUrl || "",
+                                videoSource: (item.videoUrl && !getYoutubeVideoId(item.videoUrl)) ? ("upload" as const) : ("link" as const),
+                                linkUrl: (item.videoUrl && getYoutubeVideoId(item.videoUrl)) ? item.videoUrl : "",
                                 linkPreviewTitle: "",
                                 linkPreviewThumb: item.videoUrl
                                     ? getYoutubeThumb(item.videoUrl)
@@ -204,7 +207,7 @@ function EditModulKontenPageContent() {
                                 fileSize: "",
                                 uploadProgress: 100,
                                 uploadStatus: "done" as const,
-                                previewUrl: "",
+                                previewUrl: (item.videoUrl && !getYoutubeVideoId(item.videoUrl)) ? item.videoUrl : "",
                                 duration: "00:00",
                                 articleContent: item.article || "",
                             };
@@ -219,51 +222,113 @@ function EditModulKontenPageContent() {
 
                     // Load quizzes from API
                     // Bug 3: Strip HTML dari quiz title
+                    const rawQuizzes = firstTopik.quizzes || [];
+                    const groupedQuizzes: any[] = [];
+                    const ctGroupMap = new Map<string, any[]>();
+                    
+                    for (const q of rawQuizzes) {
+                        if (q.quizType === "COMPUTATIONAL_THINKING" && q.ctGroupId) {
+                            if (!ctGroupMap.has(q.ctGroupId)) {
+                                ctGroupMap.set(q.ctGroupId, []);
+                            }
+                            ctGroupMap.get(q.ctGroupId)!.push(q);
+                        } else {
+                            groupedQuizzes.push({ type: "SINGLE", item: q });
+                        }
+                    }
+                    
+                    for (const [groupId, items] of Array.from(ctGroupMap.entries())) {
+                        groupedQuizzes.push({ type: "GROUP", groupId, items });
+                    }
+
                     const quizIds: Record<number, string> = {};
+                    const subQuizIds: Record<number, string> = {};
                     const baseQuizId = Date.now() + 100000;
-                    const mappedQuizzes = (firstTopik.quizzes || []).map(
-                        (q: any, qIdx: number) => {
-                            const localId = baseQuizId + qIdx * 10;
+                    
+                    const mappedQuizzes = groupedQuizzes.map((g, qIdx) => {
+                        const localId = baseQuizId + qIdx * 10;
+                        if (g.type === "SINGLE") {
+                            const q = g.item;
                             quizIds[localId] = q.id;
                             const rawTitle = stripHtml(q.question || "");
+                            const isCT = q.quizType === "COMPUTATIONAL_THINKING";
+                            
                             return {
                                 id: localId,
-                                title:
-                                    rawTitle.length > 40
-                                        ? rawTitle.substring(0, 40) + "…"
-                                        : rawTitle || "Untitled",
+                                title: rawTitle.length > 40 ? rawTitle.substring(0, 40) + "…" : rawTitle || "Untitled",
                                 isExpanded: false,
-                                ctMode: q.quizType === "COMPUTATIONAL_THINKING",
-                                duration: q.quizSettings?.[0]?.timeLimit
-                                    ? Math.round(
-                                          q.quizSettings[0].timeLimit / 60,
-                                      )
-                                    : 90,
-                                minScore:
-                                    q.quizSettings?.[0]?.minScoreTreshold ?? 0,
-                                scorePerQuestion:
-                                    q.quizSettings?.[0]
-                                        ?.standardScorePerQuestion ?? 10,
-                                questions: [
+                                ctMode: isCT,
+                                duration: q.quizSettings?.[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
+                                minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
+                                scorePerQuestion: q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+                                questions: isCT ? [] : [
                                     {
                                         id: localId + 1,
                                         label: q.question || "",
-                                        answers: (
-                                            q.quizAnswerOptions || []
-                                        ).map((opt: any, oIdx: number) => ({
+                                        answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
                                             id: localId + 10 + oIdx,
                                             text: opt.option,
-                                            isCorrect:
-                                                opt.option === q.correctAnswer,
+                                            isCorrect: opt.option === q.correctAnswer,
                                         })),
                                     },
                                 ],
-                                ctStories: [makeCTStory()],
+                                ctStories: isCT ? [
+                                    {
+                                        id: localId + 2,
+                                        subQuestions: [
+                                            {
+                                                id: localId + 3,
+                                                label: q.question || "",
+                                                ctAspect: q.ctAspect || "Soal CT",
+                                                answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
+                                                    id: localId + 20 + oIdx,
+                                                    text: opt.option,
+                                                    isCorrect: opt.option === q.correctAnswer,
+                                                })),
+                                            }
+                                        ]
+                                    }
+                                ] : [makeCTStory()],
                             };
-                        },
-                    );
+                        } else {
+                            const items = g.items;
+                            const firstItem = items[0];
+                            quizIds[localId] = firstItem.id;
+                            
+                            const ctStory = {
+                                id: localId + 2,
+                                subQuestions: items.map((q: any, i: number) => {
+                                    const subId = localId + 100 + i;
+                                    if (i > 0) subQuizIds[subId] = q.id;
+                                    return {
+                                        id: subId,
+                                        label: q.question || "",
+                                        ctAspect: q.ctAspect || "Soal CT",
+                                        answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
+                                            id: localId + 200 + (i * 10) + oIdx,
+                                            text: opt.option,
+                                            isCorrect: opt.option === q.correctAnswer,
+                                        })),
+                                    };
+                                })
+                            };
+                            
+                            return {
+                                id: localId,
+                                title: "Soal Computational Thinking",
+                                isExpanded: false,
+                                ctMode: true,
+                                duration: firstItem.quizSettings?.[0]?.timeLimit ? Math.round(firstItem.quizSettings[0].timeLimit / 60) : 90,
+                                minScore: firstItem.quizSettings?.[0]?.minScoreTreshold ?? 0,
+                                scorePerQuestion: firstItem.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+                                questions: [],
+                                ctStories: [ctStory],
+                            };
+                        }
+                    });
                     setQuizzes(mappedQuizzes);
                     setQuizApiIds(quizIds);
+                    setSubQuizApiIds(subQuizIds);
                 } else {
                     // Tidak ada topik, pastikan state bersih
                     setMaterials([]);
@@ -369,6 +434,15 @@ function EditModulKontenPageContent() {
     };
 
     const handleDeleteMaterial = async (materialId: number) => {
+        const isConfirmed = await confirm({
+            title: "Hapus Materi",
+            message: "Apakah Anda yakin ingin menghapus materi ini?",
+            confirmText: "Hapus",
+            cancelText: "Batal",
+            variant: "danger",
+        });
+        if (!isConfirmed) return;
+
         const apiId = materialApiIds[materialId];
         if (apiId) {
             setIsDeletingMaterial(materialId);
@@ -688,8 +762,8 @@ function EditModulKontenPageContent() {
                         | "artikel",
                     isSaved: true,
                     isExpanded: false,
-                    videoSource: "link" as const,
-                    linkUrl: item.videoUrl || "",
+                    videoSource: (item.videoUrl && !getYoutubeVideoId(item.videoUrl)) ? ("upload" as const) : ("link" as const),
+                    linkUrl: (item.videoUrl && getYoutubeVideoId(item.videoUrl)) ? item.videoUrl : "",
                     linkPreviewTitle: "",
                     linkPreviewThumb: item.videoUrl
                         ? getYoutubeThumb(item.videoUrl)
@@ -701,7 +775,7 @@ function EditModulKontenPageContent() {
                     fileSize: "",
                     uploadProgress: 100,
                     uploadStatus: "done" as const,
-                    previewUrl: "",
+                    previewUrl: (item.videoUrl && !getYoutubeVideoId(item.videoUrl)) ? item.videoUrl : "",
                     duration: "00:00",
                     articleContent: item.article || "",
                 };
@@ -1023,6 +1097,15 @@ function EditModulKontenPageContent() {
     };
 
     const handleDeleteQuiz = async (quizId: number) => {
+        const isConfirmed = await confirm({
+            title: "Hapus Kuis",
+            message: "Apakah Anda yakin ingin menghapus kuis ini?",
+            confirmText: "Hapus",
+            cancelText: "Batal",
+            variant: "danger",
+        });
+        if (!isConfirmed) return;
+
         const apiId = quizApiIds[quizId];
         const quiz = quizzes.find((q) => q.id === quizId);
         const subIds =
@@ -1172,6 +1255,7 @@ function EditModulKontenPageContent() {
 
                 for (const story of quiz.ctStories) {
                     for (const sq of story.subQuestions) {
+                        const ctGroupId = "ct-" + story.id;
                         const payload = {
                             question: sq.label || "Soal CT",
                             correctAnswer:
@@ -1180,13 +1264,15 @@ function EditModulKontenPageContent() {
                                 "",
                             skor: quiz.scorePerQuestion || 10,
                             quizType: "COMPUTATIONAL_THINKING" as const,
+                            ctGroupId: ctGroupId,
+                            ctAspect: sq.ctAspect || "Soal CT",
                             answerOptions: sq.answers.map((a) => ({
                                 option: a.text,
                             })),
                             setting: {
                                 timeLimit: quiz.duration * 60,
                                 allowMultipleAttempts: false,
-                                isComputationalThinkingEnabled: true,
+                                isComputationalThinkingEnabled: quiz.ctMode,
                                 minScoreTreshold: quiz.minScore,
                                 standardScorePerQuestion: quiz.scorePerQuestion,
                             },
@@ -1204,6 +1290,8 @@ function EditModulKontenPageContent() {
                                         correctAnswer: payload.correctAnswer,
                                         skor: payload.skor,
                                         quizType: "COMPUTATIONAL_THINKING",
+                                        ctGroupId: payload.ctGroupId,
+                                        ctAspect: payload.ctAspect,
                                     },
                                     answerOptions: payload.answerOptions,
                                     setting: payload.setting,
@@ -1229,6 +1317,8 @@ function EditModulKontenPageContent() {
                                         correctAnswer: payload.correctAnswer,
                                         skor: payload.skor,
                                         quizType: "COMPUTATIONAL_THINKING",
+                                        ctGroupId: payload.ctGroupId,
+                                        ctAspect: payload.ctAspect,
                                     },
                                     answerOptions: payload.answerOptions,
                                     setting: payload.setting,
@@ -1264,7 +1354,7 @@ function EditModulKontenPageContent() {
                         setting: {
                             timeLimit: quiz.duration * 60,
                             allowMultipleAttempts: false,
-                            isComputationalThinkingEnabled: false,
+                            isComputationalThinkingEnabled: quiz.ctMode,
                             minScoreTreshold: quiz.minScore,
                             standardScorePerQuestion: quiz.scorePerQuestion,
                         },
@@ -1290,7 +1380,7 @@ function EditModulKontenPageContent() {
                         setting: {
                             timeLimit: quiz.duration * 60,
                             allowMultipleAttempts: false,
-                            isComputationalThinkingEnabled: false,
+                            isComputationalThinkingEnabled: quiz.ctMode,
                             minScoreTreshold: quiz.minScore,
                             standardScorePerQuestion: quiz.scorePerQuestion,
                         },
@@ -1394,9 +1484,11 @@ function EditModulKontenPageContent() {
             const targetId = id || topicId;
             if (!targetId) return;
             const ok = await confirm({
+                title: "Hapus Topik",
                 message: "Apakah Anda yakin ingin menghapus topik ini?",
-                variant: "danger",
                 confirmText: "Hapus",
+                cancelText: "Batal",
+                variant: "danger",
             });
             if (!ok) return;
             showLoading("Menghapus topik...");
@@ -1951,66 +2043,49 @@ function EditModulKontenPageContent() {
                                                                                 {material.type ===
                                                                                 "video" ? (
                                                                                     <>
-                                                                                        <div className="rounded-xl border border-[#ede9ff] bg-white px-3 py-3">
-                                                                                            <div className="flex items-start justify-between gap-3">
-                                                                                                <div className="flex items-start gap-3">
-                                                                                                    {material.videoSource ===
-                                                                                                        "link" &&
-                                                                                                    getYoutubeThumb(
-                                                                                                        material.linkUrl,
-                                                                                                    ) ? (
-                                                                                                        <Image
-                                                                                                            src={getYoutubeThumb(
-                                                                                                                material.linkUrl,
-                                                                                                            )}
-                                                                                                            alt="Preview video"
-                                                                                                            width={
-                                                                                                                78
-                                                                                                            }
-                                                                                                            height={
-                                                                                                                52
-                                                                                                            }
-                                                                                                            className="h-[52px] w-[78px] rounded-md object-cover"
-                                                                                                        />
-                                                                                                    ) : material.previewUrl ? (
-                                                                                                        <video
-                                                                                                            src={
-                                                                                                                material.previewUrl
-                                                                                                            }
-                                                                                                            className="h-[52px] w-[78px] rounded-md object-cover"
-                                                                                                            muted
-                                                                                                        />
-                                                                                                    ) : (
-                                                                                                        <div className="h-[52px] w-[78px] rounded-md bg-[#f1f1fb]" />
-                                                                                                    )}
-                                                                                                    <div>
-                                                                                                        <p className="text-[12px] font-semibold text-[#232530]">
-                                                                                                            {material.videoSource ===
-                                                                                                            "link" ? (
-                                                                                                                <>
-                                                                                                                    {material.linkVideoTitle ||
-                                                                                                                        material.linkPreviewTitle ||
-                                                                                                                        "Video dari tautan"}{" "}
-                                                                                                                    <span className="font-normal text-[#7a7e8a]">
-                                                                                                                        (YouTube)
-                                                                                                                    </span>
-                                                                                                                </>
-                                                                                                            ) : (
-                                                                                                                material.fileName ||
-                                                                                                                "Video berhasil diunggah"
-                                                                                                            )}
-                                                                                                        </p>
-                                                                                                        <p className="mt-1 text-[11px] text-[#7a7e8a]">
-                                                                                                            {material.videoSource ===
-                                                                                                            "link"
-                                                                                                                ? material.linkVideoDuration ||
-                                                                                                                  "04:55"
-                                                                                                                : material.duration}
-                                                                                                            {material.fileSize
-                                                                                                                ? ` (${material.fileSize})`
-                                                                                                                : ""}
-                                                                                                        </p>
-                                                                                                    </div>
+                                                                                        <div className="rounded-xl border border-[#ede9ff] bg-white overflow-hidden mt-2">
+                                                                                            {material.videoSource === "link" && getYoutubeVideoId(material.linkUrl) ? (
+                                                                                                <iframe
+                                                                                                    className="w-full aspect-video"
+                                                                                                    src={`https://www.youtube.com/embed/${getYoutubeVideoId(material.linkUrl)}`}
+                                                                                                    title="YouTube video player"
+                                                                                                    frameBorder="0"
+                                                                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                                                    allowFullScreen
+                                                                                                ></iframe>
+                                                                                            ) : material.previewUrl ? (
+                                                                                                <video
+                                                                                                    src={material.previewUrl}
+                                                                                                    className="w-full aspect-video bg-black object-contain"
+                                                                                                    controls
+                                                                                                />
+                                                                                            ) : (
+                                                                                                <div className="w-full aspect-video bg-[#f1f1fb] flex items-center justify-center">
+                                                                                                    <span className="text-gray-400 text-sm">Preview tidak tersedia</span>
+                                                                                                </div>
+                                                                                            )}
+                                                                                            <div className="px-3 py-3 border-t border-[#ede9ff] flex items-start justify-between gap-3">
+                                                                                                <div>
+                                                                                                    <p className="text-[12px] font-semibold text-[#232530]">
+                                                                                                        {material.videoSource === "link" ? (
+                                                                                                            <>
+                                                                                                                {material.linkVideoTitle || material.linkPreviewTitle || "Video YouTube"}{" "}
+                                                                                                                <span className="font-normal text-[#7a7e8a]">
+                                                                                                                    (YouTube)
+                                                                                                                </span>
+                                                                                                            </>
+                                                                                                        ) : (
+                                                                                                            material.fileName || "Video Materi"
+                                                                                                        )}
+                                                                                                    </p>
+                                                                                                    <p className="mt-1 text-[11px] text-[#7a7e8a]">
+                                                                                                        {material.videoSource === "link"
+                                                                                                            ? material.linkVideoDuration || "-"
+                                                                                                            : material.duration}
+                                                                                                        {material.fileSize
+                                                                                                            ? ` (${material.fileSize})`
+                                                                                                            : ""}
+                                                                                                    </p>
                                                                                                 </div>
                                                                                                 <button
                                                                                                     type="button"
@@ -2310,23 +2385,25 @@ function EditModulKontenPageContent() {
                                                                                                 )}
                                                                                             </div>
                                                                                         ) : (
-                                                                                            <div className="rounded-xl border border-[#ede9ff] bg-white px-3 py-3">
-                                                                                                <div className="flex items-start gap-3">
-                                                                                                    {material.previewUrl ? (
-                                                                                                        <video
-                                                                                                            src={
-                                                                                                                material.previewUrl
-                                                                                                            }
-                                                                                                            className="h-[52px] w-[78px] rounded-md object-cover"
-                                                                                                            muted
-                                                                                                        />
-                                                                                                    ) : (
-                                                                                                        <div className="h-[52px] w-[78px] rounded-md bg-[#f1f1fb]" />
-                                                                                                    )}
+                                                                                            <div className="rounded-xl border border-[#ede9ff] bg-white overflow-hidden mt-2">
+                                                                                                {material.previewUrl ? (
+                                                                                                    <video
+                                                                                                        src={
+                                                                                                            material.previewUrl
+                                                                                                        }
+                                                                                                        className="w-full aspect-video bg-black object-contain"
+                                                                                                        controls
+                                                                                                    />
+                                                                                                ) : (
+                                                                                                    <div className="w-full aspect-video bg-[#f1f1fb] flex items-center justify-center">
+                                                                                                        <span className="text-gray-400 text-sm">Tidak ada preview</span>
+                                                                                                    </div>
+                                                                                                )}
+                                                                                                <div className="px-3 py-3 flex items-start gap-3 border-t border-[#ede9ff]">
                                                                                                     <div className="flex-1">
                                                                                                         <p className="text-[12px] font-semibold text-[#232530]">
                                                                                                             {material.fileName ||
-                                                                                                                "Video berhasil diunggah"}
+                                                                                                                "Video Materi"}
                                                                                                         </p>
                                                                                                         <p className="mt-1 text-[11px] text-[#7a7e8a]">
                                                                                                             {
@@ -2337,7 +2414,7 @@ function EditModulKontenPageContent() {
                                                                                                                 : ""}
                                                                                                         </p>
                                                                                                     </div>
-                                                                                                    <label className="cursor-pointer text-[11px] font-semibold text-[#7054dc]">
+                                                                                                    <label className="cursor-pointer text-[11px] font-semibold text-[#7054dc] mt-1">
                                                                                                         Ganti Video
                                                                                                         <input
                                                                                                             type="file"
@@ -2410,85 +2487,57 @@ function EditModulKontenPageContent() {
                                                                                             placeholder="https://"
                                                                                             className="h-[40px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[12px] text-[#232530] outline-none focus:border-[#7054dc]"
                                                                                         />
-                                                                                        {material.linkUrl.trim()
-                                                                                            .length >
-                                                                                            0 && (
+                                                                                        {material.linkUrl.trim().length > 0 && (
                                                                                             <>
-                                                                                                <div className="mt-3 rounded-xl border border-[#ede9ff] bg-white px-3 py-3">
-                                                                                                    <div className="flex items-start justify-between gap-3">
-                                                                                                        <div className="flex items-start gap-3">
-                                                                                                            {getYoutubeThumb(
-                                                                                                                material.linkUrl,
-                                                                                                            ) ? (
-                                                                                                                <Image
-                                                                                                                    src={getYoutubeThumb(
-                                                                                                                        material.linkUrl,
-                                                                                                                    )}
-                                                                                                                    alt="Preview video"
-                                                                                                                    width={
-                                                                                                                        78
-                                                                                                                    }
-                                                                                                                    height={
-                                                                                                                        52
-                                                                                                                    }
-                                                                                                                    className="h-[52px] w-[78px] rounded-md object-cover"
-                                                                                                                />
-                                                                                                            ) : (
-                                                                                                                <div className="h-[52px] w-[78px] rounded-md bg-[#f1f1fb]" />
-                                                                                                            )}
-                                                                                                            <div>
-                                                                                                                <p className="text-[12px] font-semibold text-[#232530]">
-                                                                                                                    {material.linkPreviewTitle ||
-                                                                                                                        "Satu Kebetulan yang Selamatkan Jutaan Nyawa"}{" "}
-                                                                                                                    <span className="font-normal text-[#7a7e8a]">
-                                                                                                                        (YouTube)
-                                                                                                                    </span>
-                                                                                                                </p>
-                                                                                                                <p className="mt-1 text-[11px] text-[#7a7e8a]">
-                                                                                                                    {material.linkVideoDuration ||
-                                                                                                                        "04:55"}
-                                                                                                                </p>
-                                                                                                            </div>
+                                                                                                <div className="mt-3 rounded-xl border border-[#ede9ff] bg-white overflow-hidden">
+                                                                                                    {getYoutubeVideoId(material.linkUrl) ? (
+                                                                                                        <iframe
+                                                                                                            className="w-full aspect-video"
+                                                                                                            src={`https://www.youtube.com/embed/${getYoutubeVideoId(material.linkUrl)}`}
+                                                                                                            title="YouTube video player"
+                                                                                                            frameBorder="0"
+                                                                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                                                            allowFullScreen
+                                                                                                        ></iframe>
+                                                                                                    ) : (
+                                                                                                        <div className="w-full aspect-video bg-[#f1f1fb] flex items-center justify-center">
+                                                                                                            <span className="text-gray-400 text-sm">Preview tidak tersedia</span>
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                    <div className="px-3 py-3 flex items-start justify-between gap-3 border-t border-[#ede9ff]">
+                                                                                                        <div className="flex-1">
+                                                                                                            <p className="text-[12px] font-semibold text-[#232530]">
+                                                                                                                {material.linkPreviewTitle || "Video YouTube"}{" "}
+                                                                                                                <span className="font-normal text-[#7a7e8a]">(YouTube)</span>
+                                                                                                            </p>
+                                                                                                            <p className="mt-1 text-[11px] text-[#7a7e8a]">
+                                                                                                                {material.linkVideoDuration || "-"}
+                                                                                                            </p>
                                                                                                         </div>
                                                                                                         <button
                                                                                                             type="button"
                                                                                                             onClick={() =>
-                                                                                                                setMaterials(
-                                                                                                                    (
-                                                                                                                        prev,
-                                                                                                                    ) =>
-                                                                                                                        prev.map(
-                                                                                                                            (
-                                                                                                                                item,
-                                                                                                                            ) =>
-                                                                                                                                item.id ===
-                                                                                                                                material.id
-                                                                                                                                    ? {
-                                                                                                                                          ...item,
-                                                                                                                                          linkUrl:
-                                                                                                                                              "",
-                                                                                                                                          linkPreviewTitle:
-                                                                                                                                              "",
-                                                                                                                                          linkVideoTitle:
-                                                                                                                                              "",
-                                                                                                                                          linkVideoDuration:
-                                                                                                                                              "",
-                                                                                                                                      }
-                                                                                                                                    : item,
-                                                                                                                        ),
+                                                                                                                setMaterials((prev) =>
+                                                                                                                    prev.map((item) =>
+                                                                                                                        item.id === material.id
+                                                                                                                            ? {
+                                                                                                                                  ...item,
+                                                                                                                                  linkUrl: "",
+                                                                                                                                  linkPreviewTitle: "",
+                                                                                                                                  linkVideoTitle: "",
+                                                                                                                                  linkVideoDuration: "",
+                                                                                                                              }
+                                                                                                                            : item
+                                                                                                                    )
                                                                                                                 )
                                                                                                             }
                                                                                                             className="whitespace-nowrap text-[11px] font-semibold text-[#7054dc]"
                                                                                                         >
-                                                                                                            Ganti
-                                                                                                            Link
+                                                                                                            Ganti Link
                                                                                                         </button>
                                                                                                     </div>
                                                                                                 </div>
-                                                                                                <p className="mt-2 text-[10px] text-[#3aa65c]">
-                                                                                                    Video
-                                                                                                    ditemukan!
-                                                                                                </p>
+                                                                                                <p className="mt-2 text-[10px] text-[#3aa65c]">Video ditemukan!</p>
                                                                                             </>
                                                                                         )}
                                                                                     </div>
@@ -3540,7 +3589,7 @@ function EditModulKontenPageContent() {
                                     />
                                 </div>
 
-                                <div className="mt-4 flex items-center justify-between pb-2">
+                                <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
                                     <div>
                                         <p className="text-[13px] font-semibold text-[#232530]">
                                             Skor Standar Per Soal
@@ -3558,6 +3607,26 @@ function EditModulKontenPageContent() {
                                         className="h-[32px] w-[70px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
                                         placeholder="0 - 100"
                                     />
+                                </div>
+
+                                <div className="mt-4 flex items-center justify-between pb-2">
+                                    <div className="flex-1 pr-4">
+                                        <p className="text-[13px] font-semibold text-[#232530]">
+                                            Mode Computational Thinking
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-[#7a7e8a]">
+                                            Aktifkan untuk menambahkan soal CT (Dekomposisi, Pola, Abstraksi, Algoritma)
+                                        </p>
+                                    </div>
+                                    <label className="relative inline-flex cursor-pointer items-center">
+                                        <input
+                                            type="checkbox"
+                                            id={`ct-${quiz.id}`}
+                                            defaultChecked={quiz.ctMode}
+                                            className="peer sr-only"
+                                        />
+                                        <div className="peer h-[28px] w-[52px] rounded-full bg-[#d9d7df] after:absolute after:left-[3px] after:top-[3px] after:h-[22px] after:w-[22px] after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-[#7054dc] peer-checked:after:translate-x-[24px]"></div>
+                                    </label>
                                 </div>
 
                                 <div className="mt-5 flex items-center justify-end gap-3">
@@ -3597,11 +3666,17 @@ function EditModulKontenPageContent() {
                                                         ) as HTMLInputElement
                                                     )?.value,
                                                 ) || 0;
+                                            const ct =
+                                                (
+                                                    document.getElementById(
+                                                        `ct-${quiz.id}`,
+                                                    ) as HTMLInputElement
+                                                )?.checked ?? quiz.ctMode;
                                             handleSaveQuizSettings(quiz.id, {
                                                 duration: dur,
                                                 minScore: min,
                                                 scorePerQuestion: sps,
-                                                ctMode: quiz.ctMode,
+                                                ctMode: ct,
                                             });
                                         }}
                                         className="inline-flex h-[32px] items-center justify-center rounded-lg bg-[#7054dc] px-5 text-[12px] font-semibold text-white hover:bg-[#5f46cc]"

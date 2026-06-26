@@ -567,23 +567,6 @@ function EditModulPrePostContent() {
                 </div>
               </div>
 
-              {/* CT Mode Toggle — only visible when inside a bank */}
-              {modulId && (
-                <div className="mt-4 flex items-center gap-4 rounded-xl border border-[#e5e3ee] bg-white px-4 py-3">
-                  <div className="flex-1">
-                    <p className="text-[13px] font-semibold text-[#232530]">Mode Computational Thinking</p>
-                    <p className="text-[11px] text-[#7a7e8a]">Aktifkan untuk menambahkan soal CT (Dekomposisi, Pola, Abstraksi, Algoritma)</p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isSavingCTMode}
-                    onClick={() => handleToggleCTMode(!isTestComputationalThinking)}
-                    className={`relative h-[28px] w-[52px] shrink-0 rounded-full transition-colors ${isTestComputationalThinking ? 'bg-[#7054dc]' : 'bg-[#d9d7df]'} disabled:opacity-50`}
-                  >
-                    <span className={`absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow transition-all ${isTestComputationalThinking ? 'left-[27px]' : 'left-[3px]'}`} />
-                  </button>
-                </div>
-              )}
 
               {/* Regular questions */}
               <div className="mt-5 space-y-4">
@@ -647,7 +630,7 @@ function EditModulPrePostContent() {
               </div>
 
               {/* CT Stories */}
-              {activeBank.ctStories.length > 0 && (
+              {isTestComputationalThinking && activeBank.ctStories.length > 0 && (
                 <div className="mt-5 space-y-4">
                   <p className="text-[12px] font-bold uppercase tracking-wide text-[#7054dc]">Soal Computational Thinking</p>
                   {activeBank.ctStories.map((story, si) => (
@@ -712,9 +695,11 @@ function EditModulPrePostContent() {
                 <button type="button" onClick={handleAddQuestion} className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#f39b39]">
                   Tambah Soal <FiPlus size={14} />
                 </button>
-                <button type="button" onClick={handleAddCTStory} className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#7054dc]">
-                  + Soal CT <FiPlus size={14} />
-                </button>
+                {isTestComputationalThinking && (
+                  <button type="button" onClick={handleAddCTStory} className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#7054dc]">
+                    + Soal CT <FiPlus size={14} />
+                  </button>
+                )}
               </div>
             </div>
             {isSettingsOpen && <SettingsModal />}
@@ -738,6 +723,25 @@ function EditModulPrePostContent() {
               <p className="text-[12px] text-[#7a7e8a]">Buat soal evaluasi awal dan akhir modul</p>
             </div>
           </div>
+
+          {/* Global CT Mode Toggle */}
+          {modulId && (
+            <div className="mt-6 flex items-center gap-4 rounded-xl border border-[#e5e3ee] bg-white px-5 py-4 shadow-sm">
+              <div className="flex-1">
+                <p className="text-[14px] font-bold text-[#7054dc]">Mode Computational Thinking (Global)</p>
+                <p className="text-[12px] text-[#7a7e8a] mt-1">Aktifkan untuk memungkinkan penambahan soal CT (Dekomposisi, Pola, Abstraksi, Algoritma) pada semua bank soal Pre Test dan Post Test.</p>
+              </div>
+              <button
+                type="button"
+                disabled={isSavingCTMode}
+                onClick={() => handleToggleCTMode(!isTestComputationalThinking)}
+                className={`relative h-[32px] w-[56px] shrink-0 rounded-full transition-colors ${isTestComputationalThinking ? 'bg-[#7054dc]' : 'bg-[#d9d7df]'} disabled:opacity-50`}
+              >
+                <span className={`absolute top-[4px] h-[24px] w-[24px] rounded-full bg-white shadow transition-all ${isTestComputationalThinking ? 'left-[28px]' : 'left-[4px]'}`} />
+              </button>
+            </div>
+          )}
+
           {!modulId && <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-700">Simpan profil modul terlebih dahulu untuk membuat bank soal.</div>}
 
           {banks.length > 0 && (

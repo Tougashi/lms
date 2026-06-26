@@ -361,6 +361,9 @@ export interface GuruKuisCreatePayload {
         question: string;
         correctAnswer: string;
         skor?: number;
+        ctGroupId?: string | null;
+        ctStory?: string | null;
+        ctAspect?: string | null;
     };
     answerOptions: { option: string }[];
     setting: {
@@ -379,6 +382,9 @@ export interface GuruKuisUpdatePayload {
     skor?: number;
     quizType?: "REGULER" | "COMPUTATIONAL_THINKING";
     quizImgQuestionUrl?: string | null;
+    ctGroupId?: string | null;
+    ctStory?: string | null;
+    ctAspect?: string | null;
     answerOptions?: { option: string }[];
     setting?: {
         timeLimit?: number | null;
