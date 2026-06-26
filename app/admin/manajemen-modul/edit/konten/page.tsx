@@ -1256,6 +1256,36 @@ function EditModulKontenPageContent() {
                 );
                 return;
             }
+
+            let duplicateAnsId: number | null = null;
+            const hasDuplicate = quiz.ctStories.some((s) =>
+                s.subQuestions.some((sq) => {
+                    const seen = new Set<string>();
+                    for (const a of sq.answers) {
+                        const t = a.text.trim().toLowerCase();
+                        if (seen.has(t)) {
+                            duplicateAnsId = a.id;
+                            return true;
+                        }
+                        seen.add(t);
+                    }
+                    return false;
+                })
+            );
+            if (hasDuplicate && duplicateAnsId) {
+                toast(
+                    "Terdapat opsi jawaban dengan teks yang sama pada soal CT. Pastikan setiap opsi unik.",
+                    "warning"
+                );
+                setTimeout(() => {
+                    const el = document.getElementById(`ans-input-${duplicateAnsId}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.focus();
+                    }
+                }, 100);
+                return;
+            }
         } else {
             const qn = quiz.questions[0];
             if (!qn || !qn.label.trim()) {
@@ -1268,6 +1298,29 @@ function EditModulKontenPageContent() {
             }
             if (!qn.answers.some((a) => a.isCorrect)) {
                 toast("Pilih jawaban yang benar.", "warning");
+                return;
+            }
+
+            let duplicateAnsId: number | null = null;
+            const seen = new Set<string>();
+            for (const a of qn.answers) {
+                const t = a.text.trim().toLowerCase();
+                if (seen.has(t)) {
+                    duplicateAnsId = a.id;
+                    break;
+                }
+                seen.add(t);
+            }
+
+            if (duplicateAnsId) {
+                toast("Terdapat opsi jawaban dengan teks yang sama. Pastikan setiap opsi unik.", "warning");
+                setTimeout(() => {
+                    const el = document.getElementById(`ans-input-${duplicateAnsId}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.focus();
+                    }
+                }, 100);
                 return;
             }
         }
@@ -3122,6 +3175,7 @@ function EditModulKontenPageContent() {
                                                                                                                     )}
                                                                                                                 </button>
                                                                                                                 <input
+                                                                                                                    id={`ans-input-${ans.id}`}
                                                                                                                     type="text"
                                                                                                                     value={
                                                                                                                         ans.text
@@ -3338,6 +3392,7 @@ function EditModulKontenPageContent() {
                                                                                                         )}
                                                                                                     </button>
                                                                                                     <input
+                                                                                                        id={`ans-input-${ans.id}`}
                                                                                                         type="text"
                                                                                                         value={
                                                                                                             ans.text

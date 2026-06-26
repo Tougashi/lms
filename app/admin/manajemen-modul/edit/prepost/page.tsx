@@ -415,6 +415,9 @@ function EditModulPrePostContent() {
     const filledAnswers = question.answers.filter((a) => a.text.trim());
     if (filledAnswers.length < 2) { toast('Minimal 2 pilihan jawaban harus diisi.', 'error'); return; }
 
+    const texts = filledAnswers.map((a) => a.text.trim().toLowerCase());
+    if (new Set(texts).size !== texts.length) { toast('Terdapat opsi jawaban dengan teks yang sama.', 'error'); return; }
+
     setIsSaving(true);
     try {
       const payload = { pertanyaan: question.pertanyaan, pilihan: filledAnswers.map((a) => a.text), jawaban_benar: correctAns.text, skor: question.skor };
@@ -442,6 +445,9 @@ function EditModulPrePostContent() {
       if (filled.length < 2) { toast('Setiap sub-soal minimal 2 pilihan jawaban.', 'error'); return; }
       const correct = sq.answers.find((a) => a.isCorrect);
       if (!correct?.text.trim()) { toast('Setiap sub-soal harus memiliki jawaban benar.', 'error'); return; }
+
+      const texts = filled.map((a) => a.text.trim().toLowerCase());
+      if (new Set(texts).size !== texts.length) { toast('Terdapat opsi jawaban dengan teks yang sama pada soal CT.', 'error'); return; }
     }
 
     setIsSaving(true);
