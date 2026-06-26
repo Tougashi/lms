@@ -182,7 +182,7 @@ function EditModulKontenPageContent() {
                             newMaterialApiIds[localId] = item.id;
                             return {
                                 id: localId,
-                                title: item.title ||
+                                title: item.title || item.judul ||
                                     (item.isVideo
                                         ? `Video ${idx + 1}`
                                         : `Materi ${idx + 1}`),
@@ -405,19 +405,52 @@ function EditModulKontenPageContent() {
         setEditTitle(title);
     };
 
-    const handleSaveEdit = () => {
+    const handleSaveEdit = async () => {
         if (editingMaterialId === null) {
             return;
         }
 
+        const material = materials.find((m) => m.id === editingMaterialId);
+        const apiId = materialApiIds[editingMaterialId];
+        const newTitle = editTitle.trim() || material?.title || "";
+
+        if (apiId) {
+            showLoading("Menyimpan judul materi...");
+            try {
+                const videoUrl =
+                    material?.type === "video"
+                        ? material.videoSource === "link"
+                            ? material.linkUrl
+                            : material.previewUrl
+                        : undefined;
+                
+                await adminMateriApi.update(apiId, {
+                    isVideo: material?.type === "video",
+                    title: newTitle,
+                    videoUrl: videoUrl || undefined,
+                    article: material?.articleContent || undefined,
+                });
+            } catch (err: any) {
+                console.error("Save material title error:", err);
+                toast(
+                    err?.response?.data?.message || err?.message || "Gagal menyimpan judul materi.",
+                    "error",
+                );
+                hideLoading();
+                return;
+            } finally {
+                hideLoading();
+            }
+        }
+
         setMaterials((prev) =>
-            prev.map((material) =>
-                material.id === editingMaterialId
+            prev.map((m) =>
+                m.id === editingMaterialId
                     ? {
-                          ...material,
-                          title: editTitle.trim() || material.title,
+                          ...m,
+                          title: newTitle,
                       }
-                    : material,
+                    : m,
             ),
         );
         setEditingMaterialId(null);
@@ -646,7 +679,7 @@ function EditModulKontenPageContent() {
                 newMaterialApiIds[localId] = item.id;
                 return {
                     id: localId,
-                    title: item.title ||
+                    title: item.title || item.judul ||
                         (item.isVideo
                             ? `Video ${idx + 1}`
                             : `Materi ${idx + 1}`),
@@ -2304,13 +2337,20 @@ function EditModulKontenPageContent() {
                                                                                                                 : ""}
                                                                                                         </p>
                                                                                                     </div>
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        className="text-[11px] font-semibold text-[#7054dc]"
-                                                                                                    >
-                                                                                                        Ganti
-                                                                                                        Video
-                                                                                                    </button>
+                                                                                                    <label className="cursor-pointer text-[11px] font-semibold text-[#7054dc]">
+                                                                                                        Ganti Video
+                                                                                                        <input
+                                                                                                            type="file"
+                                                                                                            accept="video/*"
+                                                                                                            className="hidden"
+                                                                                                            onChange={(event) =>
+                                                                                                                handleFileChange(
+                                                                                                                    material.id,
+                                                                                                                    event.target.files?.[0] ?? null,
+                                                                                                                )
+                                                                                                            }
+                                                                                                        />
+                                                                                                    </label>
                                                                                                 </div>
                                                                                                 {material.showUploadSuccess && (
                                                                                                     <p className="mt-2 text-[10px] text-[#3aa65c]">

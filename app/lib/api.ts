@@ -1102,22 +1102,49 @@ const BACKEND_URL =
 export const uploadApi = {
     async upload(file: File, fileType?: string): Promise<UploadResponse> {
         const type = fileType || "MODULE_IMAGE";
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("type", type);
-        formData.append("fileType", type);
+        
+        try {
+            // 1. Dapatkan signature dari backend
+            const sigRes = await apiFetch<{
+                signature: string;
+                timestamp: number;
+                folder: string;
+                cloudName: string;
+                apiKey: string;
+            }>(`/upload/signature?fileType=${type}`);
 
-        const res = await fetch(`/api/upload`, {
-            method: "POST",
-            body: formData,
-            credentials: "include",
-        });
+            // 2. Siapkan payload untuk Cloudinary
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("api_key", sigRes.apiKey);
+            formData.append("timestamp", String(sigRes.timestamp));
+            formData.append("signature", sigRes.signature);
+            formData.append("folder", sigRes.folder);
 
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new ApiError(err.message ?? "Upload gagal", res.status, err);
+            // Cloudinary auto resource_type route
+            const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${sigRes.cloudName}/auto/upload`;
+
+            // 3. Upload langsung ke Cloudinary
+            const res = await fetch(cloudinaryUrl, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error?.message || "Gagal upload ke Cloudinary");
+            }
+
+            const data = await res.json();
+            
+            return {
+                message: "File berhasil diupload.",
+                url: data.secure_url,
+                fileName: file.name,
+            };
+        } catch (error: any) {
+            throw new ApiError(error.message ?? "Upload gagal", 500, error);
         }
-        return res.json() as Promise<UploadResponse>;
     },
 
     /** Generate Cloudinary signed URL (60 min) for an existing file URL */
