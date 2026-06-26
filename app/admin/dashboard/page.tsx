@@ -479,30 +479,6 @@ export default function BerandaAdminPage() {
                 <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
                     <div className="mt-4 grid gap-5 lg:grid-cols-[1.4fr_0.9fr]">
                         <section>
-                            <div className="mb-3 flex items-center justify-between rounded-2xl border border-[#7054dc] bg-white px-5 py-4">
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-3">
-                                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#7054dc] text-[#7054dc]">
-                                            <FaHistory size={13} />
-                                        </span>
-                                        <p className="font-semibold text-[#202126]">
-                                            Statistik Platform
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-2 pl-1 text-sm text-[#202126]">
-                                        <FaPaperPlane size={11} />
-                                        <span>
-                                            Total Pengguna:{" "}
-                                            {stats?.countAllUsers ?? "-"}
-                                        </span>
-                                    </div>
-                                </div>
-                                <button className="inline-flex items-center gap-1 text-sm font-semibold text-[#f39b39]">
-                                    Detail
-                                    <MdOutlineKeyboardArrowRight size={15} />
-                                </button>
-                            </div>
-
                             <div className="mb-3 grid w-full grid-cols-4 gap-2">
                                 {[
                                     { id: "guru", label: "Guru" },
