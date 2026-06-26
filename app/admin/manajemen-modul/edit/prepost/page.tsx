@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   FiCheckSquare, FiChevronDown, FiEdit2, FiMoreVertical,
-  FiPlus, FiSettings, FiTrash2, FiX,
+  FiPlus, FiSettings, FiTrash2, FiX, FiAlertCircle,
 } from 'react-icons/fi';
 import AdminHeader from '../../../../component/admin/AdminHeader';
 import AdminModuleSidebar from '../../../components/AdminModuleSidebar';
@@ -789,6 +789,35 @@ function EditModulPrePostContent() {
           )}
 
           {!modulId && <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-700">Simpan profil modul terlebih dahulu untuk membuat bank soal.</div>}
+
+          {modulId && (() => {
+            const hasRegularPretest = banks.some(b => b.type === 'pretest' && b.questions.length > 0);
+            const hasRegularPosttest = banks.some(b => b.type === 'posttest' && b.questions.length > 0);
+            const hasCTPretest = banks.some(b => b.type === 'pretest' && b.ctStories.length > 0);
+            const hasCTPosttest = banks.some(b => b.type === 'posttest' && b.ctStories.length > 0);
+
+            const warnings: string[] = [];
+            if (isTestComputationalThinking) {
+              if (!hasCTPretest) warnings.push("Mode CT sedang Aktif: Anda belum memiliki soal Pre Test CT. Harap tambahkan bank soal Pre Test dan isi dengan soal CT.");
+              if (!hasCTPosttest) warnings.push("Mode CT sedang Aktif: Anda belum memiliki soal Post Test CT. Harap tambahkan bank soal Post Test dan isi dengan soal CT.");
+            } else {
+              if (!hasRegularPretest) warnings.push("Mode CT sedang Nonaktif: Anda belum memiliki soal Pre Test Reguler. Harap tambahkan bank soal Pre Test dan isi dengan soal reguler.");
+              if (!hasRegularPosttest) warnings.push("Mode CT sedang Nonaktif: Anda belum memiliki soal Post Test Reguler. Harap tambahkan bank soal Post Test dan isi dengan soal reguler.");
+            }
+
+            if (warnings.length === 0) return null;
+
+            return (
+              <div className="mt-6 flex flex-col gap-3">
+                {warnings.map((w, i) => (
+                  <div key={i} className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-[13px] text-red-600 shadow-sm">
+                    <FiAlertCircle size={20} className="shrink-0" />
+                    <span className="font-medium">{w}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {banks.length > 0 && (
             <div className="mt-6 flex flex-wrap gap-4">
