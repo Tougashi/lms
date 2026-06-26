@@ -25,8 +25,8 @@ import {
   guruMateriApi,
   guruKuisApi,
   guruRangkumanApi,
-  uploadApi,
 } from "../../../lib/api";
+import { uploadToCloudinary } from "../../../lib/cloudinary-upload";
 import type { GuruTopikWithMateri } from "../../../lib/types/guru";
 import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
 import { usePopup } from "../../../component/ui/PopupProvider";
@@ -183,8 +183,8 @@ function TambahModulKontenPageContent() {
                 type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
                 isSaved: true,
                 isExpanded: false,
-                videoSource: "link" as const,
-                linkUrl: item.videoUrl || "",
+                videoSource: item.videoUrl?.includes('res.cloudinary.com') ? "upload" as const : "link" as const,
+                linkUrl: item.videoUrl?.includes('res.cloudinary.com') ? "" : (item.videoUrl || ""),
                 linkPreviewTitle: "",
                 linkPreviewThumb: item.videoUrl
                   ? getYoutubeThumb(item.videoUrl)
@@ -196,7 +196,7 @@ function TambahModulKontenPageContent() {
                 fileSize: "",
                 uploadProgress: 100,
                 uploadStatus: "done" as const,
-                previewUrl: "",
+                previewUrl: item.videoUrl?.includes('res.cloudinary.com') ? (item.videoUrl || "") : "",
                 duration: "00:00",
                 articleContent: item.article || "",
               };
@@ -356,7 +356,11 @@ function TambahModulKontenPageContent() {
     );
 
     try {
-      const res = await uploadApi.upload(file, "MATERI_VIDEO");
+      const { url } = await uploadToCloudinary(file, "MATERI_VIDEO", (pct) => {
+        setMaterials((prev) =>
+          prev.map((m) => (m.id !== materialId ? m : { ...m, uploadProgress: pct })),
+        );
+      });
       setMaterials((prev) =>
         prev.map((material) => {
           if (material.id !== materialId) return material;
@@ -365,7 +369,7 @@ function TambahModulKontenPageContent() {
             ...material,
             uploadProgress: 100,
             uploadStatus: "done",
-            previewUrl: res.url,
+            previewUrl: url,
             showUploadSuccess: true,
           };
         }),
@@ -642,8 +646,8 @@ function TambahModulKontenPageContent() {
         type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
         isSaved: true,
         isExpanded: false,
-        videoSource: "link" as const,
-        linkUrl: item.videoUrl || "",
+        videoSource: item.videoUrl?.includes('res.cloudinary.com') ? "upload" as const : "link" as const,
+        linkUrl: item.videoUrl?.includes('res.cloudinary.com') ? "" : (item.videoUrl || ""),
         linkPreviewTitle: "",
         linkPreviewThumb: item.videoUrl ? getYoutubeThumb(item.videoUrl) : "",
         linkVideoTitle: "",
@@ -653,7 +657,7 @@ function TambahModulKontenPageContent() {
         fileSize: "",
         uploadProgress: 100,
         uploadStatus: "done" as const,
-        previewUrl: "",
+        previewUrl: item.videoUrl?.includes('res.cloudinary.com') ? (item.videoUrl || "") : "",
         duration: "00:00",
         articleContent: item.article || "",
       };
