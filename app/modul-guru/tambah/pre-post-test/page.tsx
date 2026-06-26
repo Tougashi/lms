@@ -16,6 +16,7 @@ import {
     FiX,
 } from "react-icons/fi";
 import GuruHeader from "../../../component/guru/GuruHeader";
+import TrixEditor from "../../../component/ui/TrixEditor";
 import {
     guruModulApi,
     guruPretestApi,
@@ -223,6 +224,11 @@ function PrePostTestPageContent() {
                         const pretestCtStories: LocalCTStory[] = [];
                         let ctIdx = 0;
                         for (const [groupId, group] of pretestCtMap) {
+                            group.sort((a, b) => {
+                                const ia = ctAspectKeys.indexOf(a.ctAspect || "");
+                                const ib = ctAspectKeys.indexOf(b.ctAspect || "");
+                                return (ia >= 0 ? ia : 99) - (ib >= 0 ? ib : 99);
+                            });
                             pretestCtStories.push({
                                 id: Date.now() + 10000 + ctIdx,
                                 groupId,
@@ -231,17 +237,24 @@ function PrePostTestPageContent() {
                                 subQuestions: group.map((q, idx) => ({
                                     id: Date.now() + 20000 + idx,
                                     apiSoalId: q.id,
-                                    label: ctSubLabels[idx] || q.pertanyaan,
+                                    label: q.pertanyaan || ctSubLabels[idx] || `Soal CT ${idx + 1}`,
                                     ctAspect:
                                         q.ctAspect || ctAspectKeys[idx] || "",
-                                    answers: (q.answerOptions || []).map(
-                                        (opt, aidx) => ({
-                                            id: Date.now() + idx * 100 + aidx,
-                                            text: opt.option,
-                                            isCorrect:
-                                                opt.option === q.correctAnswer,
-                                        }),
-                                    ),
+                                    answers: (() => {
+                                        let foundCorrect = false;
+                                        return (q.answerOptions || []).map(
+                                            (opt, aidx) => {
+                                                const isMatch = opt.option === q.correctAnswer;
+                                                const isCorrect = isMatch && !foundCorrect;
+                                                if (isMatch) foundCorrect = true;
+                                                return {
+                                                    id: Date.now() + idx * 100 + aidx,
+                                                    text: opt.option,
+                                                    isCorrect,
+                                                };
+                                            },
+                                        );
+                                    })(),
                                     skor: q.skor || 10,
                                 })),
                             });
@@ -254,13 +267,21 @@ function PrePostTestPageContent() {
                             pertanyaan: q.pertanyaan,
                             isExpanded: false,
                             skor: q.skor || 10,
-                            answers: (q.answerOptions || []).map(
-                                (opt, aidx) => ({
-                                    id: Date.now() + idx * 100 + aidx,
-                                    text: opt.option,
-                                    isCorrect: opt.option === q.correctAnswer,
-                                }),
-                            ),
+                            answers: (() => {
+                                let foundCorrect = false;
+                                return (q.answerOptions || []).map(
+                                    (opt, aidx) => {
+                                        const isMatch = opt.option === q.correctAnswer;
+                                        const isCorrect = isMatch && !foundCorrect;
+                                        if (isMatch) foundCorrect = true;
+                                        return {
+                                            id: Date.now() + idx * 100 + aidx,
+                                            text: opt.option,
+                                            isCorrect,
+                                        };
+                                    },
+                                );
+                            })(),
                         }));
                         loadedBanks.push({
                             id: Date.now(),
@@ -327,6 +348,11 @@ function PrePostTestPageContent() {
                         const posttestCtStories: LocalCTStory[] = [];
                         let ctIdx2 = 0;
                         for (const [groupId, group] of posttestCtMap) {
+                            group.sort((a, b) => {
+                                const ia = ctAspectKeys.indexOf(a.ctAspect || "");
+                                const ib = ctAspectKeys.indexOf(b.ctAspect || "");
+                                return (ia >= 0 ? ia : 99) - (ib >= 0 ? ib : 99);
+                            });
                             posttestCtStories.push({
                                 id: Date.now() + 30000 + ctIdx2,
                                 groupId,
@@ -335,16 +361,24 @@ function PrePostTestPageContent() {
                                 subQuestions: group.map((q, idx) => ({
                                     id: Date.now() + 40000 + idx,
                                     apiSoalId: q.id,
-                                    label: ctSubLabels[idx] || q.question,
+                                    label: q.question || ctSubLabels[idx] || `Soal CT ${idx + 1}`,
                                     ctAspect:
                                         q.ctAspect || ctAspectKeys[idx] || "",
-                                    answers: (q.pilihan || []).map(
-                                        (opt: string, aidx: number) => ({
-                                            id: Date.now() + idx * 100 + aidx,
-                                            text: opt,
-                                            isCorrect: opt === q.correctAnswer,
-                                        }),
-                                    ),
+                                    answers: (() => {
+                                        let foundCorrect = false;
+                                        return (q.pilihan || []).map(
+                                            (opt: string, aidx: number) => {
+                                                const isMatch = opt === q.correctAnswer;
+                                                const isCorrect = isMatch && !foundCorrect;
+                                                if (isMatch) foundCorrect = true;
+                                                return {
+                                                    id: Date.now() + idx * 100 + aidx,
+                                                    text: opt,
+                                                    isCorrect,
+                                                };
+                                            },
+                                        );
+                                    })(),
                                     skor: q.skor || 10,
                                 })),
                             });
@@ -358,17 +392,25 @@ function PrePostTestPageContent() {
                                 pertanyaan: q.question,
                                 isExpanded: false,
                                 skor: q.skor || 10,
-                                answers: (q.pilihan || []).map(
-                                    (opt: string, aidx: number) => ({
-                                        id:
-                                            Date.now() +
-                                            5000 +
-                                            idx * 100 +
-                                            aidx,
-                                        text: opt,
-                                        isCorrect: opt === q.correctAnswer,
-                                    }),
-                                ),
+                                answers: (() => {
+                                    let foundCorrect = false;
+                                    return (q.pilihan || []).map(
+                                        (opt: string, aidx: number) => {
+                                            const isMatch = opt === q.correctAnswer;
+                                            const isCorrect = isMatch && !foundCorrect;
+                                            if (isMatch) foundCorrect = true;
+                                            return {
+                                                id:
+                                                    Date.now() +
+                                                    5000 +
+                                                    idx * 100 +
+                                                    aidx,
+                                                text: opt,
+                                                isCorrect,
+                                            };
+                                        },
+                                    );
+                                })(),
                             }),
                         );
                         loadedBanks.push({
@@ -595,6 +637,11 @@ function PrePostTestPageContent() {
     const handleDeleteQuestion = useCallback(
         async (qId: number) => {
             if (!activeBank) return;
+            const confirmed = await confirm({
+                message: "Apakah Anda yakin ingin menghapus soal ini?",
+            });
+            if (!confirmed) return;
+
             const question = activeBank.questions.find((q) => q.id === qId);
             if (question?.apiSoalId) {
                 showLoading("Menghapus soal...");
@@ -630,7 +677,58 @@ function PrePostTestPageContent() {
                 ),
             );
         },
-        [activeBank, activeBankId],
+        [activeBank, activeBankId, confirm, showLoading, hideLoading, toast],
+    );
+
+    const handleDeleteCTStory = useCallback(
+        async (storyId: number) => {
+            if (!activeBank) return;
+            const confirmed = await confirm({
+                message: "Apakah Anda yakin ingin menghapus soal CT ini beserta sub-soalnya?",
+            });
+            if (!confirmed) return;
+
+            const story = activeBank.ctStories.find((s) => s.id === storyId);
+            if (!story) return;
+
+            const apiSoalIds = story.subQuestions.map(sq => sq.apiSoalId).filter((id): id is string => Boolean(id));
+            
+            if (apiSoalIds.length > 0) {
+                showLoading("Menghapus soal CT...");
+                try {
+                    for (const apiId of apiSoalIds) {
+                        if (activeBank.type === "pretest") {
+                            await guruPretestApi.deleteSoal(apiId);
+                        } else {
+                            await guruPosttestApi.deleteSoal(apiId);
+                        }
+                    }
+                } catch (err: unknown) {
+                    console.error("Delete soal CT error:", err);
+                    toast(
+                        err instanceof Error ? err.message : "Gagal menghapus soal CT.",
+                        "error"
+                    );
+                    hideLoading();
+                    return;
+                }
+                hideLoading();
+            }
+
+            setBanks((p) =>
+                p.map((b) =>
+                    b.id !== activeBankId
+                        ? b
+                        : {
+                              ...b,
+                              ctStories: b.ctStories.filter(
+                                  (s) => s.id !== storyId,
+                              ),
+                          },
+                ),
+            );
+        },
+        [activeBank, activeBankId, confirm, showLoading, hideLoading, toast],
     );
 
     const handleToggleCorrect = (qId: number, aId: number) => {
@@ -892,7 +990,7 @@ function PrePostTestPageContent() {
                         ...(activeBank.type === "pretest"
                             ? { pretest_id: activeBank.apiId }
                             : { posttest_id: activeBank.apiId }),
-                        pertanyaan: story.cerita,
+                        pertanyaan: sq.label || "Soal CT",
                         pilihan: sq.answers
                             .filter((a) => a.text.trim())
                             .map((a) => a.text),
@@ -1675,6 +1773,13 @@ function PrePostTestPageContent() {
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     type="button"
+                                                    onClick={() => handleDeleteCTStory(story.id)}
+                                                    className="inline-flex h-[28px] items-center justify-center rounded-lg border border-[#e04e4e] px-3 text-[11px] font-semibold text-[#e04e4e] hover:bg-[#fff5f5]"
+                                                >
+                                                    Hapus Soal CT
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     onClick={() =>
                                                         handleSaveCTStory(story)
                                                     }
@@ -1730,8 +1835,10 @@ function PrePostTestPageContent() {
                                                     <p className="mb-2 text-[12px] font-semibold text-[#232530]">
                                                         Cerita
                                                     </p>
-                                                    <MiniEditor
+                                                    <TrixEditor
+                                                        id={`ct-story-${story.id}`}
                                                         placeholder="Masukkan cerita untuk soal CT..."
+                                                        minHeight="80px"
                                                         value={story.cerita}
                                                         onChange={(html) =>
                                                             setBanks((p) =>
@@ -1770,8 +1877,33 @@ function PrePostTestPageContent() {
                                                         >
                                                             <p className="mb-2 text-[12px] font-semibold text-[#7054dc]">
                                                                 Soal {sqIdx + 1}
-                                                                : {sq.label}
+                                                                : {sq.label ? sq.label.replace(/<[^>]*>?/gm, '') : ""}
                                                             </p>
+                                                            <div className="mb-3">
+                                                                <TrixEditor
+                                                                    id={`ct-sq-${sq.id}`}
+                                                                    placeholder="Masukkan soal ..."
+                                                                    value={sq.label}
+                                                                    minHeight="80px"
+                                                                    onChange={(html) =>
+                                                                        setBanks((p) =>
+                                                                            p.map((b) =>
+                                                                                b.id !== activeBankId ? b : {
+                                                                                    ...b,
+                                                                                    ctStories: b.ctStories.map((s) =>
+                                                                                        s.id !== story.id ? s : {
+                                                                                            ...s,
+                                                                                            subQuestions: s.subQuestions.map((sq2) =>
+                                                                                                sq2.id !== sq.id ? sq2 : { ...sq2, label: html }
+                                                                                            ),
+                                                                                        }
+                                                                                    ),
+                                                                                }
+                                                                            )
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </div>
                                                             {/* Skor */}
                                                             <div className="mb-3 flex items-center gap-2">
                                                                 <span className="text-[11px] text-[#7a7e8a]">
@@ -2520,7 +2652,7 @@ function PrePostTestPageContent() {
                                                 {bank.type === "pretest"
                                                     ? "Pre Test"
                                                     : "Post Test"}{" "}
-                                                • {bank.questions.length} soal
+                                                • {bank.questions.length + (bank.ctStories ? bank.ctStories.length : 0)} soal
                                             </p>
                                         </div>
                                     </div>

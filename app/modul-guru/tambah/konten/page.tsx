@@ -40,6 +40,28 @@ const getYoutubeThumb = (url: string) => {
   return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
 };
 
+const CT_SUB_LABELS = [
+  "Soal Pemecahan Masalah (Dekomposisi)",
+  "Soal Pengenalan Pola",
+  "Soal Menyaring Informasi Penting (Abstraksi)",
+  "Soal Menyusun Langkah Solusi",
+];
+
+function makeCTStory() {
+  const ts = Date.now();
+  return {
+    id: ts,
+    subQuestions: CT_SUB_LABELS.map((label, i) => ({
+      id: ts + i + 1,
+      label,
+      answers: [
+        { id: ts + i * 10 + 100, text: "", isCorrect: false },
+        { id: ts + i * 10 + 101, text: "", isCorrect: false },
+      ],
+    })),
+  };
+}
+
 function TambahModulKontenPageContent() {
   const { isAuthorized } = useRoleGuard(["tutor"]);
   const searchParams = useSearchParams();
@@ -171,12 +193,10 @@ function TambahModulKontenPageContent() {
           setIsTopicAdded(true);
 
           if (firstTopik.materis.length > 0) {
+            const initApiIds: Record<number, string> = {};
             const loaded = firstTopik.materis.map((item, idx) => {
               const localId = Date.now() + idx;
-              setMaterialApiIds((prev) => ({
-                ...prev,
-                [localId]: item.id,
-              }));
+              initApiIds[localId] = item.id;
               return {
                 id: localId,
         title: item.isVideo ? `Video ${idx + 1}` : `Materi ${idx + 1}`,
@@ -201,6 +221,7 @@ function TambahModulKontenPageContent() {
                 articleContent: item.article || "",
               };
             });
+            setMaterialApiIds((prev) => ({ ...prev, ...initApiIds }));
             setMaterials(loaded);
             if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
           }
@@ -220,6 +241,7 @@ function TambahModulKontenPageContent() {
                 ctGroup.push(rawQuizzes[qi]);
                 qi++;
               }
+              ctGroup.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
               const localId = baseTs + mappedQuizzes.length * 100 + 1000;
               quizIds[localId] = ctGroup[0].id;
               const subQs = ctGroup.map((ctQ, ctIdx) => {
@@ -227,18 +249,26 @@ function TambahModulKontenPageContent() {
                 if (ctIdx > 0) subQuizIds[sqId] = ctQ.id;
                 return {
                   id: sqId,
-                  label: ctQ.question || ctSubLabels[ctIdx] || `Soal CT ${ctIdx + 1}`,
-                  answers: (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
-                    id: baseTs + mappedQuizzes.length * 1000 + ctIdx * 10 + oIdx + 9000,
-                    text: opt.option,
-                    isCorrect: opt.option === ctQ.correctAnswer,
-                  })),
+                  label: ctQ.question || CT_SUB_LABELS[ctIdx] || `Soal CT ${ctIdx + 1}`,
+                  answers: (() => {
+                    let foundCorrect = false;
+                    return (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                      const isMatch = opt.option === ctQ.correctAnswer;
+                      const isCorrect = isMatch && !foundCorrect;
+                      if (isMatch) foundCorrect = true;
+                      return {
+                        id: baseTs + mappedQuizzes.length * 1000 + ctIdx * 10 + oIdx + 9000,
+                        text: opt.option,
+                        isCorrect,
+                      };
+                    });
+                  })(),
                 };
               });
-              while (subQs.length < ctSubLabels.length) {
+              while (subQs.length < CT_SUB_LABELS.length) {
                 const padIdx = subQs.length;
                 const padId = baseTs + mappedQuizzes.length * 1000 + padIdx * 10 + 3000;
-                subQs.push({ id: padId, label: ctSubLabels[padIdx], answers: [
+                subQs.push({ id: padId, label: CT_SUB_LABELS[padIdx], answers: [
                   { id: padId * 2 + 1, text: "", isCorrect: false },
                   { id: padId * 2 + 2, text: "", isCorrect: false },
                 ]});
@@ -265,9 +295,19 @@ function TambahModulKontenPageContent() {
                 minScore: q.quizSettings[0]?.minScoreTreshold ?? 0,
                 scorePerQuestion: q.quizSettings[0]?.standardScorePerQuestion ?? 10,
                 questions: [{ id: localId + 1, label: q.question,
-                  answers: (q.quizAnswerOptions || []).map((opt, oIdx) => ({
-                    id: localId + 10 + oIdx, text: opt.option, isCorrect: opt.option === q.correctAnswer,
-                  })),
+                  answers: (() => {
+                    let foundCorrect = false;
+                    return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                      const isMatch = opt.option === q.correctAnswer;
+                      const isCorrect = isMatch && !foundCorrect;
+                      if (isMatch) foundCorrect = true;
+                      return {
+                        id: localId + 10 + oIdx,
+                        text: opt.option,
+                        isCorrect,
+                      };
+                    });
+                  })(),
                 }],
                 ctStories: [makeCTStory()],
               });
@@ -608,24 +648,8 @@ function TambahModulKontenPageContent() {
     );
   };
 
-  const ctSubLabels = [
-    "Soal Pemecahan Masalah (Dekomposisi)",
-    "Soal Pengenalan Pola",
-    "Soal Menyaring Informasi Penting (Abstraksi)",
-    "Soal Menyusun Langkah Solusi",
-  ];
-
-  const makeCTStory = () => ({
-    id: Date.now(),
-    subQuestions: ctSubLabels.map((label, i) => ({
-      id: Date.now() + i + 1,
-      label,
-      answers: [
-        { id: Date.now() + i * 10 + 100, text: "", isCorrect: false },
-        { id: Date.now() + i * 10 + 101, text: "", isCorrect: false },
-      ],
-    })),
-  });
+  // ctSubLabels and makeCTStory are now defined outside the component
+  // to prevent unnecessary re-creations and useCallback invalidation
 
   const loadTopicData = useCallback((topik: any) => {
     setActiveTopikId(topik.id);
@@ -634,12 +658,11 @@ function TambahModulKontenPageContent() {
     if (!topik.materis) topik.materis = [];
     if (!topik.quizzes) topik.quizzes = [];
 
+    // Batch materialApiIds update — single setState call instead of N calls in a loop
+    const batchApiIds: Record<number, string> = {};
     const loaded = topik.materis.map((item: any, idx: number) => {
       const localId = Date.now() + idx;
-      setMaterialApiIds((prev) => ({
-        ...prev,
-        [localId]: item.id,
-      }));
+      batchApiIds[localId] = item.id;
       return {
         id: localId,
         title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
@@ -662,6 +685,7 @@ function TambahModulKontenPageContent() {
         articleContent: item.article || "",
       };
     });
+    setMaterialApiIds((prev) => ({ ...prev, ...batchApiIds }));
     setMaterials(loaded);
     if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
     else setActiveMaterialId(null);
@@ -681,6 +705,7 @@ function TambahModulKontenPageContent() {
           ctGrp.push(rawTopikQuizzes[tqi]);
           tqi++;
         }
+        ctGrp.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
         const localId = bTs + mappedQuiz.length * 100 + 1000;
         quizIds[localId] = ctGrp[0].id;
         const subQs = ctGrp.map((ctQ: any, ctIdx: number) => {
@@ -688,18 +713,26 @@ function TambahModulKontenPageContent() {
           if (ctIdx > 0) subQIds[sqId] = ctQ.id;
           return {
             id: sqId,
-            label: ctQ.question || ctSubLabels[ctIdx] || `Soal CT ${ctIdx + 1}`,
-            answers: (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
-              id: bTs + mappedQuiz.length * 1000 + ctIdx * 10 + oIdx + 9000,
-              text: opt.option,
-              isCorrect: opt.option === ctQ.correctAnswer,
-            })),
+            label: ctQ.question || CT_SUB_LABELS[ctIdx] || `Soal CT ${ctIdx + 1}`,
+            answers: (() => {
+              let foundCorrect = false;
+              return (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                const isMatch = opt.option === ctQ.correctAnswer;
+                const isCorrect = isMatch && !foundCorrect;
+                if (isMatch) foundCorrect = true;
+                return {
+                  id: bTs + mappedQuiz.length * 1000 + ctIdx * 10 + oIdx + 9000,
+                  text: opt.option,
+                  isCorrect,
+                };
+              });
+            })(),
           };
         });
-        while (subQs.length < ctSubLabels.length) {
+        while (subQs.length < CT_SUB_LABELS.length) {
           const padIdx = subQs.length;
           const padId = bTs + mappedQuiz.length * 1000 + padIdx * 10 + 3000;
-          subQs.push({ id: padId, label: ctSubLabels[padIdx], answers: [
+          subQs.push({ id: padId, label: CT_SUB_LABELS[padIdx], answers: [
             { id: padId * 2 + 1, text: "", isCorrect: false },
             { id: padId * 2 + 2, text: "", isCorrect: false },
           ]});
@@ -726,9 +759,19 @@ function TambahModulKontenPageContent() {
           minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
           scorePerQuestion: q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
           questions: [{ id: localId + 1, label: q.question || "Soal Kuis",
-            answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
-              id: localId + 10 + oIdx, text: opt.option, isCorrect: opt.option === q.correctAnswer,
-            })),
+            answers: (() => {
+              let foundCorrect = false;
+              return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                const isMatch = opt.option === q.correctAnswer;
+                const isCorrect = isMatch && !foundCorrect;
+                if (isMatch) foundCorrect = true;
+                return {
+                  id: localId + 10 + oIdx,
+                  text: opt.option,
+                  isCorrect,
+                };
+              });
+            })(),
           }],
           ctStories: [makeCTStory()],
         });
@@ -747,7 +790,8 @@ function TambahModulKontenPageContent() {
     });
     setRangkumans(mappedRangkumans);
     setRangkumanApiIds((prev) => ({ ...prev, ...rIds }));
-  }, [getYoutubeThumb, makeCTStory]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const switchToTopik = useCallback(async (topik: GuruTopikWithMateri) => {
     if (!modulId) return;
@@ -1077,6 +1121,11 @@ function TambahModulKontenPageContent() {
   };
 
   const handleDeleteQuiz = async (quizId: number) => {
+    const confirmed = await confirm({
+      message: "Apakah Anda yakin ingin menghapus kuis ini?",
+    });
+    if (!confirmed) return;
+
     const apiId = quizApiIds[quizId];
     const quiz = quizzes.find((q) => q.id === quizId);
     const subIds = quiz?.ctStories.flatMap((s) =>
@@ -1100,6 +1149,55 @@ function TambahModulKontenPageContent() {
       return next;
     });
     setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
+  };
+
+  const handleDeleteCTStory = async (quizId: number, storyId: number) => {
+    const confirmed = await confirm({
+      message: "Apakah Anda yakin ingin menghapus soal CT ini beserta sub-soalnya?",
+    });
+    if (!confirmed) return;
+
+    const quiz = quizzes.find((q) => q.id === quizId);
+    const story = quiz?.ctStories.find((s) => s.id === storyId);
+    if (!story) return;
+
+    const subIds = story.subQuestions
+      .map((sq) => subQuizApiIds[sq.id])
+      .filter(Boolean);
+
+    if (subIds.length > 0) {
+      showLoading("Menghapus soal CT...");
+      try {
+        for (const sid of subIds) {
+          await guruKuisApi.delete(sid);
+        }
+      } catch (err) {
+        console.error("Delete CT story error:", err);
+        toast("Gagal menghapus soal CT.", "error");
+        hideLoading();
+        return;
+      }
+      hideLoading();
+      
+      setSubQuizApiIds((prev) => {
+        const next = { ...prev };
+        for (const sq of story.subQuestions) {
+          delete next[sq.id];
+        }
+        return next;
+      });
+    }
+
+    setQuizzes((prev) =>
+      prev.map((q) =>
+        q.id === quizId
+          ? {
+              ...q,
+              ctStories: q.ctStories.filter((s) => s.id !== storyId),
+            }
+          : q,
+      ),
+    );
   };
 
   const handleSelectCorrectAnswer = (
@@ -2519,6 +2617,18 @@ function TambahModulKontenPageContent() {
                               <>
                                 {quiz.ctStories.map((story, sIdx) => (
                                   <div key={story.id} className="mb-6">
+                                    <div className="mb-2 flex items-center justify-between">
+                                      <span className="text-[12px] font-semibold text-[#232530]">Cerita CT {sIdx + 1}</span>
+                                      {quiz.ctStories.length > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteCTStory(quiz.id, story.id)}
+                                          className="text-[11px] font-semibold text-[#e04e4e] hover:underline"
+                                        >
+                                          Hapus Soal CT
+                                        </button>
+                                      )}
+                                    </div>
                                     <TrixEditor id={`quiz-ct-story-${story.id}`} placeholder="Masukkan cerita di sini ..." minHeight="80px" />
                                     {story.subQuestions.map((sq) => (
                                       <div key={sq.id} className="mt-4">
