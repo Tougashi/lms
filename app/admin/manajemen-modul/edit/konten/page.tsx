@@ -123,9 +123,11 @@ function EditModulKontenPageContent() {
             }[];
             ctStories: {
                 id: number;
+                cerita?: string;
                 subQuestions: {
                     id: number;
                     label: string;
+                    ctAspect?: string;
                     answers: { id: number; text: string; isCorrect: boolean }[];
                 }[];
             }[];
@@ -265,11 +267,18 @@ function EditModulKontenPageContent() {
                                     {
                                         id: localId + 1,
                                         label: q.question || "",
-                                        answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
-                                            id: localId + 10 + oIdx,
-                                            text: opt.option,
-                                            isCorrect: opt.option === q.correctAnswer,
-                                        })),
+                                        answers: (() => {
+                                            let foundCorrect = false;
+                                            return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                                                const isMatch = opt.option === q.correctAnswer && !foundCorrect;
+                                                if (isMatch) foundCorrect = true;
+                                                return {
+                                                    id: localId + 10 + oIdx,
+                                                    text: opt.option,
+                                                    isCorrect: isMatch,
+                                                };
+                                            });
+                                        })(),
                                     },
                                 ],
                                 ctStories: isCT ? [
@@ -280,15 +289,23 @@ function EditModulKontenPageContent() {
                                                 id: localId + 3,
                                                 label: q.question || "",
                                                 ctAspect: q.ctAspect || "Soal CT",
-                                                answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
-                                                    id: localId + 20 + oIdx,
-                                                    text: opt.option,
-                                                    isCorrect: opt.option === q.correctAnswer,
-                                                })),
+                                                answers: (() => {
+                                                    let foundCorrect = false;
+                                                    return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                                                        const isMatch = opt.option === q.correctAnswer && !foundCorrect;
+                                                        if (isMatch) foundCorrect = true;
+                                                        return {
+                                                            id: localId + 20 + oIdx,
+                                                            text: opt.option,
+                                                            isMatch: isMatch,
+                                                            isCorrect: isMatch,
+                                                        };
+                                                    });
+                                                })(),
                                             }
                                         ]
                                     }
-                                ] : [makeCTStory()],
+                                ] : [{ ...makeCTStory(), cerita: q.ctStory || "" }],
                             };
                         } else {
                             const items = g.items;
@@ -297,6 +314,7 @@ function EditModulKontenPageContent() {
                             
                             const ctStory = {
                                 id: localId + 2,
+                                cerita: firstItem.ctStory || "",
                                 subQuestions: items.map((q: any, i: number) => {
                                     const subId = localId + 100 + i;
                                     if (i > 0) subQuizIds[subId] = q.id;
@@ -304,11 +322,18 @@ function EditModulKontenPageContent() {
                                         id: subId,
                                         label: q.question || "",
                                         ctAspect: q.ctAspect || "Soal CT",
-                                        answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
-                                            id: localId + 200 + (i * 10) + oIdx,
-                                            text: opt.option,
-                                            isCorrect: opt.option === q.correctAnswer,
-                                        })),
+                                        answers: (() => {
+                                            let foundCorrect = false;
+                                            return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                                                const isMatch = opt.option === q.correctAnswer && !foundCorrect;
+                                                if (isMatch) foundCorrect = true;
+                                                return {
+                                                    id: localId + 200 + (i * 10) + oIdx,
+                                                    text: opt.option,
+                                                    isCorrect: isMatch,
+                                                };
+                                            });
+                                        })(),
                                     };
                                 })
                             };
@@ -719,6 +744,7 @@ function EditModulKontenPageContent() {
 
     const makeCTStory = () => ({
         id: Date.now(),
+        cerita: "",
         subQuestions: ctSubLabels.map((label, i) => ({
             id: Date.now() + i + 1,
             label,
@@ -1265,6 +1291,7 @@ function EditModulKontenPageContent() {
                             skor: quiz.scorePerQuestion || 10,
                             quizType: "COMPUTATIONAL_THINKING" as const,
                             ctGroupId: ctGroupId,
+                            ctStory: story.cerita || "",
                             ctAspect: sq.ctAspect || "Soal CT",
                             answerOptions: sq.answers.map((a) => ({
                                 option: a.text,
@@ -1291,6 +1318,7 @@ function EditModulKontenPageContent() {
                                         skor: payload.skor,
                                         quizType: "COMPUTATIONAL_THINKING",
                                         ctGroupId: payload.ctGroupId,
+                                        ctStory: payload.ctStory,
                                         ctAspect: payload.ctAspect,
                                     },
                                     answerOptions: payload.answerOptions,
@@ -1318,6 +1346,7 @@ function EditModulKontenPageContent() {
                                         skor: payload.skor,
                                         quizType: "COMPUTATIONAL_THINKING",
                                         ctGroupId: payload.ctGroupId,
+                                        ctStory: payload.ctStory,
                                         ctAspect: payload.ctAspect,
                                     },
                                     answerOptions: payload.answerOptions,
@@ -1333,6 +1362,7 @@ function EditModulKontenPageContent() {
                     setSubQuizApiIds((prev) => ({ ...prev, ...newSubIds }));
                 }
                 toast("Kuis CT berhasil disimpan.", "success");
+                setTimeout(() => window.location.reload(), 1500);
             } else {
                 // Bug 3: Strip HTML dari question label saat submit
                 const question = stripHtml(quiz.questions[0]?.label || "Soal Kuis");
@@ -1389,8 +1419,9 @@ function EditModulKontenPageContent() {
                         ...prev,
                         [quizId]: created.id,
                     }));
-                    toast("Kuis berhasil disimpan.", "success");
                 }
+                toast("Kuis berhasil disimpan.", "success");
+                setTimeout(() => window.location.reload(), 1500);
             }
         } catch (err) {
             console.error("Submit quiz error:", err);
@@ -2966,7 +2997,24 @@ function EditModulKontenPageContent() {
                                                                                     <TrixEditor
                                                                                         id={`quiz-ct-story-${story.id}`}
                                                                                         placeholder="Masukkan cerita di sini ..."
+                                                                                        value={story.cerita || ""}
                                                                                         minHeight="80px"
+                                                                                        onChange={(html) =>
+                                                                                            setQuizzes((prev) =>
+                                                                                                prev.map((q) =>
+                                                                                                    q.id !== quiz.id
+                                                                                                        ? q
+                                                                                                        : {
+                                                                                                              ...q,
+                                                                                                              ctStories: q.ctStories.map((s) =>
+                                                                                                                  s.id !== story.id
+                                                                                                                      ? s
+                                                                                                                      : { ...s, cerita: html },
+                                                                                                              ),
+                                                                                                          },
+                                                                                                ),
+                                                                                            )
+                                                                                        }
                                                                                     />
                                                                                     {story.subQuestions.map(
                                                                                         (
