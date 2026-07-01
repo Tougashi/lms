@@ -19,8 +19,8 @@ function StatCard({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex h-[84px] items-center justify-between rounded-xl border border-[#e9e8f0] bg-white px-6 shadow-[0_2px_10px_rgba(24,24,37,0.05)]">
       <div className="flex items-center gap-3">
-        <span className="text-[35px] font-semibold leading-none tracking-[-0.04em] text-[#7557ea]">{value}</span>
-        <span className="pt-0.5 text-[13px] text-[#555866]">{label}</span>
+        <span className="text-[28px] font-semibold leading-[36px] tracking-[-0.04em] text-[#7557ea]">{value}</span>
+        <span className="pt-0.5 text-[12px] leading-[16px] text-[#555866]">{label}</span>
       </div>
       <MdOutlineKeyboardArrowRight size={18} className="text-[#7d808c]" />
     </div>
@@ -37,7 +37,7 @@ function EmptyState({ message }: { message: string }) {
         height={126}
         className="h-auto w-[156px]"
       />
-      <p className="mt-4 text-[16px] leading-[1.45] tracking-[-0.01em] text-[#8a8d98]">{message}</p>
+      <p className="mt-4 text-[14px] leading-[20px] tracking-[-0.01em] text-[#8a8d98]">{message}</p>
     </div>
   );
 }
@@ -116,15 +116,15 @@ function BerandaGuruPageContent() {
 
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-[14px] text-[#676b79]">Beranda</p>
-            <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.03em] text-[#232530] md:text-[44px]">
+            <p className="text-[12px] leading-[16px] text-[#676b79]">Beranda</p>
+            <h1 className="mt-3 text-[24px] font-semibold leading-[32px] tracking-[-0.03em] text-[#232530]">
               Siap menginspirasi siswa hari ini?
             </h1>
           </div>
 
           <Link
             href="/modul-guru/tambah"
-            className="inline-flex h-12 items-center gap-2 self-start rounded-[14px] bg-[#7557ea] px-6 text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(117,87,234,0.35)] transition-colors hover:bg-[#6648df] sm:mt-4"
+            className="inline-flex h-11 items-center gap-2 self-start rounded-[12px] bg-[#7557ea] px-5 text-[13px] font-semibold leading-[18px] text-white shadow-[0_8px_20px_rgba(117,87,234,0.35)] transition-colors hover:bg-[#6648df] sm:mt-4"
           >
             <FiPlus size={18} />
             Buat Modul Baru
@@ -141,10 +141,10 @@ function BerandaGuruPageContent() {
         <section className="mt-7 grid gap-4 xl:grid-cols-2">
           <div className="overflow-hidden rounded-2xl border border-[#e8e9ef] bg-white shadow-[0_4px_14px_rgba(19,23,31,0.05)]">
             <div className="flex items-center justify-between border-b border-[#f0f1f6] px-5 py-4">
-              <h2 className="text-lg font-semibold leading-none tracking-[-0.01em] text-[#252834] sm:text-2xl">Top Modul / Kelas</h2>
+              <h2 className="text-[18px] font-semibold leading-[28px] tracking-[-0.01em] text-[#252834]">Top Modul / Kelas</h2>
               <Link
                 href="/modul-guru"
-                className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-none text-[#7557ea] sm:text-[16px]"
+                className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-[18px] text-[#7557ea]"
               >
                 Lihat Semua
               </Link>
@@ -154,7 +154,7 @@ function BerandaGuruPageContent() {
               <EmptyState message="Belum ada yang mengakses modul Anda." />
             ) : (
               <div className="overflow-x-auto">
-                <div className="grid grid-cols-[minmax(0,1.8fr)_0.6fr_0.9fr] px-5 py-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-[#8c8f9b]">
+                <div className="grid grid-cols-[minmax(0,1.8fr)_0.6fr_0.9fr] px-5 py-3 text-[11px] font-semibold uppercase leading-[16px] tracking-[0.06em] text-[#8c8f9b]">
                   <p>Modul</p>
                   <p>Jenjang</p>
                   <p>Kesulitan</p>
@@ -172,18 +172,18 @@ function BerandaGuruPageContent() {
                         <FiExternalLink size={20} className="text-[#7557ea]" />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-[16px] font-semibold text-[#232530]">{getModuleName(item)}</p>
-                        <p className="mt-0.5 truncate text-[13px] text-[#7e8290]">
+                        <p className="truncate text-[14px] font-semibold leading-[20px] text-[#232530]">{getModuleName(item)}</p>
+                        <p className="mt-0.5 truncate text-[12px] leading-[16px] text-[#7e8290]">
                           {item.subtitle || item.deskripsi || ''}
                         </p>
                       </div>
                     </div>
 
-                    <p className="text-[14px] text-[#555968]">
+                    <p className="text-[13px] leading-[18px] text-[#555968]">
                       {item.level || item.jenjang || '-'}
                     </p>
 
-                    <p className="text-[14px] text-[#555968]">
+                    <p className="text-[13px] leading-[18px] text-[#555968]">
                       {item.difficulty || item.tingkat_kesulitan || '-'}
                     </p>
                   </div>
@@ -194,10 +194,10 @@ function BerandaGuruPageContent() {
 
           <div className="overflow-hidden rounded-2xl border border-[#e8e9ef] bg-white shadow-[0_4px_14px_rgba(19,23,31,0.05)]">
             <div className="flex items-center justify-between border-b border-[#f0f1f6] px-5 py-4">
-              <h2 className="text-lg font-semibold leading-none tracking-[-0.01em] text-[#252834] sm:text-2xl">Draft Modul</h2>
+              <h2 className="text-[18px] font-semibold leading-[28px] tracking-[-0.01em] text-[#252834]">Draft Modul</h2>
               <Link
                 href="/modul-guru?tab=draft"
-                className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-none text-[#7557ea] sm:text-[16px]"
+                className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-[18px] text-[#7557ea]"
               >
                 Lihat Semua
               </Link>
@@ -207,7 +207,7 @@ function BerandaGuruPageContent() {
               <EmptyState message="Tidak ada modul draft. Buat modul baru terlebih dahulu. Jika belum diterbitkan, akan masuk ke dalam draf." />
             ) : (
               <div className="overflow-x-auto">
-                <div className="grid grid-cols-[minmax(0,1.8fr)_0.7fr_0.8fr] px-5 py-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-[#8c8f9b]">
+                <div className="grid grid-cols-[minmax(0,1.8fr)_0.7fr_0.8fr] px-5 py-3 text-[11px] font-semibold uppercase leading-[16px] tracking-[0.06em] text-[#8c8f9b]">
                   <p>Modul</p>
                   <p>Update</p>
                   <p>Aksi</p>
@@ -225,18 +225,18 @@ function BerandaGuruPageContent() {
                         <FiExternalLink size={20} className="text-[#7557ea]" />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-[16px] font-semibold text-[#232530]">{getModuleName(item)}</p>
-                        <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-[#8d90a0]">DRAF</p>
+                        <p className="truncate text-[14px] font-semibold leading-[20px] text-[#232530]">{getModuleName(item)}</p>
+                        <p className="text-[11px] font-semibold uppercase leading-[16px] tracking-[0.09em] text-[#8d90a0]">DRAF</p>
                       </div>
                     </div>
 
-                    <p className="text-[14px] text-[#555968]">
+                    <p className="text-[13px] leading-[18px] text-[#555968]">
                       {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
                     </p>
 
                     <Link
                       href={`/modul-guru/tambah/profil?modulId=${item.id}`}
-                      className="justify-self-start text-[13px] font-medium text-[#f39b39] transition-colors hover:text-[#de8524]"
+                      className="justify-self-start text-[12px] font-medium leading-[16px] text-[#f39b39] transition-colors hover:text-[#de8524]"
                     >
                       Selesaikan Modul
                     </Link>
@@ -249,10 +249,10 @@ function BerandaGuruPageContent() {
 
         <section className="mt-6 overflow-hidden rounded-2xl border border-[#e8e9ef] bg-white shadow-[0_4px_14px_rgba(19,23,31,0.05)]">
           <div className="flex items-center justify-between border-b border-[#f0f1f6] px-5 py-4">
-            <h2 className="text-lg font-semibold leading-none tracking-[-0.01em] text-[#252834] sm:text-2xl">Penilaian dan Ulasan dari Siswa</h2>
+            <h2 className="text-[18px] font-semibold leading-[28px] tracking-[-0.01em] text-[#252834]">Penilaian dan Ulasan dari Siswa</h2>
             <Link
               href="/modul-guru/ulasan"
-              className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-none text-[#7557ea] sm:text-[16px] hover:bg-[#f0ebff] transition-colors"
+              className="rounded-full border border-[#d9dcf0] px-4 py-1 text-[13px] font-medium leading-[18px] text-[#7557ea] hover:bg-[#f0ebff] transition-colors"
             >
               Lihat Semua
             </Link>
@@ -267,7 +267,7 @@ function BerandaGuruPageContent() {
                 height={180}
                 className="h-auto w-[180px]"
               />
-              <p className="mt-4 text-[18px] tracking-[-0.01em] text-[#8a8d98]">Belum ada penilaian dari siswa</p>
+              <p className="mt-4 text-[14px] leading-[20px] tracking-[-0.01em] text-[#8a8d98]">Belum ada penilaian dari siswa</p>
             </div>
           ) : (
             <div>
@@ -280,13 +280,13 @@ function BerandaGuruPageContent() {
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-11 w-11 overflow-hidden rounded-full bg-[#f3f4f8] flex items-center justify-center">
-                      <span className="text-lg font-bold text-[#7557ea]">
+                      <span className="text-[16px] font-bold leading-[20px] text-[#7557ea]">
                         {(review.siswa?.nama_lengkap || 'S').charAt(0).toUpperCase()}
                       </span>
                     </div>
                     <div>
-                      <p className="text-[16px] font-semibold text-[#252834]">{review.siswa?.nama_lengkap || 'Siswa'}</p>
-                      <p className="text-[13px] text-[#767a89]">
+                      <p className="text-[14px] font-semibold leading-[20px] text-[#252834]">{review.siswa?.nama_lengkap || 'Siswa'}</p>
+                      <p className="text-[12px] leading-[16px] text-[#767a89]">
                         {review.modul?.nama_modul ? `Modul: ${review.modul.nama_modul}` : ''}
                       </p>
                     </div>
@@ -301,13 +301,13 @@ function BerandaGuruPageContent() {
                           <FaRegStar key={`${review.id}-${i}`} size={14} className="text-[#f8b738]" />
                         )
                       ))}
-                      <span className="ml-1 text-[14px] font-semibold text-[#555968]">{review.rating}</span>
+                      <span className="ml-1 text-[13px] font-semibold leading-[18px] text-[#555968]">{review.rating}</span>
                     </div>
-                    <p className="text-[14px] leading-[1.45] text-[#444856]">{review.komentar || ''}</p>
+                    <p className="text-[13px] leading-[18px] text-[#444856]">{review.komentar || ''}</p>
                   </div>
 
                   <div className="text-left lg:justify-self-end lg:text-right">
-                    <p className="mb-1 text-[13px] text-[#7e8290]">
+                    <p className="mb-1 text-[12px] leading-[16px] text-[#7e8290]">
                       {review.createdAt ? new Date(review.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
                     </p>
                     <span className="text-[#9ca0ad]">

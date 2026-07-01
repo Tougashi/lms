@@ -285,7 +285,9 @@ export default function ProfilPage() {
           <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:gap-0">
             <aside className="rounded-xl bg-white p-4 lg:rounded-none lg:border-r lg:border-[#e4e2eb] lg:pr-5 lg:pl-2">
               <nav className="space-y-2">
-                {profileMenu.map((item) => {
+                {profileMenu
+                  .filter((item) => !(user?.role === "tutor" && item.id === "sertifikat"))
+                  .map((item) => {
                   const Icon = item.icon;
                   const isActive = activeMenu === item.id;
 
@@ -571,8 +573,8 @@ export default function ProfilPage() {
                 </>
               )}
 
-              {/* Sertifikat */}
-              {activeMenu === "sertifikat" && (
+              {/* Sertifikat (siswa only) */}
+              {activeMenu === "sertifikat" && user?.role !== "tutor" && (
                 <>
                   <h2 className="text-base font-bold text-[#202126]">Sertifikat</h2>
                   {isCertLoading ? (

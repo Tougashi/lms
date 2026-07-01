@@ -21,7 +21,6 @@ function ModulGuruPageContent() {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [deletingId, setDeletingId] = useState<string | null>(null);
-    const menuRef = useRef<HTMLDivElement>(null);
     const { toast, confirm, showLoading, hideLoading } = usePopup();
 
     const isDraftTab = tabParam === "draft";
@@ -44,10 +43,8 @@ function ModulGuruPageContent() {
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (
-                menuRef.current &&
-                !menuRef.current.contains(event.target as Node)
-            ) {
+            const target = event.target as Element;
+            if (openMenuId && !target.closest(`#menu-wrapper-${openMenuId}`)) {
                 setOpenMenuId(null);
             }
         };
@@ -56,7 +53,7 @@ function ModulGuruPageContent() {
 
         return () =>
             document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+    }, [openMenuId]);
 
     const publishedModul = useMemo(
         () => modules.filter((m) => !m.isDraft),
@@ -239,7 +236,7 @@ function ModulGuruPageContent() {
                                         </div>
                                     </div>
 
-                                    <div className="self-start" ref={menuRef}>
+                                    <div className="self-start relative z-20" id={`menu-wrapper-${modul.id}`}>
                                         <button
                                             type="button"
                                             onClick={() =>
@@ -256,7 +253,7 @@ function ModulGuruPageContent() {
                                         </button>
 
                                         {openMenuId === modul.id && (
-                                            <div className="absolute right-4 top-[56px] w-[170px] overflow-hidden rounded-xl border border-[#eceaf4] bg-white shadow-[0_12px_26px_rgba(14,14,20,0.18)]">
+                                            <div className="absolute right-4 top-[56px] w-[170px] overflow-hidden rounded-xl border border-[#eceaf4] bg-white shadow-[0_12px_26px_rgba(14,14,20,0.18)] z-50">
                                                 <Link
                                                     href={`/modul-guru/tambah/konten?modulId=${modul.id}`}
                                                     className="flex w-full items-center gap-3 px-4 py-3 text-[13px] font-medium text-[#4b4f5c] hover:bg-[#f6f6fb]"
