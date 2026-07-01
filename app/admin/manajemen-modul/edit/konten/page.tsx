@@ -589,6 +589,7 @@ function EditModulKontenPageContent() {
                 title: trimmedTitle,
                 topikId: topicId,
                 modulId: modulId || "",
+                isVideo: newMaterialType === "video",
             });
             setMaterialApiIds((prev) => ({ ...prev, [nextId]: created.id }));
         } catch (err) {

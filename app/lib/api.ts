@@ -65,6 +65,8 @@ import type {
     GuruRangkumanItem,
     GuruRangkumanCreatePayload,
     GuruRangkumanUpdatePayload,
+    GuruQuizGroupItem,
+    GuruQuizGroupCreatePayload,
 } from "./types/guru";
 import type {
     MateriItem,
@@ -1081,6 +1083,40 @@ export const guruKuisApi = {
 
     delete(id: string) {
         return apiFetch<{ message: string }>(`/tutor/kuis/${id}`, {
+            method: "DELETE",
+        });
+    },
+};
+
+// ---------------------------------------------------------------------------
+// Guru / Tutor – Quiz Group endpoints
+// ---------------------------------------------------------------------------
+
+export const guruQuizGroupApi = {
+    create(payload: GuruQuizGroupCreatePayload) {
+        return apiFetch<GuruQuizGroupItem>("/tutor/quiz-group", {
+            method: "POST",
+            data: payload,
+        });
+    },
+
+    getByTopik(topikId: string) {
+        return apiFetch<GuruQuizGroupItem[]>(`/tutor/quiz-group/topik/${topikId}`);
+    },
+
+    getById(id: string) {
+        return apiFetch<GuruQuizGroupItem>(`/tutor/quiz-group/${id}`);
+    },
+
+    update(id: string, payload: Partial<GuruQuizGroupCreatePayload>) {
+        return apiFetch<GuruQuizGroupItem>(`/tutor/quiz-group/${id}`, {
+            method: "PUT",
+            data: payload,
+        });
+    },
+
+    delete(id: string) {
+        return apiFetch<{ message: string }>(`/tutor/quiz-group/${id}`, {
             method: "DELETE",
         });
     },

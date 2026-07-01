@@ -216,6 +216,11 @@ export interface QuizDetail {
   updatedAt: string;
   quizAnswerOptions: QuizAnswerOptionDetail[];
   quizSettings: QuizSettingDetail[];
+  judul?: string;
+  quizType?: 'REGULER' | 'COMPUTATIONAL_THINKING';
+  ctGroupId?: string | null;
+  ctStory?: string | null;
+  quizGroupId?: string | null;
 }
 
 export interface SubmateriDetail {
@@ -337,6 +342,8 @@ export interface StudyRoomItem {
   id: string;
   itemType: 'MATERI' | 'QUIZ' | 'RANGKUMAN_TOPIK';
   quizType?: 'REGULER' | 'COMPUTATIONAL_THINKING';
+  ctGroupId?: string | null;
+  ctStory?: string | null;
   judul: string;
   isVideo?: boolean;
   videoUrl?: string | null;
@@ -347,6 +354,7 @@ export interface StudyRoomItem {
   quizImgQuestionUrl?: string | null;
   quizAnswerOptions?: { id: string; option: string }[];
   timeLimit?: number | null;
+  quizGroupId?: string | null;
 }
 
 export interface StudyRoomTopik {

@@ -686,7 +686,7 @@ function EditModulPrePostContent() {
                           </>
                         ) : (
                           <>
-                            <span className="text-[12px] font-semibold text-[#232530]">{question.pertanyaan || '(belum ada pertanyaan)'}</span>
+                            <span className="text-[12px] font-semibold text-[#232530]" dangerouslySetInnerHTML={{ __html: question.pertanyaan || '(belum ada pertanyaan)' }} />
                             <button type="button" onClick={() => { setEditingSoalId(question.id); setEditSoalTitle(question.pertanyaan); }} className="text-[#7a7e8a]"><FiEdit2 size={14} /></button>
                           </>
                         )}

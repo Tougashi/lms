@@ -32,6 +32,9 @@ export interface GuruModuleItem {
     moduleImgUrl?: string | null;
     createdAt?: string;
     updatedAt?: string;
+    pretestPostTestEnabled?: boolean;
+    pretest?: { id: string; pretestName?: string } | null;
+    posttest?: { id: string } | null;
     progress?: any[];
     totalSiswa?: number;
 }
@@ -170,6 +173,7 @@ export interface GuruTopikQuizItem {
     id: string;
     topikId: string;
     quizType: "REGULER" | "COMPUTATIONAL_THINKING";
+    judul?: string;
     question: string;
     correctAnswer: string;
     skor: number;
@@ -349,6 +353,11 @@ export interface GuruKuisItem {
     quizImgQuestionUrl?: string | null;
     quizAnswerOptions?: GuruKuisAnswerOption[];
     quizSetting?: GuruKuisSetting | null;
+    quizGroupId?: string | null;
+    judul?: string | null;
+    ctGroupId?: string | null;
+    ctStory?: string | null;
+    ctAspect?: string | null;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -358,12 +367,14 @@ export interface GuruKuisCreatePayload {
         topikId: string;
         quizType: "REGULER" | "COMPUTATIONAL_THINKING";
         quizImgQuestionUrl?: string | null;
+        judul?: string | null;
         question: string;
         correctAnswer: string;
         skor?: number;
         ctGroupId?: string | null;
         ctStory?: string | null;
         ctAspect?: string | null;
+        quizGroupId?: string | null;
     };
     answerOptions: { option: string }[];
     setting: {
@@ -380,11 +391,13 @@ export interface GuruKuisUpdatePayload {
     question?: string;
     correctAnswer?: string;
     skor?: number;
+    judul?: string | null;
     quizType?: "REGULER" | "COMPUTATIONAL_THINKING";
     quizImgQuestionUrl?: string | null;
     ctGroupId?: string | null;
     ctStory?: string | null;
     ctAspect?: string | null;
+    quizGroupId?: string | null;
     answerOptions?: { option: string }[];
     setting?: {
         timeLimit?: number | null;
@@ -393,6 +406,22 @@ export interface GuruKuisUpdatePayload {
         minScoreTreshold?: number | null;
         standardScorePerQuestion?: number;
     };
+}
+
+export interface GuruQuizGroupItem {
+    id: string;
+    topikId: string;
+    nama: string;
+    quizType: "REGULER" | "COMPUTATIONAL_THINKING";
+    quizzes?: GuruKuisItem[];
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface GuruQuizGroupCreatePayload {
+    topikId: string;
+    nama: string;
+    quizType?: "REGULER" | "COMPUTATIONAL_THINKING";
 }
 
 // ---------------------------------------------------------------------------

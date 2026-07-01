@@ -33,6 +33,7 @@ function buildOrderedItems(topik: TopikDetail): OrderedItem[] {
         (a, b) => a.orderNumber - b.orderNumber,
     );
     const items: OrderedItem[] = [];
+    const seenQuizGroups = new Set<string>();
     for (const ti of sorted) {
         if (ti.itemType === "ARTICLE" || (ti.itemType as any) === "MATERI") {
             const materi = topik.materis?.find((m) => m.id === ti.itemId);
@@ -42,7 +43,14 @@ function buildOrderedItems(topik: TopikDetail): OrderedItem[] {
             const quiz =
                 topik.materis?.flatMap((m) => m.quizzes || [])?.find((q) => q?.id === ti.itemId) ||
                 (topik as any).quizzes?.find((q: any) => q?.id === ti.itemId);
-            if (quiz) items.push({ type: "QUIZ", data: quiz });
+            if (quiz) {
+                // Skip if this quiz belongs to a group already shown
+                if (quiz.quizGroupId) {
+                    if (seenQuizGroups.has(quiz.quizGroupId)) continue;
+                    seenQuizGroups.add(quiz.quizGroupId);
+                }
+                items.push({ type: "QUIZ", data: quiz });
+            }
         }
     }
     const usedItemIds = new Set(sorted.map((ti) => ti.itemId));
@@ -55,6 +63,10 @@ function buildOrderedItems(topik: TopikDetail): OrderedItem[] {
     const topikQuizzes = (topik as any).quizzes || [];
     for (const quiz of topikQuizzes) {
         if (!usedItemIds.has(quiz.id)) {
+            if (quiz.quizGroupId) {
+                if (seenQuizGroups.has(quiz.quizGroupId)) continue;
+                seenQuizGroups.add(quiz.quizGroupId);
+            }
             items.push({ type: "QUIZ", data: quiz });
         }
     }
@@ -207,12 +219,21 @@ export default function AccordionMateri({
                                                         size={16}
                                                         className="shrink-0 text-[#37b66a]"
                                                     />
-                                                    <span className="flex-1">
-                                                        Kuis Reguler -{" "}
-                                                        {truncate(
-                                                            quiz.question ? quiz.question.replace(/<[^>]*>?/gm, '') : "",
-                                                            50,
-                                                        )}
+                                                    <span className="flex-1 min-w-0">
+                                                        <span className="flex items-center gap-1.5">
+                                                            <span className="block text-xs font-medium leading-tight truncate">
+                                                                {quiz.quizType === "COMPUTATIONAL_THINKING" ? (
+                                                                    <>Kuis CT - {quiz.judul || truncate(quiz.question ? quiz.question.replace(/<[^>]*>?/gm, '') : "", 50)}</>
+                                                                ) : (
+                                                                    <>Kuis Reguler - {quiz.judul || truncate(quiz.question ? quiz.question.replace(/<[^>]*>?/gm, '') : "", 50)}</>
+                                                                )}
+                                                            </span>
+                                                            {quiz.quizType === "COMPUTATIONAL_THINKING" ? (
+                                                                <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">CT</span>
+                                                            ) : (
+                                                                <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-700">Reguler</span>
+                                                            )}
+                                                        </span>
                                                     </span>
                                                 </div>
                                             );

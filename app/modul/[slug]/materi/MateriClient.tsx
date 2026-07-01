@@ -123,25 +123,60 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
         });
     }
 
-    for (const topik of modul.curriculum.topiks) {
-        const ctBuffer: typeof topik.items = [];
+    // Group CT quizzes by ctGroupId across all topiks
+    const ctGroupMap = new Map<string, typeof modul.curriculum.topiks[0]["items"]>();
 
-        const flushCT = () => {
-            if (ctBuffer.length === 0) return;
-            seq.push({
-                id: ctBuffer[0].id,
-                title: "Kuis CT",
-                type: "quiz-ct",
-                topikId: topik.id,
-                topikName: topik.nama,
-                ctSubIds: ctBuffer.map((q) => q.id),
-            });
-            ctBuffer.length = 0;
+    // Group quizzes by quizGroupId (both REGULER and CT) across all topiks
+    const quizGroupMap = new Map<string, typeof modul.curriculum.topiks[0]["items"]>();
+
+    for (const topik of modul.curriculum.topiks) {
+        for (const item of topik.items) {
+            if (
+                (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") &&
+                item.quizGroupId
+            ) {
+                const group = quizGroupMap.get(item.quizGroupId) || [];
+                group.push(item);
+                quizGroupMap.set(item.quizGroupId, group);
+            }
+        }
+    }
+
+    for (const topik of modul.curriculum.topiks) {
+        for (const item of topik.items) {
+            if (
+                (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") &&
+                item.quizType === "COMPUTATIONAL_THINKING" &&
+                item.ctGroupId
+            ) {
+                const group = ctGroupMap.get(item.ctGroupId) || [];
+                group.push(item);
+                ctGroupMap.set(item.ctGroupId, group);
+            }
+        }
+    }
+
+    for (const topik of modul.curriculum.topiks) {
+        const ctJudulMap = new Map<string, typeof topik.items>();
+
+        const flushJudulMap = () => {
+            if (ctJudulMap.size === 0) return;
+            for (const [, group] of ctJudulMap.entries()) {
+                seq.push({
+                    id: group[0].id,
+                    title: group[0]?.judul || "Kuis CT",
+                    type: "quiz-ct",
+                    topikId: topik.id,
+                    topikName: topik.nama,
+                    ctSubIds: group.map((q) => q.id),
+                });
+            }
+            ctJudulMap.clear();
         };
 
         for (const item of topik.items) {
             if (item.itemType === "MATERI") {
-                flushCT();
+                flushJudulMap();
                 seq.push({
                     id: item.id,
                     title: item.judul || "Materi",
@@ -156,10 +191,45 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                 item.itemType === "QUIZ" ||
                 (item.itemType as string)?.toUpperCase() === "KUIS"
             ) {
-                if (item.quizType === "COMPUTATIONAL_THINKING") {
-                    ctBuffer.push(item);
+                // Priority 1: Group by quizGroupId (REGULER and CT)
+                if (item.quizGroupId) {
+                    const group = quizGroupMap.get(item.quizGroupId);
+                    if (group && group[0]?.id === item.id) {
+                        flushJudulMap();
+                        const isCt = group.some((g) => g.quizType === "COMPUTATIONAL_THINKING");
+                        seq.push({
+                            id: item.id,
+                            title: isCt
+                                ? (item.judul || "Kuis CT")
+                                : (item.judul ? item.judul.replace(/<[^>]*>?/gm, "") : "Kuis"),
+                            type: isCt ? "quiz-ct" : "quiz",
+                            topikId: topik.id,
+                            topikName: topik.nama,
+                            ctSubIds: group.map((q) => q.id),
+                        });
+                    }
+                } else if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId) {
+                    // Priority 2: CT group by ctGroupId (backward compat)
+                    const group = ctGroupMap.get(item.ctGroupId);
+                    if (group && group[0]?.id === item.id) {
+                        flushJudulMap();
+                        seq.push({
+                            id: item.id,
+                            title: item.judul || "Kuis CT",
+                            type: "quiz-ct",
+                            topikId: topik.id,
+                            topikName: topik.nama,
+                            ctSubIds: group.map((q) => q.id),
+                        });
+                    }
+                } else if (item.quizType === "COMPUTATIONAL_THINKING") {
+                    // Fallback: group by judul across whole topik (no ctGroupId)
+                    const key = item.judul || "Kuis CT";
+                    const group = ctJudulMap.get(key) || [];
+                    group.push(item);
+                    ctJudulMap.set(key, group);
                 } else {
-                    flushCT();
+                    flushJudulMap();
                     seq.push({
                         id: item.id,
                         title: item.judul
@@ -171,7 +241,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                     });
                 }
             } else if (item.itemType === "RANGKUMAN_TOPIK") {
-                flushCT();
+                flushJudulMap();
                 seq.push({
                     id: item.id,
                     title: item.judul,
@@ -182,7 +252,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                 });
             }
         }
-        flushCT();
+        flushJudulMap();
     }
 
     if (modul.curriculum.rangkumanAkhir) {
@@ -209,26 +279,61 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
 
 function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
     const tree: ContentSection[] = [];
+
+    // Build ctGroupId map across all topiks (same as buildSequence)
+    const ctGroupMap = new Map<string, typeof modul.curriculum.topiks[0]["items"]>();
+    for (const topik of modul.curriculum.topiks) {
+        for (const item of topik.items) {
+            if (
+                (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") &&
+                item.quizType === "COMPUTATIONAL_THINKING" &&
+                item.ctGroupId
+            ) {
+                const group = ctGroupMap.get(item.ctGroupId) || [];
+                group.push(item);
+                ctGroupMap.set(item.ctGroupId, group);
+            }
+        }
+    }
+
+    // Group quizzes by quizGroupId (both REGULER and CT) across all topiks
+    const buildTreeQuizGroupMap = new Map<string, typeof modul.curriculum.topiks[0]["items"]>();
+
+    for (const topik of modul.curriculum.topiks) {
+        for (const item of topik.items) {
+            if (
+                (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") &&
+                item.quizGroupId
+            ) {
+                const group = buildTreeQuizGroupMap.get(item.quizGroupId) || [];
+                group.push(item);
+                buildTreeQuizGroupMap.set(item.quizGroupId, group);
+            }
+        }
+    }
+
     for (const topik of modul.curriculum.topiks) {
         const items: SequenceItem[] = [];
-        const ctBuffer: typeof topik.items = [];
+        const ctJudulMap = new Map<string, typeof topik.items>();
 
-        const flushCT = () => {
-            if (ctBuffer.length === 0) return;
-            items.push({
-                id: ctBuffer[0].id,
-                title: "Kuis CT",
-                type: "quiz-ct",
-                topikId: topik.id,
-                topikName: topik.nama,
-                ctSubIds: ctBuffer.map((q) => q.id),
-            });
-            ctBuffer.length = 0;
+        const flushJudulMap = () => {
+            if (ctJudulMap.size === 0) return;
+            for (const [, group] of ctJudulMap.entries()) {
+                items.push({
+                    id: group[0].id,
+                    title: group[0]?.judul || "Kuis CT",
+                    type: "quiz-ct",
+                    topikId: topik.id,
+                    topikName: topik.nama,
+                    ctSubIds: group.map((q) => q.id),
+                });
+            }
+            ctJudulMap.clear();
         };
 
         for (const item of topik.items) {
             if (item.itemType === "MATERI") {
-                flushCT();
+                flushJudulMap();
                 items.push({
                     id: item.id,
                     title: item.judul,
@@ -243,10 +348,44 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                 item.itemType === "QUIZ" ||
                 (item.itemType as string)?.toUpperCase() === "KUIS"
             ) {
-                if (item.quizType === "COMPUTATIONAL_THINKING") {
-                    ctBuffer.push(item);
+                // Priority 1: Group by quizGroupId (REGULER and CT)
+                if (item.quizGroupId) {
+                    const group = buildTreeQuizGroupMap.get(item.quizGroupId);
+                    if (group && group[0]?.id === item.id) {
+                        flushJudulMap();
+                        const isCt = group.some((g) => g.quizType === "COMPUTATIONAL_THINKING");
+                        items.push({
+                            id: item.id,
+                            title: isCt
+                                ? (item.judul || "Kuis CT")
+                                : (item.judul ? item.judul.replace(/<[^>]*>?/gm, "") : "Kuis"),
+                            type: isCt ? "quiz-ct" : "quiz",
+                            topikId: topik.id,
+                            topikName: topik.nama,
+                            ctSubIds: group.map((q) => q.id),
+                        });
+                    }
+                } else if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId) {
+                    // Priority 2: CT group by ctGroupId (backward compat)
+                    const group = ctGroupMap.get(item.ctGroupId);
+                    if (group && group[0]?.id === item.id) {
+                        flushJudulMap();
+                        items.push({
+                            id: item.id,
+                            title: item.judul || "Kuis CT",
+                            type: "quiz-ct",
+                            topikId: topik.id,
+                            topikName: topik.nama,
+                            ctSubIds: group.map((q) => q.id),
+                        });
+                    }
+                } else if (item.quizType === "COMPUTATIONAL_THINKING") {
+                    const key = item.judul || "Kuis CT";
+                    const group = ctJudulMap.get(key) || [];
+                    group.push(item);
+                    ctJudulMap.set(key, group);
                 } else {
-                    flushCT();
+                    flushJudulMap();
                     items.push({
                         id: item.id,
                         title: item.judul
@@ -258,7 +397,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                     });
                 }
             } else if (item.itemType === "RANGKUMAN_TOPIK") {
-                flushCT();
+                flushJudulMap();
                 items.push({
                     id: item.id,
                     title: item.judul,
@@ -269,7 +408,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                 });
             }
         }
-        flushCT();
+        flushJudulMap();
 
         tree.push({
             id: topik.id,
@@ -327,6 +466,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     );
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [dataError, setDataError] = useState("");
+    const [dataErrorStatus, setDataErrorStatus] = useState(0);
 
     // ─── View state ───────────────────────────────────────────────────────────
     const [assessmentType, setAssessmentType] = useState<
@@ -356,8 +496,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const [selectedAnswers, setSelectedAnswers] = useState<
         Record<number, number>
     >({});
-    const [remainingSeconds, setRemainingSeconds] = useState(900);
-    const [testDurationSeconds, setTestDurationSeconds] = useState(900);
+    const [remainingSeconds, setRemainingSeconds] = useState(1800);
+    const [testDurationSeconds, setTestDurationSeconds] = useState(1800);
     const [finishedElapsedSeconds, setFinishedElapsedSeconds] = useState<
         number | null
     >(null);
@@ -472,12 +612,16 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                         id: q.id,
                                         itemType: "QUIZ",
                                         quizType: q.quizType,
-                                        judul: q.question
-                                            ? q.question.replace(
-                                                  /<[^>]*>?/gm,
-                                                  "",
-                                              )
-                                            : "Kuis",
+                                        ctGroupId: q.ctGroupId ?? null,
+                                        ctStory: q.ctStory ?? null,
+                                        judul: q.judul
+                                            ? q.judul
+                                            : q.question
+                                              ? q.question.replace(
+                                                    /<[^>]*>?/gm,
+                                                    "",
+                                                )
+                                              : "Kuis",
                                         question: q.question,
                                         correctAnswer: q.correctAnswer,
                                         quizImgQuestionUrl:
@@ -562,9 +706,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         setCurrentView("materi");
 
                         const firstUncompletedIdx = seq.findIndex(
-                            (item) =>
-                                !completedMap[item.id] &&
-                                item.type !== "rangkuman-akhir",
+                            (item) => !completedMap[item.id],
                         );
                         const startIdx =
                             firstUncompletedIdx >= 0 ? firstUncompletedIdx : 0;
@@ -578,6 +720,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 }
             } catch (err: unknown) {
                 console.error("MateriClient load error:", err);
+                const is403 = err instanceof ApiError && err.status === 403;
+                setDataErrorStatus(is403 ? 403 : 0);
                 setDataError(
                     err instanceof Error ? err.message : "Gagal memuat materi",
                 );
@@ -759,14 +903,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     }, [sequence, isItemUnlockedByIndex]);
 
     // ─── Progress calculation ──────────────────────────────────────────────
-    // "summary" type = DB-backed Rangkuman (tracked). "rangkuman-akhir" = synthetic, excluded.
     const totalSteps = useMemo(
         () =>
-            sequence.filter(
-                (item) =>
-                    item.type !== "rangkuman-akhir" &&
-                    item.type !== "rating",
-            ).length,
+            sequence.filter((item) => item.type !== "rating").length,
         [sequence],
     );
     const completedSteps = useMemo(
@@ -774,7 +913,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             sequence.filter(
                 (item) =>
                     completedContentItemMap[item.id] &&
-                    item.type !== "rangkuman-akhir" &&
                     item.type !== "rating",
             ).length,
         [sequence, completedContentItemMap],
@@ -788,8 +926,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
     const markContentItemAsCompleted = useCallback(
         async (itemId: string, itemType?: string) => {
-            // Skip API call for synthetic IDs only (rangkuman-akhir is module-level, not DB-backed)
-            if (itemId.startsWith("summary-") || itemId === "rangkuman-akhir") {
+            // Skip API call for synthetic per-topik summary IDs (not DB-backed)
+            if (itemId.startsWith("summary-")) {
                 setCompletedContentItemMap((prev) => {
                     if (prev[itemId]) return prev;
                     return { ...prev, [itemId]: true };
@@ -1041,8 +1179,41 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             return;
         }
         if (currentView === "pretest-result") {
-            setCurrentView("materi");
-            setIsMaterialMode(true);
+            if (isLastItem) {
+                router.push(`/modul/${modulId}`);
+            } else {
+                const nextIdx = currentSeqIndex + 1;
+                const nextItem = sequence[nextIdx];
+                setCurrentSeqIndex(nextIdx);
+                if (nextItem?.type === "quiz" || nextItem?.type === "quiz-ct") {
+                    setAssessmentType("kuis");
+                    setActiveQuizItemId(nextItem.id);
+                    setActiveCtSubIds(nextItem.ctSubIds ?? []);
+                    setCurrentView("pretest-intro");
+                    setIsMaterialMode(false);
+                    setIsFinalSummaryView(false);
+                    setActiveQuestionIndex(0);
+                    setSelectedAnswers({});
+                    setWasTimeUp(false);
+                    setRemainingSeconds(900);
+                } else if (nextItem?.type === "posttest") {
+                    const duration = getDurationForAssessment(modulDetail, "posttest") ?? 900;
+                    setAssessmentType("posttest");
+                    setCurrentView("pretest-intro");
+                    setIsMaterialMode(false);
+                    setIsFinalSummaryView(false);
+                    setActiveQuestionIndex(0);
+                    setSelectedAnswers({});
+                    setRemainingSeconds(duration);
+                    setTestDurationSeconds(duration);
+                    setTestResult(null);
+                    setIsPosttestStarted(false);
+                    setIsPosttestFinished(false);
+                } else {
+                    setCurrentView("materi");
+                    setIsMaterialMode(true);
+                }
+            }
             return;
         }
         if (currentView === "materi") {
@@ -1146,8 +1317,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             <div className="min-h-screen bg-[#f6f6f8]">
                 <SiswaHeader />
                 <div className="flex items-center justify-center py-32">
-                    <div className="text-center">
+                    <div className="max-w-md text-center">
                         <p className="text-red-500">{dataError}</p>
+                        {dataErrorStatus === 403 && (
+                            <p className="mt-2 text-sm text-[#8a8a96]">
+                                Silakan hubungi guru atau admin Anda untuk mendapatkan akses.
+                            </p>
+                        )}
                         <button
                             onClick={() => window.history.back()}
                             className="mt-4 inline-block text-sm text-[#7054dc] hover:underline"
@@ -1387,7 +1563,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                                 false,
                                                             );
                                                             setRemainingSeconds(
-                                                                900,
+                                                                1800,
                                                             );
                                                         }}
                                                         className={`flex w-full items-start border-b border-[#f0eef7] px-3 py-2 text-left text-xs last:border-b-0 ${
@@ -1418,34 +1594,73 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                                 size={14}
                                                                 className={`mt-0.5 shrink-0 ${isItemLocked ? "text-[#8f95a3]" : isSelected ? "text-[#7054dc]" : "text-[#37b66a]"}`}
                                                             />
-                                                            <span>
-                                                                <span className="block text-xs font-medium leading-tight">
+                                                            <span className="flex-1 min-w-0">
+                                                                <span className="flex items-center gap-1.5">
+                                                                    <span className="block text-xs font-medium leading-tight truncate">
+                                                                        {item.type === "quiz-ct" ? (
+                                                                            <>Kuis CT - {item.title}</>
+                                                                        ) : (
+                                                                            <>Kuis Reguler - {item.title}</>
+                                                                        )}
+                                                                    </span>
                                                                     {item.type === "quiz-ct" ? (
-                                                                        <>
-                                                                            Kuis
-                                                                            CT
-                                                                        </>
+                                                                        <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">CT</span>
                                                                     ) : (
-                                                                        <>
-                                                                            Kuis
-                                                                            Reguler
-                                                                            -{" "}
-                                                                            {
-                                                                                item.title
-                                                                            }
-                                                                        </>
+                                                                        <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-700">Reguler</span>
                                                                     )}
                                                                 </span>
                                                             </span>
                                                         </span>
                                                     </button>
                                                 ) : (
-                                                    <div
+                                                    <button
                                                         key={item.id}
-                                                        className={`flex w-full items-start border-b border-[#f0eef7] px-3 py-2 text-xs last:border-b-0 ${
+                                                        type="button"
+                                                        aria-current={
                                                             isSelected
-                                                                ? "bg-[#efe9ff] text-[#7054dc]"
-                                                                : "text-[#202126]"
+                                                                ? true
+                                                                : undefined
+                                                        }
+                                                        disabled={isItemLocked}
+                                                        onClick={() => {
+                                                            if (isItemLocked)
+                                                                return;
+                                                            if (seqIndex >= 0)
+                                                                setCurrentSeqIndex(
+                                                                    seqIndex,
+                                                                );
+                                                            setIsModuleSidebarOpen(
+                                                                false,
+                                                            );
+                                                            setCurrentView(
+                                                                "materi",
+                                                            );
+                                                            setIsMaterialMode(
+                                                                true,
+                                                            );
+                                                            setIsFinalSummaryView(
+                                                                item.type ===
+                                                                    "summary",
+                                                            );
+                                                            setActiveQuizItemId(
+                                                                null,
+                                                            );
+                                                            setAssessmentType(
+                                                                "pretest",
+                                                            );
+                                                            setActiveQuestionIndex(
+                                                                0,
+                                                            );
+                                                            setSelectedAnswers(
+                                                                {},
+                                                            );
+                                                        }}
+                                                        className={`flex w-full items-start border-b border-[#f0eef7] px-3 py-2 text-left text-xs last:border-b-0 ${
+                                                            isItemLocked
+                                                                ? "cursor-not-allowed text-[#8f95a3]"
+                                                                : isSelected
+                                                                  ? "bg-[#efe9ff] text-[#7054dc]"
+                                                                  : "text-[#202126]"
                                                         }`}
                                                     >
                                                         <span className="inline-flex items-start gap-2">
@@ -1505,7 +1720,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                                 </span>
                                                             </span>
                                                         </span>
-                                                    </div>
+                                                    </button>
                                                 );
                                             })}
                                         </div>
@@ -1616,7 +1831,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 getDurationForAssessment(
                                                     modulDetail,
                                                     "posttest",
-                                                ) ?? 900;
+                                                ) ?? 1800;
                                             setRemainingSeconds(duration);
                                             setTestDurationSeconds(duration);
                                             setTestResult(null);
@@ -1735,6 +1950,16 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                 const isClaimed = !!certificate;
 
                                 const handlePillsClick = async () => {
+                                    const isPosttestDone =
+                                        completedContentItemMap["posttest"] ===
+                                            true ||
+                                        progress?.posttestScore != null;
+                                    if (!isPosttestDone && !isClaimed) {
+                                        setToastMsg(
+                                            "Selesaikan post-test terlebih dahulu untuk membuka sertifikat.",
+                                        );
+                                        return;
+                                    }
                                     if (!isProgressComplete && !isClaimed) {
                                         setToastMsg(
                                             "Selesaikan semua materi dan kuis hingga 100% untuk membuka sertifikat ini.",
@@ -1884,28 +2109,28 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 if (
                                                     assessmentType === "pretest"
                                                 ) {
-                                                    duration =
-                                                        getDurationForAssessment(
-                                                            modulDetail,
-                                                            "pretest",
-                                                        ) ?? 900;
-                                                    setIsPretestStarted(true);
-                                                } else if (
-                                                    assessmentType ===
-                                                    "posttest"
-                                                ) {
-                                                    duration =
-                                                        getDurationForAssessment(
-                                                            modulDetail,
-                                                            "posttest",
-                                                        ) ?? 900;
+                                                duration =
+                                                    getDurationForAssessment(
+                                                        modulDetail,
+                                                        "pretest",
+                                                    ) ?? 1800;
+                                                setIsPretestStarted(true);
+                                            } else if (
+                                                assessmentType ===
+                                                "posttest"
+                                            ) {
+                                                duration =
+                                                    getDurationForAssessment(
+                                                        modulDetail,
+                                                        "posttest",
+                                                    ) ?? 1800;
                                                     setIsPosttestStarted(true);
                                                 } else {
-                                                    duration =
-                                                        getDurationForQuiz(
-                                                            modulDetail,
-                                                            activeQuizItemId,
-                                                        ) ?? 900;
+                                                duration =
+                                                    getDurationForQuiz(
+                                                        modulDetail,
+                                                        activeQuizItemId,
+                                                    ) ?? 1800;
                                                 }
                                                 setWasTimeUp(false);
                                                 setRemainingSeconds(duration);
@@ -1937,6 +2162,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             </span>
                                             <div className="flex items-center gap-2 text-sm font-semibold text-[#7054dc]">
                                                 <FaRegClock size={14} />
+                                                <span className="text-xs font-normal text-[#8f95a3]">Sisa Waktu</span>
                                                 {formatRemainingTime(
                                                     remainingSeconds,
                                                 )}
@@ -2233,17 +2459,90 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                setCurrentView("materi");
-                                                setIsMaterialMode(true);
-                                                const firstUnlocked =
+                                                const nextIdx =
                                                     currentSeqIndex + 1;
+                                                const nextItem =
+                                                    sequence[nextIdx];
                                                 if (
-                                                    firstUnlocked <
-                                                    sequence.length
+                                                    nextIdx <
+                                                        sequence.length &&
+                                                    (nextItem?.type ===
+                                                        "quiz" ||
+                                                        nextItem?.type ===
+                                                            "quiz-ct")
                                                 ) {
                                                     setCurrentSeqIndex(
-                                                        firstUnlocked,
+                                                        nextIdx,
                                                     );
+                                                    setAssessmentType("kuis");
+                                                    setActiveQuizItemId(
+                                                        nextItem.id,
+                                                    );
+                                                    setActiveCtSubIds(
+                                                        nextItem.ctSubIds ??
+                                                            [],
+                                                    );
+                                                    setCurrentView(
+                                                        "pretest-intro",
+                                                    );
+                                                    setIsMaterialMode(false);
+                                                    setIsFinalSummaryView(
+                                                        false,
+                                                    );
+                                                    setActiveQuestionIndex(0);
+                                                    setSelectedAnswers({});
+                                                    setWasTimeUp(false);
+                                                    setRemainingSeconds(900);
+                                                } else if (
+                                                    nextIdx <
+                                                        sequence.length &&
+                                                    nextItem?.type ===
+                                                        "posttest"
+                                                ) {
+                                                    const duration =
+                                                        getDurationForAssessment(
+                                                            modulDetail,
+                                                            "posttest",
+                                                        ) ?? 900;
+                                                    setCurrentSeqIndex(
+                                                        nextIdx,
+                                                    );
+                                                    setAssessmentType(
+                                                        "posttest",
+                                                    );
+                                                    setCurrentView(
+                                                        "pretest-intro",
+                                                    );
+                                                    setIsMaterialMode(false);
+                                                    setIsFinalSummaryView(
+                                                        false,
+                                                    );
+                                                    setActiveQuestionIndex(0);
+                                                    setSelectedAnswers({});
+                                                    setRemainingSeconds(
+                                                        duration,
+                                                    );
+                                                    setTestDurationSeconds(
+                                                        duration,
+                                                    );
+                                                    setTestResult(null);
+                                                    setIsPosttestStarted(
+                                                        false,
+                                                    );
+                                                    setIsPosttestFinished(
+                                                        false,
+                                                    );
+                                                } else {
+                                                    setCurrentView("materi");
+                                                    setIsMaterialMode(true);
+                                                    if (
+                                                        nextIdx <
+                                                        sequence.length
+                                                    ) {
+                                                        setCurrentSeqIndex(
+                                                            nextIdx,
+                                                        );
+                                                    }
                                                 }
                                             }}
                                             className="mx-auto mt-8 inline-flex min-w-[180px] items-center justify-center rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
@@ -2517,7 +2816,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     {/* Footer navigation */}
                     {(currentView === "materi" ||
                         currentView === "pretest-quiz" ||
-                        currentView === "pretest-result" ||
                         currentView === "rating") && (
                         <div className="border-t border-[#e1e0e7] bg-white px-6 py-4">
                             <div className="flex items-center justify-between">

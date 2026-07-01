@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   FiCheckSquare, FiChevronDown, FiEdit2, FiMoreVertical,
@@ -10,37 +10,7 @@ import AdminHeader from '../../../component/admin/AdminHeader';
 import AdminModuleSidebar from '../../components/AdminModuleSidebar';
 import { adminPretestApi, adminPosttestApi, adminModulApi } from '../../../lib/api';
 import { usePopup } from '../../../component/ui/PopupProvider';
-
-/* ─── Mini Editor ─── */
-function MiniEditor({ placeholder, value, onChange }: { placeholder: string; value?: string; onChange?: (html: string) => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [empty, setEmpty] = useState(true);
-  const up = () => {
-    setEmpty((ref.current?.textContent?.trim() ?? '').length === 0);
-    onChange?.(ref.current?.textContent?.trim() || '');
-  };
-  const cmd = (c: string) => { ref.current?.focus(); document.execCommand(c); up(); };
-
-  useEffect(() => {
-    if (ref.current && value && ref.current.innerHTML !== value) {
-      ref.current.innerHTML = value;
-      setEmpty((ref.current?.textContent?.trim() ?? '').length === 0);
-    }
-  }, [value]);
-
-  return (
-    <div className="rounded-xl border border-[#d9d7df] bg-white">
-      <div className="flex items-center gap-1.5 border-b border-[#e8e9ef] px-3 py-2">
-        <button type="button" onClick={() => cmd('bold')} className="inline-flex h-6 w-6 items-center justify-center rounded-md font-semibold text-[#232530] hover:bg-[#f5f4fb]">B</button>
-        <button type="button" onClick={() => cmd('italic')} className="inline-flex h-6 w-6 items-center justify-center rounded-md italic text-[#232530] hover:bg-[#f5f4fb]">I</button>
-      </div>
-      <div className="relative px-3 py-3 text-[12px] text-[#232530]">
-        {empty && <span className="pointer-events-none absolute left-3 top-3 text-[11px] text-[#9aa0ad]">{placeholder}</span>}
-        <div ref={ref} contentEditable onInput={up} onBlur={up} className="min-h-[80px] outline-none" />
-      </div>
-    </div>
-  );
-}
+import TrixEditor from '../../../component/ui/TrixEditor';
 
 /* ─── Types ─── */
 type LocalAnswer = { id: number; text: string; isCorrect: boolean };
@@ -678,7 +648,7 @@ function AdminPrePostPageContent() {
                           </>
                         ) : (
                           <>
-                            <span className="text-[12px] font-semibold text-[#232530]">{question.pertanyaan || '(belum ada pertanyaan)'}</span>
+                            <span className="text-[12px] font-semibold text-[#232530]" dangerouslySetInnerHTML={{ __html: question.pertanyaan || '(belum ada pertanyaan)' }} />
                             <button type="button" onClick={() => { setEditingSoalId(question.id); setEditSoalTitle(question.pertanyaan); }} className="text-[#7a7e8a]"><FiEdit2 size={14} /></button>
                           </>
                         )}
@@ -692,7 +662,7 @@ function AdminPrePostPageContent() {
                     {question.isExpanded && (
                       <div className="mt-4">
                         <p className="mb-2 text-[12px] font-semibold text-[#232530]">Pertanyaan</p>
-                        <MiniEditor placeholder="Masukkan pertanyaan..." value={question.pertanyaan} onChange={(html) => handleUpdateQuestionText(question.id, html)} />
+                        <TrixEditor id={`prepost-question-${question.id}`} placeholder="Masukkan pertanyaan..." value={question.pertanyaan} onChange={(html) => handleUpdateQuestionText(question.id, html)} minHeight="80px" />
 
                         <div className="mt-4 flex items-center gap-3">
                           <p className="text-[12px] font-semibold text-[#232530]">Skor:</p>
@@ -744,7 +714,7 @@ function AdminPrePostPageContent() {
                       {story.isExpanded && (
                         <div className="mt-4">
                           <p className="mb-2 text-[12px] font-semibold text-[#232530]">Cerita / Konteks</p>
-                          <MiniEditor placeholder="Masukkan cerita/konteks soal CT..." value={story.cerita} onChange={(html) => handleUpdateCTCerita(story.id, html)} />
+                          <TrixEditor id={`ct-story-${story.id}`} placeholder="Masukkan cerita/konteks soal CT..." value={story.cerita} onChange={(html) => handleUpdateCTCerita(story.id, html)} minHeight="80px" />
 
                           <div className="mt-4 space-y-4">
                             {story.subQuestions.map((sq, sqi) => (

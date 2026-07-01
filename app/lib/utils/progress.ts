@@ -3,8 +3,8 @@ export interface ProgressSequenceItem {
   type: string;
 }
 
-/** Types excluded from progress counting: client-side-only items and optional feedback. */
-const CLIENT_ONLY_TYPES = new Set(["rangkuman-akhir", "rating"]);
+/** Types excluded from progress counting: optional feedback item. */
+const CLIENT_ONLY_TYPES = new Set(["rating"]);
 
 /**
  * Compute progress percentage from local completion state.

@@ -25,6 +25,7 @@ import {
   guruMateriApi,
   guruKuisApi,
   guruRangkumanApi,
+  guruQuizGroupApi,
 } from "../../../lib/api";
 import { uploadToCloudinary } from "../../../lib/cloudinary-upload";
 import type { GuruTopikWithMateri } from "../../../lib/types/guru";
@@ -51,6 +52,7 @@ function makeCTStory() {
   const ts = Date.now();
   return {
     id: ts,
+    cerita: "",
     subQuestions: CT_SUB_LABELS.map((label, i) => ({
       id: ts + i + 1,
       label,
@@ -133,6 +135,7 @@ function TambahModulKontenPageContent() {
       }[];
       ctStories: {
         id: number;
+        cerita: string;
         subQuestions: {
           id: number;
           label: string;
@@ -152,6 +155,7 @@ function TambahModulKontenPageContent() {
   );
   const [quizApiIds, setQuizApiIds] = useState<Record<number, string>>({});
   const [subQuizApiIds, setSubQuizApiIds] = useState<Record<number, string>>({});
+  const [quizGroupApiIds, setQuizGroupApiIds] = useState<Record<number, string>>({});
   const [isSavingMaterial, setIsSavingMaterial] = useState<number | null>(null);
   const [isDeletingMaterial, setIsDeletingMaterial] = useState<number | null>(
     null,
@@ -274,7 +278,7 @@ function TambahModulKontenPageContent() {
                 ]});
               }
               mappedQuizzes.push({
-                id: localId, title: "Kuis CT", isExpanded: false, ctMode: true,
+                id: localId, title: ctGroup[0].judul || "Kuis CT", isExpanded: false, ctMode: true,
                 duration: ctGroup[0].quizSettings[0]?.timeLimit ? Math.round(ctGroup[0].quizSettings[0].timeLimit / 60) : 90,
                 minScore: ctGroup[0].quizSettings[0]?.minScoreTreshold ?? 0,
                 scorePerQuestion: ctGroup[0].quizSettings[0]?.standardScorePerQuestion ?? 10,
@@ -282,14 +286,14 @@ function TambahModulKontenPageContent() {
                   { id: localId + 10, text: "", isCorrect: false },
                   { id: localId + 11, text: "", isCorrect: false },
                 ]}],
-                ctStories: [{ id: localId + 2, subQuestions: subQs }],
+                ctStories: [{ id: localId + 2, cerita: "", subQuestions: subQs }],
               });
             } else {
               const localId = baseTs + mappedQuizzes.length * 100 + 1000;
               quizIds[localId] = q.id;
               mappedQuizzes.push({
                 id: localId,
-                title: q.question?.length > 40 ? q.question.substring(0, 40) + "…" : q.question,
+                title: q.judul || (q.question?.length > 40 ? q.question.substring(0, 40) + "…" : q.question),
                 isExpanded: false, ctMode: false,
                 duration: q.quizSettings[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
                 minScore: q.quizSettings[0]?.minScoreTreshold ?? 0,
@@ -738,7 +742,7 @@ function TambahModulKontenPageContent() {
           ]});
         }
         mappedQuiz.push({
-          id: localId, title: "Kuis CT", isExpanded: false, ctMode: true,
+          id: localId, title: ctGrp[0]?.judul || "Kuis CT", isExpanded: false, ctMode: true,
           duration: ctGrp[0].quizSettings?.[0]?.timeLimit ? Math.round(ctGrp[0].quizSettings[0].timeLimit / 60) : 90,
           minScore: ctGrp[0].quizSettings?.[0]?.minScoreTreshold ?? 0,
           scorePerQuestion: ctGrp[0].quizSettings?.[0]?.standardScorePerQuestion ?? 10,
@@ -746,14 +750,14 @@ function TambahModulKontenPageContent() {
             { id: localId + 10, text: "", isCorrect: false },
             { id: localId + 11, text: "", isCorrect: false },
           ]}],
-          ctStories: [{ id: localId + 2, subQuestions: subQs }],
+          ctStories: [{ id: localId + 2, cerita: "", subQuestions: subQs }],
         });
       } else {
         const localId = bTs + mappedQuiz.length * 100 + 1000;
         quizIds[localId] = q.id;
         mappedQuiz.push({
           id: localId,
-          title: q.question?.length > 40 ? q.question.substring(0, 40) + "…" : (q.question || "Untitled"),
+          title: q.judul || (q.question?.length > 40 ? q.question.substring(0, 40) + "…" : (q.question || "Untitled")),
           isExpanded: false, ctMode: false,
           duration: q.quizSettings?.[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
           minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
@@ -826,6 +830,7 @@ function TambahModulKontenPageContent() {
           quizType: isTopicCT ? "COMPUTATIONAL_THINKING" : "REGULER",
           question: "Soal Kuis 1",
           correctAnswer: "A",
+          judul: "Untitled",
           skor: 10,
         },
         answerOptions: [{ option: "A" }, { option: "B" }, { option: "C" }],
@@ -1306,12 +1311,30 @@ function TambahModulKontenPageContent() {
     setIsSavingQuiz(true);
     showLoading("Menyimpan kuis...");
     try {
+      // Resolve or create QuizGroup for this quiz card
+      let groupId = quizGroupApiIds[quizId];
+      if (!groupId) {
+        const createdGroup = await guruQuizGroupApi.create({
+          topikId: topicId!,
+          nama: quiz.title || "Untitled",
+          quizType: quiz.ctMode ? "COMPUTATIONAL_THINKING" : "REGULER",
+        });
+        groupId = createdGroup.id;
+        setQuizGroupApiIds((prev) => ({ ...prev, [quizId]: groupId }));
+      } else {
+        // Update group name in case title changed
+        await guruQuizGroupApi.update(groupId, { nama: quiz.title || "Untitled", quizType: quiz.ctMode ? "COMPUTATIONAL_THINKING" : "REGULER" });
+      }
+
       if (quiz.ctMode) {
         let firstSaved = false;
         const newSubIds: Record<number, string> = {};
 
         for (const story of quiz.ctStories) {
+          const ctGroupId = `ctg-${quiz.id}-${story.id}-${Date.now()}`;
           for (const sq of story.subQuestions) {
+            const sqIdx = story.subQuestions.indexOf(sq);
+            const ctAspect = ["decomposition", "patternRecognition", "abstraction", "algorithm"][sqIdx] || null;
             const payload = {
               question: sq.label || "Soal CT",
               correctAnswer:
@@ -1320,6 +1343,9 @@ function TambahModulKontenPageContent() {
                 "",
               skor: quiz.scorePerQuestion || 10,
               quizType: "COMPUTATIONAL_THINKING" as const,
+              ctGroupId,
+              ctStory: story.cerita,
+              ctAspect,
               answerOptions: sq.answers.map((a) => ({ option: a.text })),
               setting: {
                 timeLimit: quiz.duration * 60,
@@ -1333,7 +1359,7 @@ function TambahModulKontenPageContent() {
             if (!firstSaved) {
               const apiId = quizApiIds[quizId];
               if (apiId) {
-                await guruKuisApi.update(apiId, payload);
+                await guruKuisApi.update(apiId, { ...payload, judul: quiz.title, quizGroupId: groupId });
               } else {
                 const created = await guruKuisApi.create({
                   quiz: {
@@ -1342,6 +1368,11 @@ function TambahModulKontenPageContent() {
                     correctAnswer: payload.correctAnswer,
                     skor: payload.skor,
                     quizType: "COMPUTATIONAL_THINKING",
+                    quizGroupId: groupId,
+                    judul: quiz.title,
+                    ctGroupId,
+                    ctStory: story.cerita,
+                    ctAspect,
                   },
                   answerOptions: payload.answerOptions,
                   setting: payload.setting,
@@ -1352,7 +1383,7 @@ function TambahModulKontenPageContent() {
             } else {
               const existingApiId = subQuizApiIds[sq.id];
               if (existingApiId) {
-                await guruKuisApi.update(existingApiId, payload);
+                await guruKuisApi.update(existingApiId, { ...payload, quizGroupId: groupId });
               } else {
                 const created = await guruKuisApi.create({
                   quiz: {
@@ -1361,6 +1392,11 @@ function TambahModulKontenPageContent() {
                     correctAnswer: payload.correctAnswer,
                     skor: payload.skor,
                     quizType: "COMPUTATIONAL_THINKING",
+                    quizGroupId: groupId,
+                    judul: quiz.title,
+                    ctGroupId,
+                    ctStory: story.cerita,
+                    ctAspect,
                   },
                   answerOptions: payload.answerOptions,
                   setting: payload.setting,
@@ -1385,9 +1421,11 @@ function TambahModulKontenPageContent() {
         const apiId = quizApiIds[quizId];
         if (apiId) {
           await guruKuisApi.update(apiId, {
+            quizGroupId: groupId,
             question,
             correctAnswer,
             skor: quiz.scorePerQuestion || 10,
+            judul: quiz.title,
             quizType: "REGULER",
             answerOptions,
             setting: {
@@ -1403,10 +1441,12 @@ function TambahModulKontenPageContent() {
           const created = await guruKuisApi.create({
             quiz: {
               topikId: topicId!,
+              quizGroupId: groupId,
               quizType: "REGULER",
               question,
               correctAnswer,
               skor: quiz.scorePerQuestion || 10,
+              judul: quiz.title,
             },
             answerOptions,
             setting: {
@@ -1530,8 +1570,63 @@ function TambahModulKontenPageContent() {
   // Publish module
   const handlePublish = useCallback(async () => {
     if (!modulId) { setIsLoading(false); return; }
+
+    // Validate every topik has materi, kuis, and rangkuman
+    if (topiks.length === 0) {
+      toast("Tidak ada topik dalam modul. Buat minimal 1 topik terlebih dahulu.", "warning");
+      return;
+    }
+    for (const topik of topiks) {
+      const errors: string[] = [];
+      if (!topik.materis || topik.materis.length === 0) {
+        errors.push("belum memiliki materi");
+      }
+      if (!topik.quizzes || topik.quizzes.length === 0) {
+        errors.push("belum memiliki kuis");
+      }
+      if (!topik.rangkumans || topik.rangkumans.length === 0) {
+        errors.push("belum memiliki rangkuman");
+      }
+      if (errors.length > 0) {
+        toast(
+          `Topik "${topik.nama}" ${errors.join(", ")}. ` +
+          "Lengkapi semua topik dengan materi, kuis, dan rangkuman sebelum menerbitkan.",
+          "warning"
+        );
+        return;
+      }
+    }
+    // Also check the current active topik's unsaved content
+    if (topicId && activeTopikId) {
+      if (materials.length === 0) {
+        toast("Topik aktif belum memiliki materi. Tambahkan minimal 1 materi.", "warning");
+        return;
+      }
+      if (quizzes.length === 0) {
+        toast("Topik aktif belum memiliki kuis. Tambahkan minimal 1 kuis.", "warning");
+        return;
+      }
+      if (rangkumans.length === 0) {
+        toast("Topik aktif belum memiliki rangkuman. Tambahkan minimal 1 rangkuman.", "warning");
+        return;
+      }
+    }
+
+    // Validate pretest & posttest exist
+    const modulDetail = await guruModulApi.detail(modulId);
+    if (modulDetail.pretestPostTestEnabled) {
+      if (!modulDetail.pretest) {
+        toast("Pretest belum dibuat. Buat pretest di halaman Pre-Post Test terlebih dahulu.", "warning");
+        return;
+      }
+      if (!modulDetail.posttest) {
+        toast("Posttest belum dibuat. Buat posttest di halaman Pre-Post Test terlebih dahulu.", "warning");
+        return;
+      }
+    }
+
     const ok2 = await confirm({
-      message: "Apakah Anda yakin ingin menerbitkan modul ini?",
+      message: "Apakah Anda yakin ingin menerbitkan modul ini? Semua konten sudah lengkap.",
       confirmText: "Terbitkan",
     });
     if (!ok2) return;
@@ -2629,7 +2724,7 @@ function TambahModulKontenPageContent() {
                                         </button>
                                       )}
                                     </div>
-                                    <TrixEditor id={`quiz-ct-story-${story.id}`} placeholder="Masukkan cerita di sini ..." minHeight="80px" />
+                                    <TrixEditor id={`quiz-ct-story-${story.id}`} placeholder="Masukkan cerita di sini ..." minHeight="80px" value={story.cerita} onChange={(html) => setQuizzes((p) => p.map((q) => q.id !== quiz.id ? q : { ...q, ctStories: q.ctStories.map((s) => s.id !== story.id ? s : { ...s, cerita: html }) }))} />
                                     {story.subQuestions.map((sq) => (
                                       <div key={sq.id} className="mt-4">
                                         <p className="mb-2 text-[12px] font-semibold text-[#232530]">

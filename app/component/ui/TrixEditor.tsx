@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useMemo } from "react";
+import { uploadApi } from "../../lib/api";
 
 // Import Trix CSS & JS on first mount
 let trixLoaded = false;
@@ -21,6 +22,7 @@ interface TrixEditorProps {
   value?: string;
   onChange?: (html: string) => void;
   minHeight?: string;
+  uploadFileType?: string;
 }
 
 export default function TrixEditor({
@@ -29,6 +31,7 @@ export default function TrixEditor({
   value = "",
   onChange,
   minHeight = "120px",
+  uploadFileType = "MATERI_IMAGE",
 }: TrixEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lastReportedValue = useRef<string | null>(null);
@@ -81,13 +84,31 @@ export default function TrixEditor({
       onChangeRef.current?.(html);
     };
 
+    const handleAttachmentAdd = async (event: any) => {
+      const { attachment } = event;
+      if (!attachment.file) return;
+      try {
+        attachment.setUploadProgress(0);
+        const result = await uploadApi.upload(attachment.file, uploadFileType);
+        attachment.setUploadProgress(1);
+        attachment.setAttributes({
+          url: result.url,
+          href: result.url,
+        });
+      } catch (error) {
+        console.error("TrixEditor upload failed:", error);
+      }
+    };
+
     editorEl.addEventListener("trix-change", handleTrixChange);
+    editorEl.addEventListener("trix-attachment-add", handleAttachmentAdd);
 
     return () => {
       editorEl.removeEventListener("trix-change", handleTrixChange);
+      editorEl.removeEventListener("trix-attachment-add", handleAttachmentAdd);
       container.innerHTML = "";
     };
-  }, [inputId, placeholder, minHeight]); // Re-create only if these core props change
+  }, [inputId, placeholder, minHeight, uploadFileType]);
 
   // Sync external value changes into the editor
   useEffect(() => {
@@ -99,16 +120,16 @@ export default function TrixEditor({
     // Only sync if the incoming value is different from what we last reported
     if (value !== lastReportedValue.current) {
       lastReportedValue.current = value;
-      
+
       // Save cursor position if focused
       const isFocused = document.activeElement === editorEl;
       let pos = null;
       if (isFocused) {
         pos = editorEl.editor.getSelectedRange();
       }
-      
+
       editorEl.editor.loadHTML(value || "");
-      
+
       // Restore cursor position
       if (pos) {
         editorEl.editor.setSelectedRange(pos);
@@ -224,10 +245,6 @@ export default function TrixEditor({
           max-width: 100%;
           border-radius: 8px;
           margin: 0.5em 0;
-        }
-        /* Hide file upload tools from Trix toolbar */
-        .trix-editor-wrapper trix-toolbar .trix-button-group--file-tools {
-          display: none !important;
         }
       `}</style>
     </div>

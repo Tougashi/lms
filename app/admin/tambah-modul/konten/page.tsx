@@ -106,6 +106,7 @@ function TambahModulKontenPageContent() {
       }[];
       ctStories: {
         id: number;
+        cerita: string;
         subQuestions: {
           id: number;
           label: string;
@@ -194,10 +195,7 @@ function TambahModulKontenPageContent() {
             quizIds[localId] = q.id;
             return {
               id: localId,
-              title:
-                q.question.length > 40
-                  ? q.question.substring(0, 40) + "…"
-                  : q.question,
+              title: q.judul || (q.question?.length > 40 ? q.question.substring(0, 40) + "…" : q.question),
               isExpanded: false,
               ctMode: q.quizType === "COMPUTATIONAL_THINKING",
               duration: q.quizSettings[0]?.timeLimit
@@ -405,7 +403,7 @@ function TambahModulKontenPageContent() {
     // Create in API first
     showLoading("Menambahkan materi...");
     try {
-      const created = await adminMateriApi.create({ title: trimmedTitle, topikId: topicId, modulId: modulId || "" });
+      const created = await adminMateriApi.create({ title: trimmedTitle, topikId: topicId, modulId: modulId || "", isVideo: newMaterialType === "video" });
       setMaterialApiIds((prev) => ({ ...prev, [nextId]: created.id }));
     } catch (err) {
       console.error("Create material error:", err);
@@ -531,6 +529,7 @@ function TambahModulKontenPageContent() {
 
   const makeCTStory = () => ({
     id: Date.now(),
+    cerita: "",
     subQuestions: ctSubLabels.map((label, i) => ({
       id: Date.now() + i + 1,
       label,
@@ -586,7 +585,7 @@ function TambahModulKontenPageContent() {
       quizIds[localId] = q.id;
       return {
         id: localId,
-        title: q.question?.length > 40 ? q.question.substring(0, 40) + "…" : q.question || "Untitled",
+        title: q.judul || (q.question?.length > 40 ? q.question.substring(0, 40) + "…" : (q.question || "Untitled")),
         isExpanded: false,
         ctMode: q.quizType === "COMPUTATIONAL_THINKING",
         duration: q.quizSettings?.[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
@@ -1006,7 +1005,10 @@ function TambahModulKontenPageContent() {
         const newSubIds: Record<number, string> = {};
 
         for (const story of quiz.ctStories) {
+          const ctGroupId = `ctg-${quiz.id}-${story.id}-${Date.now()}`;
           for (const sq of story.subQuestions) {
+            const sqIdx = story.subQuestions.indexOf(sq);
+            const ctAspect = ["decomposition", "patternRecognition", "abstraction", "algorithm"][sqIdx] || null;
             const payload = {
               question: sq.label || "Soal CT",
               correctAnswer:
@@ -1015,6 +1017,9 @@ function TambahModulKontenPageContent() {
                 "",
               skor: quiz.scorePerQuestion || 10,
               quizType: "COMPUTATIONAL_THINKING" as const,
+              ctGroupId,
+              ctStory: story.cerita,
+              ctAspect,
               answerOptions: sq.answers.map((a) => ({ option: a.text })),
               setting: {
                 timeLimit: quiz.duration * 60,
@@ -1028,7 +1033,7 @@ function TambahModulKontenPageContent() {
             if (!firstSaved) {
               const apiId = quizApiIds[quizId];
               if (apiId) {
-                await adminTopikKuisApi.update(apiId, payload);
+                await adminTopikKuisApi.update(apiId, { ...payload, judul: quiz.title });
               } else {
                 const created = await adminTopikKuisApi.create({
                   quiz: {
@@ -1037,6 +1042,10 @@ function TambahModulKontenPageContent() {
                     correctAnswer: payload.correctAnswer,
                     skor: payload.skor,
                     quizType: "COMPUTATIONAL_THINKING",
+                    judul: quiz.title,
+                    ctGroupId,
+                    ctStory: story.cerita,
+                    ctAspect,
                   },
                   answerOptions: payload.answerOptions,
                   setting: payload.setting,
@@ -1056,6 +1065,10 @@ function TambahModulKontenPageContent() {
                     correctAnswer: payload.correctAnswer,
                     skor: payload.skor,
                     quizType: "COMPUTATIONAL_THINKING",
+                    judul: quiz.title,
+                    ctGroupId,
+                    ctStory: story.cerita,
+                    ctAspect,
                   },
                   answerOptions: payload.answerOptions,
                   setting: payload.setting,
@@ -1083,6 +1096,7 @@ function TambahModulKontenPageContent() {
             question,
             correctAnswer,
             skor: quiz.scorePerQuestion || 10,
+            judul: quiz.title,
             quizType: "REGULER",
             answerOptions,
             setting: {
@@ -1102,6 +1116,7 @@ function TambahModulKontenPageContent() {
               question,
               correctAnswer,
               skor: quiz.scorePerQuestion || 10,
+              judul: quiz.title,
             },
             answerOptions,
             setting: {
@@ -2238,7 +2253,7 @@ function TambahModulKontenPageContent() {
                               <>
                                 {quiz.ctStories.map((story, sIdx) => (
                                   <div key={story.id} className="mb-6">
-                                    <TrixEditor id={`quiz-ct-story-${story.id}`} placeholder="Masukkan cerita di sini ..." minHeight="80px" />
+                                    <TrixEditor id={`quiz-ct-story-${story.id}`} placeholder="Masukkan cerita di sini ..." minHeight="80px" value={story.cerita} onChange={(html) => setQuizzes((p) => p.map((q) => q.id !== quiz.id ? q : { ...q, ctStories: q.ctStories.map((s) => s.id !== story.id ? s : { ...s, cerita: html }) }))} />
                                     {story.subQuestions.map((sq) => (
                                       <div key={sq.id} className="mt-4">
                                         <p className="mb-2 text-[12px] font-semibold text-[#232530]">

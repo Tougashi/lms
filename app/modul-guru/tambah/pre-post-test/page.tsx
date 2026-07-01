@@ -26,71 +26,6 @@ import {
 import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
 import { usePopup } from "../../../component/ui/PopupProvider";
 
-function MiniEditor({
-    placeholder,
-    value,
-    onChange,
-}: {
-    placeholder: string;
-    value?: string;
-    onChange?: (html: string) => void;
-}) {
-    const ref = useRef<HTMLDivElement>(null);
-    const [empty, setEmpty] = useState(true);
-    const up = () => {
-        const text = ref.current?.textContent?.trim() ?? "";
-        setEmpty(text.length === 0);
-        onChange?.(ref.current?.textContent?.trim() || "");
-    };
-    const cmd = (c: string) => {
-        ref.current?.focus();
-        document.execCommand(c);
-        up();
-    };
-
-    useEffect(() => {
-        if (ref.current && value && ref.current.innerHTML !== value) {
-            ref.current.innerHTML = value;
-            setEmpty((ref.current?.textContent?.trim() ?? "").length === 0);
-        }
-    }, [value]);
-
-    return (
-        <div className="rounded-xl border border-[#d9d7df] bg-white">
-            <div className="flex items-center gap-1.5 border-b border-[#e8e9ef] px-3 py-2">
-                <button
-                    type="button"
-                    onClick={() => cmd("bold")}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md font-semibold text-[#232530] hover:bg-[#f5f4fb]"
-                >
-                    B
-                </button>
-                <button
-                    type="button"
-                    onClick={() => cmd("italic")}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md italic text-[#232530] hover:bg-[#f5f4fb]"
-                >
-                    I
-                </button>
-            </div>
-            <div className="relative px-3 py-3 text-[12px] text-[#232530]">
-                {empty && (
-                    <span className="pointer-events-none absolute left-3 top-3 text-[11px] text-[#9aa0ad]">
-                        {placeholder}
-                    </span>
-                )}
-                <div
-                    ref={ref}
-                    contentEditable
-                    onInput={up}
-                    onBlur={up}
-                    className="min-h-[80px] outline-none"
-                />
-            </div>
-        </div>
-    );
-}
-
 type LocalQuestion = {
     id: number;
     apiSoalId: string | null; // server-side soal ID for update/delete
@@ -1519,10 +1454,7 @@ function PrePostTestPageContent() {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <span className="text-[12px] font-semibold text-[#232530]">
-                                                                    {question.pertanyaan ||
-                                                                        "(belum ada pertanyaan)"}
-                                                                </span>
+                                                                <span className="text-[12px] font-semibold text-[#232530]" dangerouslySetInnerHTML={{ __html: question.pertanyaan || "(belum ada pertanyaan)" }} />
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => {
@@ -1600,7 +1532,8 @@ function PrePostTestPageContent() {
                                                         <p className="mb-2 text-[12px] font-semibold text-[#232530]">
                                                             Pertanyaan
                                                         </p>
-                                                        <MiniEditor
+                                                        <TrixEditor
+                                                            id={`prepost-question-${question.id}`}
                                                             placeholder="Masukkan pertanyaan..."
                                                             value={
                                                                 question.pertanyaan
@@ -1611,6 +1544,7 @@ function PrePostTestPageContent() {
                                                                     html,
                                                                 )
                                                             }
+                                                            minHeight="80px"
                                                         />
 
                                                         {/* Skor input */}
@@ -2346,6 +2280,14 @@ function PrePostTestPageContent() {
                                                     className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
                                                 />
                                                 <span className="text-[12px] text-[#7a7e8a]">
+                                                    / {settingsTargetBank
+                                                        ? settingsTargetBank
+                                                                  .questions
+                                                                  .length +
+                                                          settingsTargetBank
+                                                              .ctStories
+                                                              .length
+                                                        : 0}{" "}
                                                     Soal
                                                 </span>
                                             </div>
