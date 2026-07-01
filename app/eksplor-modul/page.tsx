@@ -262,11 +262,11 @@ function EksplorModulContent() {
 
                 {/* Loading skeleton */}
                 {isLoading ? (
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {[1, 2, 3, 4].map((i) => (
                             <div
                                 key={i}
-                                className="animate-pulse rounded-2xl border border-[#d8d9e0] bg-white p-4 sm:p-5"
+                                className="animate-pulse w-full rounded-2xl border border-[#d8d9e0] bg-white p-4 sm:p-5"
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="h-[88px] w-[88px] shrink-0 rounded-xl bg-[#f0eeff]" />
@@ -280,7 +280,7 @@ function EksplorModulContent() {
                         ))}
                     </div>
                 ) : filteredModules.length > 0 ? (
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {filteredModules.map((item) => {
                             const isEnrolled = activeTab === "terdaftar";
                             const enrolledItem = isEnrolled
@@ -296,7 +296,7 @@ function EksplorModulContent() {
                             return (
                                 <article
                                     key={item.id}
-                                    className="relative rounded-2xl border border-[#d8d9e0] bg-white p-4 sm:p-5 transition-shadow hover:shadow-md"
+                                    className="relative w-full rounded-2xl border border-[#d8d9e0] bg-white p-4 sm:p-5 transition-shadow hover:shadow-md"
                                 >
                                     {activeTab === "relevan" && (
                                         <div className="absolute right-4 top-4 text-[#a4a8b2]">

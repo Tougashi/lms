@@ -195,7 +195,7 @@ export default function ModulDetailPage({
         <div className="min-h-screen bg-[#ffffff] text-[#202126]">
             <SiswaHeader />
 
-            <main className="pb-12">
+            <main className="pb-8 sm:pb-12">
                 <section className="rounded-b-[40px] bg-[#E7E1FE]">
                     <div className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 sm:pb-28">
                         <div className="flex flex-col gap-6 rounded-3xl bg-transparent lg:flex-row lg:items-start">
@@ -218,7 +218,7 @@ export default function ModulDetailPage({
                             </div>
 
                             <div className="flex-1">
-                                <h1 className="mb-2 mt-4 text-3xl font-bold text-[#202126]">
+                                <h1 className="mb-2 mt-4 text-2xl sm:text-3xl font-bold text-[#202126]">
                                     {moduleData.moduleName}
                                 </h1>
 
@@ -459,7 +459,7 @@ export default function ModulDetailPage({
                         </div>
                     </div>
 
-                    <aside className="space-y-6">
+                    <aside className="space-y-6 w-full">
                         {moduleData.tutor && (
                             <div>
                                 <h4 className="text-lg font-bold text-[#202126]">

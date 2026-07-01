@@ -41,7 +41,7 @@ export default function SchoolLevelSection() {
           </AnimateInView>
         </div>
 
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
           {levels.map((level, index) => (
             <AnimateInView key={level.title} delay={0.12 + index * 0.06}>
               <article className={`rounded-2xl px-5 py-6 sm:px-6 sm:py-7 ${level.cardClass}`}>

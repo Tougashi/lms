@@ -9,6 +9,7 @@ import {
     FiEdit2,
     FiFileText,
     FiLayers,
+    FiMenu,
     FiMoreVertical,
     FiPlus,
     FiSettings,
@@ -82,6 +83,7 @@ function PrePostTestPageContent() {
     const modulId = searchParams.get("modulId");
     const { toast, confirm, showLoading, hideLoading } = usePopup();
 
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [banks, setBanks] = useState<BankSoal[]>([]);
     const [isCreating, setIsCreating] = useState(false);
     const [newBankName, setNewBankName] = useState("");
@@ -1331,6 +1333,79 @@ function PrePostTestPageContent() {
             <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
                 <GuruHeader />
                 <main className="w-full">
+                    {/* Mobile hamburger */}
+                    <div className="sticky top-0 z-30 flex items-center justify-between border-b border-[#e5e3ee] bg-white px-4 py-3 lg:hidden">
+                        <p className="text-[13px] font-semibold text-[#232530]">Menu Navigasi</p>
+                        <button
+                            type="button"
+                            onClick={() => setIsDrawerOpen(true)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#7a7e8a] hover:bg-[#f5f4fb]"
+                        >
+                            <FiMenu size={18} />
+                        </button>
+                    </div>
+
+                    {/* Mobile drawer overlay */}
+                    {isDrawerOpen && (
+                        <div
+                            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+                            onClick={() => setIsDrawerOpen(false)}
+                        />
+                    )}
+
+                    {/* Mobile drawer */}
+                    <div
+                        className={`fixed top-0 left-0 z-50 h-full w-[260px] border-r border-[#e5e3ee] bg-white px-5 py-6 shadow-lg transition-transform duration-300 lg:hidden ${
+                            isDrawerOpen ? "translate-x-0" : "-translate-x-full"
+                        }`}
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-[13px] font-semibold text-[#232530]">Menu</p>
+                            <button
+                                type="button"
+                                onClick={() => setIsDrawerOpen(false)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#7a7e8a] hover:bg-[#f5f4fb]"
+                            >
+                                <FiX size={16} />
+                            </button>
+                        </div>
+                        <div className="flex h-full flex-col">
+                            <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
+                            <nav className="mt-4 space-y-3 text-[13px]">
+                                <Link href={modulId ? `/modul-guru/tambah/profil?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                                    <FiFileText size={12} />
+                                    Profil Modul Anda
+                                </Link>
+                                <Link href={modulId ? `/modul-guru/tambah/harga?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                                    <FiDollarSign size={12} />
+                                    Penetapan Harga Modul
+                                </Link>
+                            </nav>
+                            <p className="mt-8 text-[13px] font-semibold text-[#232530]">Konten Modul Anda</p>
+                            <nav className="mt-4 space-y-3 text-[13px]">
+                                <Link href={modulId ? `/modul-guru/tambah/konten?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                                    <FiLayers size={12} />
+                                    Konten Modul
+                                </Link>
+                                <div className="flex items-center gap-2 text-[#7054dc]">
+                                    <FiCheckSquare size={12} />
+                                    <span className="font-semibold">Pree - Post Test Modul</span>
+                                </div>
+                            </nav>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    setIsDrawerOpen(false);
+                                    handlePublish();
+                                }}
+                                disabled={!modulId}
+                                className="mt-8 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Terbitkan Modul
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="grid w-full gap-8 lg:grid-cols-[260px_1fr]">
                         {sidebar}
                         <section className="px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
@@ -2454,6 +2529,79 @@ function PrePostTestPageContent() {
         <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
             <GuruHeader />
             <main className="w-full">
+                {/* Mobile hamburger */}
+                <div className="sticky top-0 z-30 flex items-center justify-between border-b border-[#e5e3ee] bg-white px-4 py-3 lg:hidden">
+                    <p className="text-[13px] font-semibold text-[#232530]">Menu Navigasi</p>
+                    <button
+                        type="button"
+                        onClick={() => setIsDrawerOpen(true)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#7a7e8a] hover:bg-[#f5f4fb]"
+                    >
+                        <FiMenu size={18} />
+                    </button>
+                </div>
+
+                {/* Mobile drawer overlay */}
+                {isDrawerOpen && (
+                    <div
+                        className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+                        onClick={() => setIsDrawerOpen(false)}
+                    />
+                )}
+
+                {/* Mobile drawer */}
+                <div
+                    className={`fixed top-0 left-0 z-50 h-full w-[260px] border-r border-[#e5e3ee] bg-white px-5 py-6 shadow-lg transition-transform duration-300 lg:hidden ${
+                        isDrawerOpen ? "translate-x-0" : "-translate-x-full"
+                    }`}
+                >
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-[13px] font-semibold text-[#232530]">Menu</p>
+                        <button
+                            type="button"
+                            onClick={() => setIsDrawerOpen(false)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#7a7e8a] hover:bg-[#f5f4fb]"
+                        >
+                            <FiX size={16} />
+                        </button>
+                    </div>
+                    <div className="flex h-full flex-col">
+                        <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
+                        <nav className="mt-4 space-y-3 text-[13px]">
+                            <Link href={modulId ? `/modul-guru/tambah/profil?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                                <FiFileText size={12} />
+                                Profil Modul Anda
+                            </Link>
+                            <Link href={modulId ? `/modul-guru/tambah/harga?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                                <FiDollarSign size={12} />
+                                Penetapan Harga Modul
+                            </Link>
+                        </nav>
+                        <p className="mt-8 text-[13px] font-semibold text-[#232530]">Konten Modul Anda</p>
+                        <nav className="mt-4 space-y-3 text-[13px]">
+                            <Link href={modulId ? `/modul-guru/tambah/konten?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                                <FiLayers size={12} />
+                                Konten Modul
+                            </Link>
+                            <div className="flex items-center gap-2 text-[#7054dc]">
+                                <FiCheckSquare size={12} />
+                                <span className="font-semibold">Pree - Post Test Modul</span>
+                            </div>
+                        </nav>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                setIsDrawerOpen(false);
+                                handlePublish();
+                            }}
+                            disabled={!modulId}
+                            className="mt-8 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Terbitkan Modul
+                        </button>
+                    </div>
+                </div>
+
                 <div className="grid w-full gap-8 lg:grid-cols-[260px_1fr]">
                     {sidebar}
                     <section className="px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
@@ -2491,7 +2639,7 @@ function PrePostTestPageContent() {
                                     <div
                                         key={bank.id}
                                         onClick={() => setActiveBankId(bank.id)}
-                                        className="group relative h-[130px] w-[170px] cursor-pointer overflow-hidden rounded-2xl bg-gradient-to-br from-[#c8b8f8] to-[#ddd4fa] p-4 transition-transform hover:scale-[1.03]"
+                                        className="group relative h-[130px] w-full sm:w-[170px] cursor-pointer overflow-hidden rounded-2xl bg-gradient-to-br from-[#c8b8f8] to-[#ddd4fa] p-4 transition-transform hover:scale-[1.03]"
                                     >
                                         <div className="flex items-start justify-between">
                                             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#7054dc] text-white">
@@ -2603,7 +2751,7 @@ function PrePostTestPageContent() {
                         )}
 
                         {isCreating ? (
-                            <div className="mt-6 w-[400px] rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
+                            <div className="mt-6 w-full max-w-[400px] rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
                                 <p className="text-[13px] font-semibold text-[#232530]">
                                     Nama Bank Soal
                                 </p>
@@ -2678,7 +2826,7 @@ function PrePostTestPageContent() {
                                 <button
                                     type="button"
                                     onClick={() => setIsCreating(true)}
-                                    className="inline-flex h-[40px] w-[160px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#8e7bff] bg-white text-[12px] font-semibold text-[#7054dc]"
+                                    className="inline-flex h-[40px] w-full sm:w-[160px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#8e7bff] bg-white text-[12px] font-semibold text-[#7054dc]"
                                 >
                                     Bank Soal <FiPlus size={14} />
                                 </button>

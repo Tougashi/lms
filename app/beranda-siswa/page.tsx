@@ -153,10 +153,10 @@ export default function BerandaSiswaPage() {
         )}
 
         {/* Top Row */}
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <h2 className="text-2xl font-bold text-[#21212b]">Beranda</h2>
 
-          <div className="relative w-full max-w-md pt-0.5">
+          <div className="relative w-full sm:max-w-md pt-0.5">
             <input
               type="text"
               value={searchQuery}
@@ -171,7 +171,7 @@ export default function BerandaSiswaPage() {
         </div>
 
         {/* Top Section: Hero + Cards */}
-        <div className="mb-8 grid gap-4 lg:grid-cols-3">
+        <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Hero Banner */}
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#26262A] to-[#2f3138] p-6 text-white lg:col-span-2">
             <div className="relative z-10">
@@ -182,7 +182,7 @@ export default function BerandaSiswaPage() {
               </Link>
             </div>
               {/* Illustration with Glow */}
-              <div className="absolute right-4 top-[56%] -translate-y-1/2 h-60 w-60 sm:h-[20rem] sm:w-[20rem] z-5">
+              <div className="absolute right-2 top-[56%] -translate-y-1/2 h-36 w-36 sm:h-60 sm:w-60 md:h-[20rem] md:w-[20rem] z-5">
                 {/* Purple Glow Background */}
                 <div className="absolute inset-0 translate-x-10 translate-y-6 rounded-full bg-[#7054dc] opacity-50 blur-3xl sm:translate-x-14 sm:translate-y-8"></div>
               <Image
@@ -260,9 +260,9 @@ export default function BerandaSiswaPage() {
               </Link>
             </div>
 
-            <div className="overflow-hidden rounded-xl bg-white">
+            <div className="overflow-x-auto rounded-xl bg-white">
               {/* Header */}
-              <div className="flex bg-[#e7e7e7] px-6 py-3">
+              <div className="hidden sm:flex bg-[#e7e7e7] px-6 py-3">
                 <div className="flex-1 text-left text-base font-semibold text-gray">Modul</div>
                 <div className="flex-1 text-left text-base font-semibold text-gray">Progres</div>
                 <div className="w-32 text-left text-base font-semibold text-gray">Status</div>
@@ -371,7 +371,7 @@ export default function BerandaSiswaPage() {
             <div className="rounded-2xl bg-white p-4">
               <h4 className="mb-4 text-base font-bold text-[#21212b]">Statistik Keseluruhan Progres</h4>
               <div className="flex flex-col items-center justify-center gap-4">
-                <div className="relative h-72 w-72">
+                <div className="relative h-48 w-48 sm:h-64 sm:w-64 md:h-72 md:w-72">
                   <svg className="h-full w-full" viewBox="0 0 220 220" aria-label="Diagram progres keseluruhan">
                     <circle cx="110" cy="110" r="82" fill="none" stroke="#eef0f4" strokeWidth="42" />
                     <circle

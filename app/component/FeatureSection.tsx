@@ -37,7 +37,7 @@ export default function FeatureSection() {
           </AnimateInView>
         </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
+        <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-3">
           {features.map((feature, index) => {
             const Icon = feature.icon;
 

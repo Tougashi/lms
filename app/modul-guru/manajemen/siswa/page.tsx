@@ -225,8 +225,8 @@ function SiswaDetailPageContent() {
                   <div className="flex h-full w-full items-center justify-center text-2xl">📚</div>
                 )}
               </div>
-              <div>
-                <h1 className="text-[17px] font-bold text-[#232530]">{mod?.moduleName ?? '—'}</h1>
+              <div className="min-w-0">
+                <h1 className="truncate text-[17px] font-bold text-[#232530]">{mod?.moduleName ?? '—'}</h1>
                 <p className="text-[12px] text-[#7a7e8a]">
                   {mod?.level ? `Jenjang ${mod.level}` : ''}{mod?.class ? ` | ${mod.class}` : ''}
                 </p>

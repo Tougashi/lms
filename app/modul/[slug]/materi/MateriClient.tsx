@@ -2059,7 +2059,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
                 {/* ── Toast Notification ── */}
                 {toastMsg && (
-                    <div className="fixed bottom-6 right-6 z-50 max-w-[320px] animate-fade-in rounded-xl bg-[#202126] px-4 py-3 text-sm text-white shadow-lg">
+                    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 max-w-[320px] animate-fade-in rounded-xl bg-[#202126] px-4 py-3 text-sm text-white shadow-lg">
                         <div className="flex items-start gap-2">
                             <span>🔒</span>
                             <span className="flex-1">{toastMsg}</span>
@@ -2075,14 +2075,23 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 )}
 
                 {/* ── Main content ── */}
+                {/* Hamburger toggle for mobile sidebar */}
+                <button
+                    type="button"
+                    onClick={() => setIsModuleSidebarOpen(true)}
+                    className="fixed left-4 top-[88px] z-30 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white shadow-md border border-[#e1e0e7] text-[#202126] lg:hidden"
+                    aria-label="Buka konten kelas"
+                >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
                 <section className="flex h-[calc(100vh-76px)] min-h-[calc(100vh-76px)] flex-col overflow-hidden">
                     <div
-                        className={`flex-1 p-5 ${currentView === "materi" ? "overflow-y-auto" : "overflow-y-auto"}`}
+                        className={`flex-1 p-3 sm:p-5 ${currentView === "materi" ? "overflow-y-auto" : "overflow-y-auto"}`}
                     >
                         <div className="flex min-h-[520px] w-full">
                             {/* Pretest / Posttest Intro */}
                             {currentView === "pretest-intro" && (
-                                <div className="m-auto flex min-h-[580px] w-full max-w-4xl flex-col justify-center rounded-2xl border border-[#e6e4ed] bg-white px-6 py-10 text-center">
+                                <div className="m-auto flex min-h-[580px] w-full max-w-4xl flex-col justify-center rounded-2xl border border-[#e6e4ed] bg-white px-4 sm:px-6 py-8 sm:py-10 text-center">
                                     <Image
                                         src="/assets/images/materi/selesai.png"
                                         alt="Ilustrasi test"
@@ -2155,7 +2164,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                             {currentView === "pretest-quiz" &&
                                 activeQuestion && (
                                     <div className="m-auto w-full max-w-4xl">
-                                        <div className="mb-6 flex items-center justify-between rounded-2xl border border-[#e6e4ed] bg-white px-6 py-4">
+                                        <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-2xl border border-[#e6e4ed] bg-white px-4 sm:px-6 py-4">
                                             <span className="text-sm font-semibold text-[#202126]">
                                                 Soal {activeQuestionIndex + 1}{" "}
                                                 dari {currentSoal.length}
@@ -2169,7 +2178,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             </div>
                                         </div>
 
-                                        <div className="rounded-2xl border border-[#e6e4ed] bg-white px-6 py-8">
+                                        <div className="rounded-2xl border border-[#e6e4ed] bg-white px-4 sm:px-6 py-8">
                                             {activeQuestion.gambar_url && (
                                                 <div className="mb-6 overflow-hidden rounded-xl">
                                                     <Image
@@ -2315,7 +2324,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
                             {/* Test Result */}
                             {currentView === "pretest-result" && (
-                                <div className="m-auto flex min-h-[580px] w-full max-w-5xl flex-col justify-center rounded-2xl border border-[#e6e4ed] bg-white px-6 py-10 text-center">
+                                <div className="m-auto flex min-h-[580px] w-full max-w-5xl flex-col justify-center rounded-2xl border border-[#e6e4ed] bg-white px-4 sm:px-6 py-8 sm:py-10 text-center">
                                     {wasTimeUp && (
                                         <div className="mx-auto mb-4 flex w-full max-w-[540px] items-center gap-2 rounded-xl border border-[#e35f5f]/30 bg-[#fff5f5] px-4 py-3 text-sm font-medium text-[#e35f5f]">
                                             <FaRegClock size={16} />
@@ -2339,7 +2348,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                               : "Post-Test"}
                                     </h2>
 
-                                    <div className="mx-auto mt-8 grid max-w-[540px] grid-cols-4 gap-4">
+                                    <div className="mx-auto mt-8 grid max-w-[540px] grid-cols-2 gap-4 sm:grid-cols-4">
                                         <div>
                                             <p className="inline-flex items-center gap-1 text-lg text-[#4f5565]">
                                                 Benar
@@ -2569,7 +2578,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                     {totalSteps} materi
                                                 </p>
                                             </div>
-                                            <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#e2dfee">
+                                            <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#e2dfee]">
                                                 <div
                                                     className="h-full rounded-full bg-[#7054dc] transition-all"
                                                     style={{
@@ -2601,7 +2610,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             )}
 
                                         <div className="mt-5 flex items-center justify-between gap-4">
-                                            <h2 className="text-3xl font-bold text-[#202126]">
+                                            <h2 className="text-2xl sm:text-3xl font-bold text-[#202126]">
                                                 {isFinalSummaryView
                                                     ? "Rangkuman Akhir"
                                                     : (currentSeqItem?.title ??
@@ -2714,8 +2723,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
                             {/* Rating */}
                             {currentView === "rating" && (
-                                <div className="m-auto w-full max-w-5xl rounded-2xl border border-[#eceaf3] bg-white px-8 py-12">
-                                    <div className="mx-auto max-w-[560px] text-center">
+                                <div className="m-auto w-full max-w-5xl rounded-2xl border border-[#eceaf3] bg-white px-4 sm:px-8 py-8 sm:py-12">
+                                    <div className="mx-auto w-full max-w-[560px] text-center">
                                         {isRatingSubmitted ? (
                                             <div className="py-10">
                                                 <Image
@@ -2817,7 +2826,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     {(currentView === "materi" ||
                         currentView === "pretest-quiz" ||
                         currentView === "rating") && (
-                        <div className="border-t border-[#e1e0e7] bg-white px-6 py-4">
+                        <div className="border-t border-[#e1e0e7] bg-white px-4 sm:px-6 py-4">
                             <div className="flex items-center justify-between">
                                 <button
                                     type="button"

@@ -53,7 +53,7 @@ function UlasanPageContent() {
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
       <GuruHeader />
 
-      <main className="mx-auto w-full max-w-[1060px] px-6 pb-10 pt-6">
+      <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-6 sm:px-6">
         <Link
           href="/beranda-guru"
           className="mb-5 inline-flex items-center gap-1 text-[13px] font-medium text-[#7054dc]"

@@ -90,7 +90,7 @@ function BerandaGuruPageContent() {
     return (
       <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
         <GuruHeader />
-        <main className="mx-auto w-full max-w-[1260px] px-6 pb-8 pt-8">
+        <main className="mx-auto w-full max-w-[1260px] px-4 pb-8 pt-6 sm:px-6 sm:pt-8">
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-4">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7557ea] border-t-transparent"></div>
@@ -106,7 +106,7 @@ function BerandaGuruPageContent() {
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
       <GuruHeader />
 
-      <main className="mx-auto w-full max-w-[1260px] px-6 pb-8 pt-8">
+      <main className="mx-auto w-full max-w-[1260px] px-4 pb-8 pt-6 sm:px-6 sm:pt-8">
         {/* Error */}
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -131,14 +131,14 @@ function BerandaGuruPageContent() {
           </Link>
         </div>
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard value={stats.published} label="Modul Terbit" />
           <StatCard value={stats.drafts} label="Draft Modul" />
           <StatCard value={stats.totalStudents} label="Total Siswa Terdaftar" />
           <StatCard value={stats.totalCompleted} label="Total Siswa Lulus Modul" />
         </section>
 
-        <section className="mt-7 grid gap-4 xl:grid-cols-2">
+        <section className="mt-7 grid gap-4 md:grid-cols-2">
           <div className="overflow-hidden rounded-2xl border border-[#e8e9ef] bg-white shadow-[0_4px_14px_rgba(19,23,31,0.05)]">
             <div className="flex items-center justify-between border-b border-[#f0f1f6] px-5 py-4">
               <h2 className="text-[18px] font-semibold leading-[28px] tracking-[-0.01em] text-[#252834]">Top Modul / Kelas</h2>
@@ -274,7 +274,7 @@ function BerandaGuruPageContent() {
               {reviews.map((review, index) => (
                 <div
                   key={review.id}
-                  className={`grid gap-4 px-5 py-4 lg:grid-cols-[1.2fr_2.4fr_0.5fr] lg:items-center lg:gap-5 ${
+                  className={`grid gap-4 px-5 py-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,2.4fr)_0.5fr] lg:items-center lg:gap-5 ${
                     index !== reviews.length - 1 ? 'border-b border-[#eef0f5]' : ''
                   }`}
                 >

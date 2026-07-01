@@ -189,14 +189,14 @@ function ModulGuruPageContent() {
                     </div>
                 ) : (
                     <>
-                        <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-5 lg:grid-cols-2">
+                        <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-5 md:grid-cols-2 lg:grid-cols-3">
                             {filteredModules.map((modul) => (
                                 <div
                                     key={modul.id}
                                     className="relative flex items-center justify-between gap-3 rounded-2xl border border-[#eceaf4] bg-white p-4 shadow-[0_10px_22px_rgba(12,12,18,0.06)] sm:gap-4 sm:p-5"
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className="hidden h-[72px] w-[72px] overflow-hidden rounded-2xl bg-[#f3f4f8] sm:block sm:w-[92px]">
+                                    <div className="flex min-w-0 items-center gap-4">
+                                        <div className="hidden h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl bg-[#f3f4f8] sm:block sm:w-[92px]">
                                             <Image
                                                 src={
                                                     modul.moduleImgUrl ||
@@ -208,8 +208,8 @@ function ModulGuruPageContent() {
                                                 className="h-full w-full object-cover"
                                             />
                                         </div>
-                                        <div>
-                                            <h2 className="text-[16px] font-semibold text-[#232530]">
+                                        <div className="min-w-0">
+                                            <h2 className="truncate text-[16px] font-semibold text-[#232530]">
                                                 {modul.moduleName}
                                             </h2>
                                             <p className="mt-1 text-[12px] text-[#7c808f]">

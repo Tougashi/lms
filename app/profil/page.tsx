@@ -282,8 +282,8 @@ export default function ProfilPage() {
         <h1 className="mb-4 text-lg font-bold text-[#202126]">Profil</h1>
 
         <section className="rounded-2xl border border-[#e4e2eb] bg-white p-4 sm:p-6">
-          <div className="grid gap-5 lg:grid-cols-[220px_1fr] lg:gap-0">
-            <aside className="rounded-xl bg-white p-4 lg:rounded-none lg:border-r lg:border-[#e4e2eb] lg:pr-5 lg:pl-2">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-[220px_1fr] md:gap-0">
+            <aside className="rounded-xl bg-white p-4 md:rounded-none md:border-r md:border-[#e4e2eb] md:pr-5 md:pl-2">
               <nav className="space-y-2">
                 {profileMenu
                   .filter((item) => !(user?.role === "tutor" && item.id === "sertifikat"))
@@ -315,7 +315,7 @@ export default function ProfilPage() {
               </nav>
             </aside>
 
-            <div className="min-h-[560px] rounded-xl bg-white p-4 sm:p-5 lg:rounded-none lg:pl-6">
+            <div className="min-h-[560px] rounded-xl bg-white p-4 sm:p-5 md:rounded-none md:pl-6">
               {/* Profil Saya */}
               {activeMenu === "profil" && (
                 <>
@@ -666,7 +666,7 @@ export default function ProfilPage() {
               {activeMenu === "password" && (
                 <>
                   <h2 className="text-base font-bold text-[#202126]">Ubah Password</h2>
-                  <div className="mt-4 max-w-[460px] rounded-xl border border-[#e4e2eb] bg-white p-4">
+                  <div className="mt-4 w-full max-w-[460px] rounded-xl border border-[#e4e2eb] bg-white p-4">
                     {passwordMsg.text && (
                       <p className={`mb-3 text-sm ${passwordMsg.isError ? "text-red-500" : "text-green-600"}`}>{passwordMsg.text}</p>
                     )}

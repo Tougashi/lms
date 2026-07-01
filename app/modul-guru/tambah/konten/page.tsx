@@ -12,6 +12,7 @@ import {
   FiEdit2,
   FiFileText,
   FiLayers,
+  FiMenu,
   FiPlus,
   FiSettings,
   FiTrash2,
@@ -163,6 +164,7 @@ function TambahModulKontenPageContent() {
   const [isSavingQuiz, setIsSavingQuiz] = useState(false);
   const [isModuleCT, setIsModuleCT] = useState(false);
   const [tempCTMode, setTempCTMode] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [rangkumans, setRangkumans] = useState<
     { id: number; title: string; konten: string; isExpanded: boolean }[]
@@ -1663,71 +1665,104 @@ function TambahModulKontenPageContent() {
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
       <GuruHeader />
 
-      <main className="w-full px-0 py-0">
-        <div className="grid w-full gap-8 lg:grid-cols-[260px_1fr]">
-          <aside className="hidden border border-[#e5e3ee] bg-white px-5 py-6 lg:block lg:min-h-[calc(100vh-74px)]">
-            <div className="flex h-full flex-col">
-              <p className="text-[13px] font-semibold text-[#232530]">
-                Rencanakan Modul anda
-              </p>
-              <nav className="mt-4 space-y-3 text-[13px]">
-                <Link
-                  href={
-                    modulId
-                      ? `/modul-guru/tambah/profil?modulId=${modulId}`
-                      : "#"
-                  }
-                  className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
-                >
-                  <FiFileText size={12} />
-                  Profil Modul Anda
-                </Link>
-                <Link
-                  href={
-                    modulId
-                      ? `/modul-guru/tambah/harga?modulId=${modulId}`
-                      : "#"
-                  }
-                  className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
-                >
-                  <FiDollarSign size={12} />
-                  Penetapan Harga Modul
-                </Link>
-              </nav>
+      {/* Mobile sidebar overlay backdrop */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
 
-              <p className="mt-8 text-[13px] font-semibold text-[#232530]">
-                Konten Modul Anda
-              </p>
-              <nav className="mt-4 space-y-3 text-[13px]">
-                <div className="flex items-center gap-2 text-[#7054dc]">
-                  <FiLayers size={12} />
-                  <span className="font-semibold">Konten Modul</span>
-                </div>
-                <Link
-                  href={
-                    modulId
-                      ? `/modul-guru/tambah/pre-post-test?modulId=${modulId}`
-                      : "#"
-                  }
-                  className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
-                >
-                  <FiCheckSquare size={12} />
-                  Pree - Post Test Modul
-                </Link>
-              </nav>
+      <div className="flex w-full min-h-[calc(100vh-74px)]">
+      {/* Mobile sidebar drawer */}
+      <aside
+        className={`fixed left-0 top-0 z-50 h-full w-[260px] border-r border-[#e5e3ee] bg-white px-5 py-6 shadow-lg transition-transform duration-300 lg:static lg:z-auto lg:flex lg:shrink-0 lg:shadow-none lg:min-h-full ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between lg:hidden">
+            <p className="text-[13px] font-semibold text-[#232530]">
+              Navigasi Modul
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(false)}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#e5e3ee] text-[#7a7e8a] hover:bg-[#f5f4fb]"
+            >
+              <FiX size={16} />
+            </button>
+          </div>
+          <p className="mt-4 text-[13px] font-semibold text-[#232530] lg:mt-0">
+            Rencanakan Modul anda
+          </p>
+          <nav className="mt-4 space-y-3 text-[13px]">
+            <Link
+              href={
+                modulId
+                  ? `/modul-guru/tambah/profil?modulId=${modulId}`
+                  : "#"
+              }
+              className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
+            >
+              <FiFileText size={12} />
+              Profil Modul Anda
+            </Link>
+            <Link
+              href={
+                modulId
+                  ? `/modul-guru/tambah/harga?modulId=${modulId}`
+                  : "#"
+              }
+              className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
+            >
+              <FiDollarSign size={12} />
+              Penetapan Harga Modul
+            </Link>
+          </nav>
 
-              <button
-                type="button"
-                onClick={handlePublish}
-                disabled={!modulId}
-                className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Terbitkan Modul
-              </button>
+          <p className="mt-8 text-[13px] font-semibold text-[#232530]">
+            Konten Modul Anda
+          </p>
+          <nav className="mt-4 space-y-3 text-[13px]">
+            <div className="flex items-center gap-2 text-[#7054dc]">
+              <FiLayers size={12} />
+              <span className="font-semibold">Konten Modul</span>
             </div>
-          </aside>
+            <Link
+              href={
+                modulId
+                  ? `/modul-guru/tambah/pre-post-test?modulId=${modulId}`
+                  : "#"
+              }
+              className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
+            >
+              <FiCheckSquare size={12} />
+              Pree - Post Test Modul
+            </Link>
+          </nav>
 
-          <section className="px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
+          <button
+            type="button"
+            onClick={handlePublish}
+            disabled={!modulId}
+            className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Terbitkan Modul
+          </button>
+        </div>
+      </aside>
+
+          <section className="flex-1 min-w-0 px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
+            {/* Mobile sidebar toggle */}
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(true)}
+              className="mb-4 inline-flex items-center gap-2 rounded-lg border border-[#e5e3ee] bg-white px-3 py-2 text-[12px] font-semibold text-[#7a7e8a] hover:bg-[#f5f4fb] lg:hidden"
+            >
+              <FiMenu size={16} />
+              Menu Navigasi
+            </button>
             <h1 className="text-[18px] font-semibold text-[#232530]">
               Membuat konten modul anda
             </h1>
@@ -3187,8 +3222,6 @@ function TambahModulKontenPageContent() {
               )}
             </div>
           </section>
-        </div>
-      </main>
 
       {isQuizSettingsOpen &&
         activeQuizId &&
@@ -3450,6 +3483,7 @@ function TambahModulKontenPageContent() {
             </div>
           );
         })()}
+      </div>
     </div>
   );
 }
