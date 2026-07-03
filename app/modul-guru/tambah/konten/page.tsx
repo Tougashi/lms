@@ -1573,73 +1573,12 @@ function TambahModulKontenPageContent() {
   const handlePublish = useCallback(async () => {
     if (!modulId) { setIsLoading(false); return; }
 
-    // Fetch fresh data from API to validate all saved topics & content
-    let freshTopiks: GuruTopikWithMateri[];
-    try {
-      freshTopiks = await guruMateriApi.getByModul(modulId);
-    } catch {
-      toast("Gagal memuat data topik. Coba lagi.", "error");
-      return;
-    }
-
-    if (freshTopiks.length === 0) {
-      toast("Tidak ada topik dalam modul. Buat minimal 1 topik terlebih dahulu.", "warning");
-      return;
-    }
-    for (const topik of freshTopiks) {
-      const errors: string[] = [];
-      if (!topik.materis || topik.materis.length === 0) {
-        errors.push("belum memiliki materi");
-      }
-      if (!topik.quizzes || topik.quizzes.length === 0) {
-        errors.push("belum memiliki kuis");
-      }
-      if (!topik.rangkumans || topik.rangkumans.length === 0) {
-        errors.push("belum memiliki rangkuman");
-      }
-      if (errors.length > 0) {
-        toast(
-          `Topik "${topik.nama}" ${errors.join(", ")}. ` +
-          "Lengkapi semua topik dengan materi, kuis, dan rangkuman sebelum menerbitkan.",
-          "warning"
-        );
-        return;
-      }
-    }
-    // Also check the current active topik's unsaved content
-    if (topicId && activeTopikId) {
-      if (materials.length === 0) {
-        toast("Topik aktif belum memiliki materi. Tambahkan minimal 1 materi.", "warning");
-        return;
-      }
-      if (quizzes.length === 0) {
-        toast("Topik aktif belum memiliki kuis. Tambahkan minimal 1 kuis.", "warning");
-        return;
-      }
-      if (rangkumans.length === 0) {
-        toast("Topik aktif belum memiliki rangkuman. Tambahkan minimal 1 rangkuman.", "warning");
-        return;
-      }
-    }
-
-    // Validate pretest & posttest exist
-    const modulDetail = await guruModulApi.detail(modulId);
-    if (modulDetail.pretestPostTestEnabled) {
-      if (!modulDetail.pretest) {
-        toast("Pretest belum dibuat. Buat pretest di halaman Pre-Post Test terlebih dahulu.", "warning");
-        return;
-      }
-      if (!modulDetail.posttest) {
-        toast("Posttest belum dibuat. Buat posttest di halaman Pre-Post Test terlebih dahulu.", "warning");
-        return;
-      }
-    }
-
-    const ok2 = await confirm({
-      message: "Apakah Anda yakin ingin menerbitkan modul ini? Semua konten sudah lengkap.",
+    const ok = await confirm({
+      message: "Apakah Anda yakin ingin menerbitkan modul ini?",
       confirmText: "Terbitkan",
     });
-    if (!ok2) return;
+    if (!ok) return;
+    
     showLoading("Menerbitkan modul...");
     try {
       await guruModulApi.update(modulId, { isDraft: false });
@@ -1681,14 +1620,14 @@ function TambahModulKontenPageContent() {
         />
       )}
 
-      <div className="flex w-full min-h-[calc(100vh-74px)]">
+      <div className="lg:grid lg:grid-cols-[260px_1fr] lg:min-h-[calc(100vh-74px)]">
       {/* Mobile sidebar drawer */}
       <aside
-        className={`fixed left-0 top-0 z-50 h-full w-[260px] border-r border-[#e5e3ee] bg-white px-5 py-6 shadow-lg transition-transform duration-300 lg:static lg:z-auto lg:flex lg:shrink-0 lg:shadow-none lg:min-h-full ${
+        className={`fixed left-0 top-0 z-50 h-full w-[260px] border-r border-[#e5e3ee] bg-white px-5 py-6 shadow-lg transition-transform duration-300 lg:static lg:z-auto lg:h-auto lg:w-auto lg:shadow-none ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="flex h-full flex-col">
+        <div className="flex flex-col">
           <div className="flex items-center justify-between lg:hidden">
             <p className="text-[13px] font-semibold text-[#232530]">
               Navigasi Modul
@@ -1746,7 +1685,7 @@ function TambahModulKontenPageContent() {
               className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
             >
               <FiCheckSquare size={12} />
-              Pree - Post Test Modul
+              Pre - Post Test Modul
             </Link>
           </nav>
 
@@ -1754,14 +1693,14 @@ function TambahModulKontenPageContent() {
             type="button"
             onClick={handlePublish}
             disabled={!modulId}
-            className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-8 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Terbitkan Modul
           </button>
         </div>
       </aside>
 
-          <section className="flex-1 min-w-0 px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
+          <section className="min-w-0 px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
             {/* Mobile sidebar toggle */}
             <button
               type="button"

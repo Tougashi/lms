@@ -53,7 +53,7 @@ function TambahModulProfilPageContent() {
     const [coverUploading, setCoverUploading] = useState(false);
     const coverObjectUrlRef = useRef<string | null>(null);
     const { user } = useAuth();
-    const { showLoading, hideLoading, toast } = usePopup();
+    const { showLoading, hideLoading, toast, confirm } = usePopup();
 
     const [isLoading, setIsLoading] = useState(!!modulId);
     const [isSaving, setIsSaving] = useState(false);
@@ -145,6 +145,26 @@ function TambahModulProfilPageContent() {
     const computedTargetTime = useMemo(() => {
         return targetTimeUnit === "bulan" ? targetTime * 60 : targetTime * 7;
     }, [targetTime, targetTimeUnit]);
+
+    const handlePublish = useCallback(async () => {
+        if (!modulId) return;
+        const ok = await confirm({
+            message: "Apakah Anda yakin ingin menerbitkan modul ini?",
+            confirmText: "Terbitkan",
+        });
+        if (!ok) return;
+        
+        showLoading("Menerbitkan modul...");
+        try {
+            await guruModulApi.update(modulId, { isDraft: false });
+            router.push("/modul-guru?tab=published");
+        } catch (err: unknown) {
+            console.error("Publish error:", err);
+            toast(err instanceof Error ? err.message : "Gagal menerbitkan modul.", "error");
+        } finally {
+            hideLoading();
+        }
+    }, [modulId, router]);
 
     const handleSave = async () => {
         if (!moduleName.trim()) {
@@ -319,26 +339,23 @@ function TambahModulProfilPageContent() {
                                 onClick={() => setIsDrawerOpen(false)}
                             >
                                 <FiCheckSquare size={12} />
-                                Pree - Post Test Modul
+                                Pre - Post Test Modul
                             </Link>
                         </nav>
 
                         <button
                             type="button"
-                            onClick={(e) => {
-                                setIsDrawerOpen(false);
-                                handleSave();
-                            }}
-                            disabled={isSaving}
-                            className="mt-8 w-full cursor-pointer rounded-full bg-[#7054dc] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#5f46cc] transition-colors disabled:opacity-50"
+                            onClick={handlePublish}
+                            disabled={!modulId}
+                            className="mt-8 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
+                            Terbitkan Modul
                         </button>
                     </div>
                 </div>
 
-                <div className="grid w-full gap-8 lg:grid-cols-[260px_1fr]">
-                    <aside className="hidden border border-[#e5e3ee] bg-white px-5 py-6 lg:block lg:min-h-[calc(100vh-74px)]">
+                <div className="grid w-full lg:grid-cols-[260px_1fr] lg:items-stretch lg:min-h-[calc(100vh-74px)]">
+                    <aside className="hidden border-r border-[#e5e3ee] bg-white px-5 py-6 lg:block lg:self-stretch">
                         <div className="flex h-full flex-col">
                             <p className="text-[13px] font-semibold text-[#232530]">
                                 Rencanakan Modul anda
@@ -387,17 +404,17 @@ function TambahModulProfilPageContent() {
                                     className="flex items-center gap-2 hover:text-[#7054dc] transition-colors"
                                 >
                                     <FiCheckSquare size={12} />
-                                    Pree - Post Test Modul
+                                    Pre - Post Test Modul
                                 </Link>
                             </nav>
 
                             <button
                                 type="button"
-                                onClick={handleSave}
-                                disabled={isSaving}
-                                className="mt-16 w-full cursor-pointer rounded-full bg-[#7054dc] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#5f46cc] transition-colors disabled:opacity-50"
+                                onClick={handlePublish}
+                                disabled={!modulId}
+                                className="mt-8 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
+                                Terbitkan Modul
                             </button>
                         </div>
                     </aside>

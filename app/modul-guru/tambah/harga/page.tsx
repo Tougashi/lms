@@ -209,7 +209,7 @@ function TambahModulHargaPageContent() {
                 onClick={() => setIsDrawerOpen(false)}
               >
                 <FiCheckSquare size={12} />
-                Pree - Post Test Modul
+                Pre - Post Test Modul
               </Link>
             </nav>
 
@@ -227,8 +227,8 @@ function TambahModulHargaPageContent() {
           </div>
         </div>
 
-        <div className="grid w-full gap-8 lg:grid-cols-[260px_1fr]">
-          <aside className="hidden border border-[#e5e3ee] bg-white px-5 py-6 lg:block lg:min-h-[calc(100vh-74px)]">
+        <div className="grid w-full lg:grid-cols-[260px_1fr] lg:items-stretch lg:min-h-[calc(100vh-74px)]">
+          <aside className="hidden border-r border-[#e5e3ee] bg-white px-5 py-6 lg:block lg:self-stretch">
             <div className="flex h-full flex-col">
               <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
               <nav className="mt-4 space-y-3 text-[13px]">
@@ -250,7 +250,7 @@ function TambahModulHargaPageContent() {
                 </Link>
                 <Link href={modulId ? `/modul-guru/tambah/pre-post-test?modulId=${modulId}` : '#'} className="flex items-center gap-2 hover:text-[#7054dc] transition-colors">
                   <FiCheckSquare size={12} />
-                  Pree - Post Test Modul
+                  Pre - Post Test Modul
                 </Link>
               </nav>
 
@@ -258,7 +258,7 @@ function TambahModulHargaPageContent() {
                 type="button"
                 onClick={handlePublish}
                 disabled={!modulId}
-                className="mt-16 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-8 w-full cursor-pointer rounded-full bg-[#f39b39] px-4 py-2.5 text-[12px] font-semibold text-white hover:bg-[#e08a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Terbitkan Modul
               </button>
