@@ -1573,12 +1573,20 @@ function TambahModulKontenPageContent() {
   const handlePublish = useCallback(async () => {
     if (!modulId) { setIsLoading(false); return; }
 
-    // Validate every topik has materi, kuis, and rangkuman
-    if (topiks.length === 0) {
+    // Fetch fresh data from API to validate all saved topics & content
+    let freshTopiks: GuruTopikWithMateri[];
+    try {
+      freshTopiks = await guruMateriApi.getByModul(modulId);
+    } catch {
+      toast("Gagal memuat data topik. Coba lagi.", "error");
+      return;
+    }
+
+    if (freshTopiks.length === 0) {
       toast("Tidak ada topik dalam modul. Buat minimal 1 topik terlebih dahulu.", "warning");
       return;
     }
-    for (const topik of topiks) {
+    for (const topik of freshTopiks) {
       const errors: string[] = [];
       if (!topik.materis || topik.materis.length === 0) {
         errors.push("belum memiliki materi");
@@ -1645,7 +1653,7 @@ function TambahModulKontenPageContent() {
     } finally {
       hideLoading();
     }
-  }, [modulId, router]);
+  }, [modulId, router, topiks, materials, quizzes, rangkumans, topicId, activeTopikId]);
 
   if (!isAuthorized || isLoading) {
     return (

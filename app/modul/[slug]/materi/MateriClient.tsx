@@ -1171,13 +1171,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     };
 
     const handleFooterNext = async () => {
-        if (currentView === "rating") {
-            if (isRatingSubmitted) {
-                setCurrentView("materi");
-                setIsMaterialMode(true);
-            }
-            return;
-        }
         if (currentView === "pretest-result") {
             if (isLastItem) {
                 router.push(`/modul/${modulId}`);
@@ -2737,6 +2730,16 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 <p className="mt-4 text-2xl font-semibold text-[#8c92a0]">
                                                     Penilaian berhasil dikirim!
                                                 </p>
+                                                {modulDetail?.hasCertificate && certificate && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => router.push(`/modul/${modulId}/sertifikat`)}
+                                                        className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+                                                    >
+                                                        Lihat Sertifikat Kelulusan
+                                                        <MdArrowForward size={16} />
+                                                    </button>
+                                                )}
                                             </div>
                                         ) : (
                                             <>
@@ -2824,8 +2827,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
                     {/* Footer navigation */}
                     {(currentView === "materi" ||
-                        currentView === "pretest-quiz" ||
-                        currentView === "rating") && (
+                        currentView === "pretest-quiz") && (
                         <div className="border-t border-[#e1e0e7] bg-white px-4 sm:px-6 py-4">
                             <div className="flex items-center justify-between">
                                 <button

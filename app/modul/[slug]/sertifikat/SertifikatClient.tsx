@@ -152,7 +152,7 @@ export default function SertifikatClient({ modulId }: SertifikatClientProps) {
           </p>
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push(`/modul/${modulId}/materi`)}
             className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[#e0dfe6] px-5 py-2.5 text-sm font-medium text-[#202126] hover:bg-[#f7f6ff]"
           >
             <FaArrowLeft size={12} />
@@ -205,7 +205,7 @@ export default function SertifikatClient({ modulId }: SertifikatClientProps) {
           <div className="no-print mb-8 flex flex-wrap items-center justify-between gap-4">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => router.push(`/modul/${modulId}/materi`)}
               className="inline-flex items-center gap-2 rounded-lg border border-[#e0dfe6] px-4 py-2 text-sm font-medium text-[#202126] hover:bg-[#f7f6ff] transition-colors"
             >
               <FaArrowLeft size={12} />

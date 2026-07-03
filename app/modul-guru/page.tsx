@@ -189,7 +189,7 @@ function ModulGuruPageContent() {
                     </div>
                 ) : (
                     <>
-                        <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-5 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-5 lg:grid-cols-2">
                             {filteredModules.map((modul) => (
                                 <div
                                     key={modul.id}
@@ -220,14 +220,14 @@ function ModulGuruPageContent() {
                                             <div className="mt-3 flex flex-wrap items-center gap-2">
                                                 <Link
                                                     href={`/modul-guru/tambah/konten?modulId=${modul.id}`}
-                                                    className="rounded-full border border-[#bdaef4] px-4 py-1.5 text-[12px] font-semibold text-[#7557ea] transition-colors hover:bg-[#f5f2ff]"
+                                                    className="rounded-full border border-[#bdaef4] px-4 py-1.5 text-[12px] font-semibold text-[#7557ea] transition-colors hover:bg-[#f5f2ff] w-fit"
                                                 >
                                                     Preview Kelas
                                                 </Link>
                                                 {!isDraftTab && (
                                                     <Link
                                                         href={`/modul-guru/manajemen?modulId=${modul.id}`}
-                                                        className="rounded-full border border-[#f4b46f] px-4 py-1.5 text-[12px] font-semibold text-[#f39b39] transition-colors hover:bg-[#fff3e6]"
+                                                        className="rounded-full border border-[#f4b46f] px-4 py-1.5 text-[12px] font-semibold text-[#f39b39] transition-colors hover:bg-[#fff3e6]  w-fit"
                                                     >
                                                         Manajemen Modul
                                                     </Link>
@@ -236,7 +236,10 @@ function ModulGuruPageContent() {
                                         </div>
                                     </div>
 
-                                    <div className="self-start relative z-20" id={`menu-wrapper-${modul.id}`}>
+                                    <div
+                                        className="self-start relative z-20"
+                                        id={`menu-wrapper-${modul.id}`}
+                                    >
                                         <button
                                             type="button"
                                             onClick={() =>

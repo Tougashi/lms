@@ -70,8 +70,7 @@ const ctAspectKeys = [
 type BankSoal = {
     id: number;
     name: string;
-    type: "pretest" | "posttest";
-    apiId: string | null; // pretest_id or posttest_id from API
+    apiId: string | null;
     questions: LocalQuestion[];
     ctStories: LocalCTStory[];
 };
@@ -84,22 +83,15 @@ function PrePostTestPageContent() {
     const { toast, confirm, showLoading, hideLoading } = usePopup();
 
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [banks, setBanks] = useState<BankSoal[]>([]);
-    const [isCreating, setIsCreating] = useState(false);
-    const [newBankName, setNewBankName] = useState("");
-    const [newBankType, setNewBankType] = useState<"pretest" | "posttest">(
-        "pretest",
-    );
-    const [activeBankId, setActiveBankId] = useState<number | null>(null);
-    const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+    const [bank, setBank] = useState<BankSoal | null>(null);
     const [editingSoalId, setEditingSoalId] = useState<number | null>(null);
     const [editSoalTitle, setEditSoalTitle] = useState("");
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [settingsTargetBankId, setSettingsTargetBankId] = useState<
-        number | null
-    >(null);
     const [settingsDuration, setSettingsDuration] = useState(90);
     const [settingsSoalTampil, setSettingsSoalTampil] = useState(30);
+    const [posttestDuration, setPosttestDuration] = useState(90);
+    const [posttestCountShown, setPosttestCountShown] = useState(30);
+    const [posttestId, setPosttestId] = useState<string | null>(null);
     const [aksesRules, setAksesRules] = useState<
         { id: number; minScore: number; topikId: string }[]
     >([{ id: 1, minScore: 30, topikId: "" }]);
@@ -109,23 +101,36 @@ function PrePostTestPageContent() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [isCreatingBank, setIsCreatingBank] = useState(false);
     const [isTestComputationalThinking, setIsTestComputationalThinking] =
         useState(false);
     const [initialCTMode, setInitialCTMode] = useState(false);
 
-    const activeBank = banks.find((b) => b.id === activeBankId) ?? null;
-    const settingsTargetBank =
-        banks.find((b) => b.id === settingsTargetBankId) ?? null;
+    const activeBank = bank;
 
-    // Helper to open settings modal for a specific bank
-    const openSettings = (bankId: number) => {
-        const bank = banks.find((b) => b.id === bankId);
-        if (!bank) return;
-        setSettingsTargetBankId(bankId);
-        // Load existing settings values if available from the API data
-        // These are stored as pretestSettings / posttestSettings on the bank's API response
+    const openSettings = async () => {
         setIsSettingsOpen(true);
+        if (bank?.apiId) {
+            try {
+                const data = await guruPretestApi.getDetail(bank.apiId);
+                const s = data.pretestSettings?.[0];
+                setSettingsDuration(s?.duration ?? 90);
+                setSettingsSoalTampil(s?.countShownQuestions ?? 30);
+            } catch {
+                setSettingsDuration(90);
+                setSettingsSoalTampil(30);
+            }
+        }
+        if (posttestId) {
+            try {
+                const data = await guruPosttestApi.getDetail(posttestId);
+                const s = data.posttestSettings?.[0];
+                setPosttestDuration(s?.duration ?? 90);
+                setPosttestCountShown(s?.countShownQuestions ?? 30);
+            } catch {
+                setPosttestDuration(90);
+                setPosttestCountShown(30);
+            }
+        }
     };
 
     // Load existing pretest and posttest from API
@@ -135,250 +140,127 @@ function PrePostTestPageContent() {
             return;
         }
         const load = async () => {
-            const loadedBanks: BankSoal[] = [];
             try {
-                try {
-                    const pretest = await guruPretestApi.getByModul(modulId);
-                    if (pretest && pretest.id) {
-                        const pretestQs = pretest.pretestQuestions || [];
-                        const pretestCtMap = new Map<
-                            string,
-                            typeof pretestQs
-                        >();
-                        const pretestRegularQs: typeof pretestQs = [];
+                let pretest = await guruPretestApi.getByModul(modulId);
+                if (!pretest || !pretest.id) {
+                    const created = await guruPretestApi.create({ modul_id: modulId });
+                    pretest = await guruPretestApi.getByModul(modulId);
+                }
+                if (pretest && pretest.id) {
+                    const pretestQs = pretest.pretestQuestions || [];
+                    const pretestCtMap = new Map<string, typeof pretestQs>();
+                    const pretestRegularQs: typeof pretestQs = [];
 
-                        for (const q of pretestQs) {
-                            if (q.ctGroupId) {
-                                const group =
-                                    pretestCtMap.get(q.ctGroupId) || [];
-                                group.push(q);
-                                pretestCtMap.set(q.ctGroupId, group);
-                            } else {
-                                pretestRegularQs.push(q);
-                            }
-                        }
-
-                        const pretestCtStories: LocalCTStory[] = [];
-                        let ctIdx = 0;
-                        for (const [groupId, group] of pretestCtMap) {
-                            group.sort((a, b) => {
-                                const ia = ctAspectKeys.indexOf(a.ctAspect || "");
-                                const ib = ctAspectKeys.indexOf(b.ctAspect || "");
-                                return (ia >= 0 ? ia : 99) - (ib >= 0 ? ib : 99);
-                            });
-                            pretestCtStories.push({
-                                id: Date.now() + 10000 + ctIdx,
-                                groupId,
-                                cerita: group[0]?.ctStory || "",
-                                isExpanded: false,
-                                subQuestions: group.map((q, idx) => ({
-                                    id: Date.now() + 20000 + idx,
-                                    apiSoalId: q.id,
-                                    label: q.pertanyaan || ctSubLabels[idx] || `Soal CT ${idx + 1}`,
-                                    ctAspect:
-                                        q.ctAspect || ctAspectKeys[idx] || "",
-                                    answers: (() => {
-                                        let foundCorrect = false;
-                                        return (q.answerOptions || []).map(
-                                            (opt, aidx) => {
-                                                const isMatch = opt.option === q.correctAnswer;
-                                                const isCorrect = isMatch && !foundCorrect;
-                                                if (isMatch) foundCorrect = true;
-                                                return {
-                                                    id: Date.now() + idx * 100 + aidx,
-                                                    text: opt.option,
-                                                    isCorrect,
-                                                };
-                                            },
-                                        );
-                                    })(),
-                                    skor: q.skor || 10,
-                                })),
-                            });
-                            ctIdx++;
-                        }
-
-                        const questions = pretestRegularQs.map((q, idx) => ({
-                            id: Date.now() + idx,
-                            apiSoalId: q.id,
-                            pertanyaan: q.pertanyaan,
-                            isExpanded: false,
-                            skor: q.skor || 10,
-                            answers: (() => {
-                                let foundCorrect = false;
-                                return (q.answerOptions || []).map(
-                                    (opt, aidx) => {
-                                        const isMatch = opt.option === q.correctAnswer;
-                                        const isCorrect = isMatch && !foundCorrect;
-                                        if (isMatch) foundCorrect = true;
-                                        return {
-                                            id: Date.now() + idx * 100 + aidx,
-                                            text: opt.option,
-                                            isCorrect,
-                                        };
-                                    },
-                                );
-                            })(),
-                        }));
-                        loadedBanks.push({
-                            id: Date.now(),
-                            name: pretest.pretestName || "Pre Test",
-                            type: "pretest",
-                            apiId: pretest.id,
-                            questions,
-                            ctStories: pretestCtStories,
-                        });
-                        // Load existing pretest settings into state
-                        const existingSettings = pretest.pretestSettings;
-                        if (existingSettings && existingSettings.length > 0) {
-                            setSettingsDuration(
-                                existingSettings[0].duration ?? 90,
-                            );
-                            setSettingsSoalTampil(
-                                existingSettings[0].countShownQuestions ?? 30,
-                            );
-                        }
-                        // Load existing access rules
-                        const existingRules = pretest.automaticAccessMateries;
-                        if (
-                            Array.isArray(existingRules) &&
-                            existingRules.length > 0
-                        ) {
-                            setAksesRules(
-                                existingRules.map((rule: any, idx: number) => ({
-                                    id: Date.now() + idx,
-                                    minScore: rule.minScore || 30,
-                                    topikId: rule.selectedTopics?.[0]?.id || "",
-                                })),
-                            );
+                    for (const q of pretestQs) {
+                        if (q.ctGroupId) {
+                            const group = pretestCtMap.get(q.ctGroupId) || [];
+                            group.push(q);
+                            pretestCtMap.set(q.ctGroupId, group);
                         } else {
-                            setAksesRules([
-                                { id: 1, minScore: 30, topikId: "" },
-                            ]);
+                            pretestRegularQs.push(q);
                         }
                     }
-                } catch {
-                    /* no pretest yet */
-                }
 
-                try {
-                    const posttest = await guruPosttestApi.getByModul(modulId);
-                    if (posttest && posttest.id) {
-                        const posttestSoals = posttest.soals || [];
-                        const posttestCtMap = new Map<
-                            string,
-                            typeof posttestSoals
-                        >();
-                        const posttestRegularSoals: typeof posttestSoals = [];
-
-                        for (const q of posttestSoals) {
-                            if (q.ctGroupId) {
-                                const group =
-                                    posttestCtMap.get(q.ctGroupId) || [];
-                                group.push(q);
-                                posttestCtMap.set(q.ctGroupId, group);
-                            } else {
-                                posttestRegularSoals.push(q);
-                            }
-                        }
-
-                        const posttestCtStories: LocalCTStory[] = [];
-                        let ctIdx2 = 0;
-                        for (const [groupId, group] of posttestCtMap) {
-                            group.sort((a, b) => {
-                                const ia = ctAspectKeys.indexOf(a.ctAspect || "");
-                                const ib = ctAspectKeys.indexOf(b.ctAspect || "");
-                                return (ia >= 0 ? ia : 99) - (ib >= 0 ? ib : 99);
-                            });
-                            posttestCtStories.push({
-                                id: Date.now() + 30000 + ctIdx2,
-                                groupId,
-                                cerita: group[0]?.ctStory || "",
-                                isExpanded: false,
-                                subQuestions: group.map((q, idx) => ({
-                                    id: Date.now() + 40000 + idx,
-                                    apiSoalId: q.id,
-                                    label: q.question || ctSubLabels[idx] || `Soal CT ${idx + 1}`,
-                                    ctAspect:
-                                        q.ctAspect || ctAspectKeys[idx] || "",
-                                    answers: (() => {
-                                        let foundCorrect = false;
-                                        return (q.pilihan || []).map(
-                                            (opt: string, aidx: number) => {
-                                                const isMatch = opt === q.correctAnswer;
-                                                const isCorrect = isMatch && !foundCorrect;
-                                                if (isMatch) foundCorrect = true;
-                                                return {
-                                                    id: Date.now() + idx * 100 + aidx,
-                                                    text: opt,
-                                                    isCorrect,
-                                                };
-                                            },
-                                        );
-                                    })(),
-                                    skor: q.skor || 10,
-                                })),
-                            });
-                            ctIdx2++;
-                        }
-
-                        const questions = posttestRegularSoals.map(
-                            (q, idx) => ({
-                                id: Date.now() + 5000 + idx,
+                    const pretestCtStories: LocalCTStory[] = [];
+                    let ctIdx = 0;
+                    for (const [groupId, group] of pretestCtMap) {
+                        group.sort((a, b) => {
+                            const ia = ctAspectKeys.indexOf(a.ctAspect || "");
+                            const ib = ctAspectKeys.indexOf(b.ctAspect || "");
+                            return (ia >= 0 ? ia : 99) - (ib >= 0 ? ib : 99);
+                        });
+                        pretestCtStories.push({
+                            id: Date.now() + 10000 + ctIdx,
+                            groupId,
+                            cerita: group[0]?.ctStory || "",
+                            isExpanded: false,
+                            subQuestions: group.map((q, idx) => ({
+                                id: Date.now() + 20000 + idx,
                                 apiSoalId: q.id,
-                                pertanyaan: q.question,
-                                isExpanded: false,
-                                skor: q.skor || 10,
+                                label:
+                                    q.pertanyaan ||
+                                    ctSubLabels[idx] ||
+                                    `Soal CT ${idx + 1}`,
+                                ctAspect: q.ctAspect || ctAspectKeys[idx] || "",
                                 answers: (() => {
                                     let foundCorrect = false;
-                                    return (q.pilihan || []).map(
-                                        (opt: string, aidx: number) => {
-                                            const isMatch = opt === q.correctAnswer;
-                                            const isCorrect = isMatch && !foundCorrect;
+                                    return (q.answerOptions || []).map(
+                                        (opt, aidx) => {
+                                            const isMatch =
+                                                opt.option === q.correctAnswer;
+                                            const isCorrect =
+                                                isMatch && !foundCorrect;
                                             if (isMatch) foundCorrect = true;
                                             return {
                                                 id:
                                                     Date.now() +
-                                                    5000 +
                                                     idx * 100 +
                                                     aidx,
-                                                text: opt,
+                                                text: opt.option,
                                                 isCorrect,
                                             };
                                         },
                                     );
                                 })(),
-                            }),
-                        );
-                        loadedBanks.push({
-                            id: Date.now() + 9000,
-                            name: "Post Test",
-                            type: "posttest",
-                            apiId: posttest.id,
-                            questions,
-                            ctStories: posttestCtStories,
+                                skor: q.skor || 10,
+                            })),
                         });
-                        // Load existing posttest settings
-                        const existingPosttestSettings =
-                            posttest.posttestSettings;
-                        if (
-                            existingPosttestSettings &&
-                            existingPosttestSettings.length > 0
-                        ) {
-                            setSettingsDuration(
-                                existingPosttestSettings[0].duration ?? 90,
-                            );
-                            setSettingsSoalTampil(
-                                existingPosttestSettings[0]
-                                    .countShownQuestions ?? 30,
-                            );
-                        }
+                        ctIdx++;
+                    }
+
+                    const questions = pretestRegularQs.map((q, idx) => ({
+                        id: Date.now() + idx,
+                        apiSoalId: q.id,
+                        pertanyaan: q.pertanyaan,
+                        isExpanded: false,
+                        skor: q.skor || 10,
+                        answers: (() => {
+                            let foundCorrect = false;
+                            return (q.answerOptions || []).map((opt, aidx) => {
+                                const isMatch = opt.option === q.correctAnswer;
+                                const isCorrect = isMatch && !foundCorrect;
+                                if (isMatch) foundCorrect = true;
+                                return {
+                                    id: Date.now() + idx * 100 + aidx,
+                                    text: opt.option,
+                                    isCorrect,
+                                };
+                            });
+                        })(),
+                    }));
+                    setBank({
+                        id: Date.now(),
+                        name: pretest.pretestName || "Pre Test",
+                        apiId: pretest.id,
+                        questions,
+                        ctStories: pretestCtStories,
+                    });
+                    // Load existing access rules
+                    const existingRules = pretest.automaticAccessMateries;
+                    if (
+                        Array.isArray(existingRules) &&
+                        existingRules.length > 0
+                    ) {
+                        setAksesRules(
+                            existingRules.map((rule: any, idx: number) => ({
+                                id: Date.now() + idx,
+                                minScore: rule.minScore || 30,
+                                topikId: rule.selectedTopics?.[0]?.id || "",
+                            })),
+                        );
+                    } else {
+                        setAksesRules([{ id: 1, minScore: 30, topikId: "" }]);
+                    }
+                }
+
+                try {
+                    const posttest = await guruPosttestApi.getByModul(modulId);
+                    if (posttest && posttest.id) {
+                        setPosttestId(posttest.id);
                     }
                 } catch {
                     /* no posttest yet */
                 }
-
-                if (loadedBanks.length > 0) setBanks(loadedBanks);
             } finally {
                 setIsLoading(false);
             }
@@ -419,89 +301,32 @@ function PrePostTestPageContent() {
         })();
     }, [modulId]);
 
-    // Create bank soal → calls API to create pretest or posttest
-    const handleSaveNewBank = useCallback(async () => {
-        if (!modulId) {
-            setIsLoading(false);
+
+
+    const handleDeleteBank = useCallback(async () => {
+        if (!bank?.apiId) {
+            setBank(null);
             return;
         }
-        const name = newBankName.trim() || `Bank Soal ${banks.length + 1}`;
-        const nid = Date.now();
-
-        setIsCreatingBank(true);
-        showLoading("Membuat bank soal...");
+        showLoading("Menghapus bank soal...");
         try {
-            let apiId: string | null = null;
-            if (newBankType === "pretest") {
-                const created = await guruPretestApi.create({
-                    modul_id: modulId,
-                });
-                apiId = created.id;
-            } else {
-                const created = await guruPosttestApi.create({
-                    modul_id: modulId,
-                });
-                apiId = created.id;
-            }
-
-            setBanks((p) => [
-                ...p,
-                {
-                    id: nid,
-                    name,
-                    type: newBankType,
-                    apiId,
-                    questions: [],
-                    ctStories: [],
-                },
-            ]);
-            setNewBankName("");
-            setNewBankType("pretest");
-            setIsCreating(false);
+            await guruPretestApi.delete(bank.apiId);
         } catch (err: unknown) {
-            console.error("Create bank error:", err);
+            console.error("Delete bank error:", err);
             toast(
-                err instanceof Error ? err.message : "Gagal membuat bank soal.",
+                err instanceof Error
+                    ? err.message
+                    : "Gagal menghapus bank soal.",
                 "error",
             );
-        } finally {
             hideLoading();
-            setIsCreatingBank(false);
+            return;
         }
-    }, [modulId, newBankName, newBankType, banks.length]);
-
-    const handleDeleteBank = useCallback(
-        async (id: number) => {
-            const bank = banks.find((b) => b.id === id);
-            if (bank?.apiId) {
-                showLoading("Menghapus bank soal...");
-                try {
-                    if (bank.type === "pretest") {
-                        await guruPretestApi.delete(bank.apiId);
-                    } else {
-                        await guruPosttestApi.delete(bank.apiId);
-                    }
-                } catch (err: unknown) {
-                    console.error("Delete bank error:", err);
-                    toast(
-                        err instanceof Error
-                            ? err.message
-                            : "Gagal menghapus bank soal.",
-                        "error",
-                    );
-                    hideLoading();
-                    return;
-                }
-                hideLoading();
-            }
-            setBanks((p) => p.filter((b) => b.id !== id));
-            setOpenMenuId(null);
-        },
-        [banks],
-    );
+        hideLoading();
+        setBank(null);
+    }, [bank]);
 
     const handleAddQuestion = () => {
-        if (!activeBankId) return;
         if (!activeBank) return;
         if (isTestComputationalThinking) {
             const nid = Date.now();
@@ -523,50 +348,46 @@ function PrePostTestPageContent() {
                     skor: 10,
                 })),
             };
-            setBanks((p) =>
-                p.map((b) =>
-                    b.id !== activeBankId
-                        ? b
-                        : { ...b, ctStories: [...b.ctStories, story] },
-                ),
+            setBank((prev) =>
+                prev
+                    ? { ...prev, ctStories: [...prev.ctStories, story] }
+                    : prev,
             );
         } else {
             const nid = Date.now();
-            setBanks((p) =>
-                p.map((b) =>
-                    b.id !== activeBankId
-                        ? b
-                        : {
-                              ...b,
-                              questions: [
-                                  ...b.questions,
-                                  {
-                                      id: nid,
-                                      apiSoalId: null,
-                                      pertanyaan: "",
-                                      isExpanded: true,
-                                      skor: 10,
-                                      answers: [
-                                          {
-                                              id: nid + 10,
-                                              text: "",
-                                              isCorrect: false,
-                                          },
-                                          {
-                                              id: nid + 11,
-                                              text: "",
-                                              isCorrect: false,
-                                          },
-                                          {
-                                              id: nid + 12,
-                                              text: "",
-                                              isCorrect: false,
-                                          },
-                                      ],
-                                  },
-                              ],
-                          },
-                ),
+            setBank((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          questions: [
+                              ...prev.questions,
+                              {
+                                  id: nid,
+                                  apiSoalId: null,
+                                  pertanyaan: "",
+                                  isExpanded: true,
+                                  skor: 10,
+                                  answers: [
+                                      {
+                                          id: nid + 10,
+                                          text: "",
+                                          isCorrect: false,
+                                      },
+                                      {
+                                          id: nid + 11,
+                                          text: "",
+                                          isCorrect: false,
+                                      },
+                                      {
+                                          id: nid + 12,
+                                          text: "",
+                                          isCorrect: false,
+                                      },
+                                  ],
+                              },
+                          ],
+                      }
+                    : prev,
             );
         }
     };
@@ -583,11 +404,7 @@ function PrePostTestPageContent() {
             if (question?.apiSoalId) {
                 showLoading("Menghapus soal...");
                 try {
-                    if (activeBank.type === "pretest") {
-                        await guruPretestApi.deleteSoal(question.apiSoalId);
-                    } else {
-                        await guruPosttestApi.deleteSoal(question.apiSoalId);
-                    }
+                    await guruPretestApi.deleteSoal(question.apiSoalId);
                 } catch (err: unknown) {
                     console.error("Delete soal error:", err);
                     toast(
@@ -601,50 +418,47 @@ function PrePostTestPageContent() {
                 }
                 hideLoading();
             }
-            setBanks((p) =>
-                p.map((b) =>
-                    b.id !== activeBankId
-                        ? b
-                        : {
-                              ...b,
-                              questions: b.questions.filter(
-                                  (q) => q.id !== qId,
-                              ),
-                          },
-                ),
+            setBank((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          questions: prev.questions.filter((q) => q.id !== qId),
+                      }
+                    : prev,
             );
         },
-        [activeBank, activeBankId, confirm, showLoading, hideLoading, toast],
+        [activeBank, confirm, showLoading, hideLoading, toast],
     );
 
     const handleDeleteCTStory = useCallback(
         async (storyId: number) => {
             if (!activeBank) return;
             const confirmed = await confirm({
-                message: "Apakah Anda yakin ingin menghapus soal CT ini beserta sub-soalnya?",
+                message:
+                    "Apakah Anda yakin ingin menghapus soal CT ini beserta sub-soalnya?",
             });
             if (!confirmed) return;
 
             const story = activeBank.ctStories.find((s) => s.id === storyId);
             if (!story) return;
 
-            const apiSoalIds = story.subQuestions.map(sq => sq.apiSoalId).filter((id): id is string => Boolean(id));
-            
+            const apiSoalIds = story.subQuestions
+                .map((sq) => sq.apiSoalId)
+                .filter((id): id is string => Boolean(id));
+
             if (apiSoalIds.length > 0) {
                 showLoading("Menghapus soal CT...");
                 try {
                     for (const apiId of apiSoalIds) {
-                        if (activeBank.type === "pretest") {
-                            await guruPretestApi.deleteSoal(apiId);
-                        } else {
-                            await guruPosttestApi.deleteSoal(apiId);
-                        }
+                        await guruPretestApi.deleteSoal(apiId);
                     }
                 } catch (err: unknown) {
                     console.error("Delete soal CT error:", err);
                     toast(
-                        err instanceof Error ? err.message : "Gagal menghapus soal CT.",
-                        "error"
+                        err instanceof Error
+                            ? err.message
+                            : "Gagal menghapus soal CT.",
+                        "error",
                     );
                     hideLoading();
                     return;
@@ -652,147 +466,132 @@ function PrePostTestPageContent() {
                 hideLoading();
             }
 
-            setBanks((p) =>
-                p.map((b) =>
-                    b.id !== activeBankId
-                        ? b
-                        : {
-                              ...b,
-                              ctStories: b.ctStories.filter(
-                                  (s) => s.id !== storyId,
-                              ),
-                          },
-                ),
+            setBank((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          ctStories: prev.ctStories.filter(
+                              (s) => s.id !== storyId,
+                          ),
+                      }
+                    : prev,
             );
         },
-        [activeBank, activeBankId, confirm, showLoading, hideLoading, toast],
+        [activeBank, confirm, showLoading, hideLoading, toast],
     );
 
     const handleToggleCorrect = (qId: number, aId: number) => {
-        setBanks((p) =>
-            p.map((b) =>
-                b.id !== activeBankId
-                    ? b
-                    : {
-                          ...b,
-                          questions: b.questions.map((q) =>
-                              q.id !== qId
-                                  ? q
-                                  : {
-                                        ...q,
-                                        answers: q.answers.map((a) => ({
-                                            ...a,
-                                            isCorrect: a.id === aId,
-                                        })),
-                                    },
-                          ),
-                      },
-            ),
+        setBank((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id !== qId
+                              ? q
+                              : {
+                                    ...q,
+                                    answers: q.answers.map((a) => ({
+                                        ...a,
+                                        isCorrect: a.id === aId,
+                                    })),
+                                },
+                      ),
+                  }
+                : prev,
         );
     };
 
     const handleRemoveAnswer = (qId: number, aId: number) => {
-        setBanks((p) =>
-            p.map((b) =>
-                b.id !== activeBankId
-                    ? b
-                    : {
-                          ...b,
-                          questions: b.questions.map((q) =>
-                              q.id !== qId
-                                  ? q
-                                  : {
-                                        ...q,
-                                        answers: q.answers.filter(
-                                            (a) => a.id !== aId,
-                                        ),
-                                    },
-                          ),
-                      },
-            ),
+        setBank((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id !== qId
+                              ? q
+                              : {
+                                    ...q,
+                                    answers: q.answers.filter(
+                                        (a) => a.id !== aId,
+                                    ),
+                                },
+                      ),
+                  }
+                : prev,
         );
     };
 
     const handleAddAnswer = (qId: number) => {
-        setBanks((p) =>
-            p.map((b) =>
-                b.id !== activeBankId
-                    ? b
-                    : {
-                          ...b,
-                          questions: b.questions.map((q) =>
-                              q.id !== qId
-                                  ? q
-                                  : {
-                                        ...q,
-                                        answers: [
-                                            ...q.answers,
-                                            {
-                                                id: Date.now(),
-                                                text: "",
-                                                isCorrect: false,
-                                            },
-                                        ],
-                                    },
-                          ),
-                      },
-            ),
+        setBank((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id !== qId
+                              ? q
+                              : {
+                                    ...q,
+                                    answers: [
+                                        ...q.answers,
+                                        {
+                                            id: Date.now(),
+                                            text: "",
+                                            isCorrect: false,
+                                        },
+                                    ],
+                                },
+                      ),
+                  }
+                : prev,
         );
     };
 
     const handleUpdateQuestionText = (qId: number, text: string) => {
-        setBanks((p) =>
-            p.map((b) =>
-                b.id !== activeBankId
-                    ? b
-                    : {
-                          ...b,
-                          questions: b.questions.map((q) =>
-                              q.id === qId ? { ...q, pertanyaan: text } : q,
-                          ),
-                      },
-            ),
+        setBank((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id === qId ? { ...q, pertanyaan: text } : q,
+                      ),
+                  }
+                : prev,
         );
     };
 
     const handleUpdateSkor = (qId: number, skor: number) => {
-        setBanks((p) =>
-            p.map((b) =>
-                b.id !== activeBankId
-                    ? b
-                    : {
-                          ...b,
-                          questions: b.questions.map((q) =>
-                              q.id === qId ? { ...q, skor } : q,
-                          ),
-                      },
-            ),
+        setBank((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id === qId ? { ...q, skor } : q,
+                      ),
+                  }
+                : prev,
         );
     };
 
     const handleUpdateAnswerText = (qId: number, aId: number, text: string) => {
-        setBanks((p) =>
-            p.map((b) =>
-                b.id !== activeBankId
-                    ? b
-                    : {
-                          ...b,
-                          questions: b.questions.map((q) =>
-                              q.id !== qId
-                                  ? q
-                                  : {
-                                        ...q,
-                                        answers: q.answers.map((a) =>
-                                            a.id === aId ? { ...a, text } : a,
-                                        ),
-                                    },
-                          ),
-                      },
-            ),
+        setBank((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id !== qId
+                              ? q
+                              : {
+                                    ...q,
+                                    answers: q.answers.map((a) =>
+                                        a.id === aId ? { ...a, text } : a,
+                                    ),
+                                },
+                      ),
+                  }
+                : prev,
         );
     };
 
-    // Save a single question to API
     const handleSaveQuestion = useCallback(
         async (question: LocalQuestion) => {
             if (!activeBank || !activeBank.apiId) {
@@ -825,47 +624,28 @@ function PrePostTestPageContent() {
                 };
 
                 if (question.apiSoalId) {
-                    // Update existing soal
-                    if (activeBank.type === "pretest") {
-                        await guruPretestApi.updateSoal(
-                            question.apiSoalId,
-                            payload,
-                        );
-                    } else {
-                        await guruPosttestApi.updateSoal(
-                            question.apiSoalId,
-                            payload,
-                        );
-                    }
+                    await guruPretestApi.updateSoal(
+                        question.apiSoalId,
+                        payload,
+                    );
                 } else {
-                    // Create new soal
-                    if (activeBank.type === "pretest") {
-                        await guruPretestApi.addSoal({
-                            pretest_id: activeBank.apiId,
-                            ...payload,
-                        });
-                    } else {
-                        await guruPosttestApi.addSoal({
-                            posttest_id: activeBank.apiId,
-                            ...payload,
-                        });
-                    }
+                    await guruPretestApi.addSoal({
+                        pretest_id: activeBank.apiId,
+                        ...payload,
+                    });
                 }
 
-                // Collapse the question
-                setBanks((p) =>
-                    p.map((b) =>
-                        b.id !== activeBankId
-                            ? b
-                            : {
-                                  ...b,
-                                  questions: b.questions.map((q) =>
-                                      q.id === question.id
-                                          ? { ...q, isExpanded: false }
-                                          : q,
-                                  ),
-                              },
-                    ),
+                setBank((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              questions: prev.questions.map((q) =>
+                                  q.id === question.id
+                                      ? { ...q, isExpanded: false }
+                                      : q,
+                              ),
+                          }
+                        : prev,
                 );
             } catch (err: unknown) {
                 console.error("Save question error:", err);
@@ -880,10 +660,9 @@ function PrePostTestPageContent() {
                 setIsSaving(false);
             }
         },
-        [activeBank, activeBankId],
+        [activeBank],
     );
 
-    // Save a CT story (4 sub-questions) to API
     const handleSaveCTStory = useCallback(
         async (story: LocalCTStory) => {
             if (!activeBank || !activeBank.apiId) {
@@ -916,17 +695,12 @@ function PrePostTestPageContent() {
             setIsSaving(true);
             showLoading("Menyimpan soal CT...");
             try {
-                const api =
-                    activeBank.type === "pretest"
-                        ? guruPretestApi
-                        : guruPosttestApi;
+                const api = guruPretestApi;
                 const updatedSubIds: Record<number, string> = {};
 
                 for (const sq of story.subQuestions) {
                     const payload = {
-                        ...(activeBank.type === "pretest"
-                            ? { pretest_id: activeBank.apiId }
-                            : { posttest_id: activeBank.apiId }),
+                        pretest_id: activeBank.apiId,
                         pertanyaan: sq.label || "Soal CT",
                         pilihan: sq.answers
                             .filter((a) => a.text.trim())
@@ -949,56 +723,46 @@ function PrePostTestPageContent() {
                     }
                 }
 
-                // Update apiSoalId for newly created sub-questions
                 if (Object.keys(updatedSubIds).length > 0) {
-                    setBanks((p) =>
-                        p.map((b) =>
-                            b.id !== activeBankId
-                                ? b
-                                : {
-                                      ...b,
-                                      ctStories: b.ctStories.map((s) =>
-                                          s.id !== story.id
-                                              ? s
-                                              : {
-                                                    ...s,
-                                                    subQuestions:
-                                                        s.subQuestions.map(
-                                                            (sq) =>
-                                                                updatedSubIds[
-                                                                    sq.id
-                                                                ]
-                                                                    ? {
-                                                                          ...sq,
-                                                                          apiSoalId:
-                                                                              updatedSubIds[
-                                                                                  sq
-                                                                                      .id
-                                                                              ],
-                                                                      }
-                                                                    : sq,
-                                                        ),
-                                                },
-                                      ),
-                                  },
-                        ),
+                    setBank((prev) =>
+                        prev
+                            ? {
+                                  ...prev,
+                                  ctStories: prev.ctStories.map((s) =>
+                                      s.id !== story.id
+                                          ? s
+                                          : {
+                                                ...s,
+                                                subQuestions:
+                                                    s.subQuestions.map((sq) =>
+                                                        updatedSubIds[sq.id]
+                                                            ? {
+                                                                  ...sq,
+                                                                  apiSoalId:
+                                                                      updatedSubIds[
+                                                                          sq.id
+                                                                      ],
+                                                              }
+                                                            : sq,
+                                                    ),
+                                            },
+                                  ),
+                              }
+                            : prev,
                     );
                 }
 
-                // Collapse the story
-                setBanks((p) =>
-                    p.map((b) =>
-                        b.id !== activeBankId
-                            ? b
-                            : {
-                                  ...b,
-                                  ctStories: b.ctStories.map((s) =>
-                                      s.id === story.id
-                                          ? { ...s, isExpanded: false }
-                                          : s,
-                                  ),
-                              },
-                    ),
+                setBank((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              ctStories: prev.ctStories.map((s) =>
+                                  s.id === story.id
+                                      ? { ...s, isExpanded: false }
+                                      : s,
+                              ),
+                          }
+                        : prev,
                 );
 
                 toast("Soal CT berhasil disimpan!", "success");
@@ -1015,14 +779,13 @@ function PrePostTestPageContent() {
                 setIsSaving(false);
             }
         },
-        [activeBank, activeBankId],
+        [activeBank],
     );
 
     // Save settings to API
     const handleSaveSettings = useCallback(async () => {
-        const targetBank = settingsTargetBank;
+        const targetBank = bank;
 
-        // Handle CT mode change — confirm first, no loading overlay
         const ctModeChanged = isTestComputationalThinking !== initialCTMode;
         if (ctModeChanged && targetBank) {
             const hasQuestions =
@@ -1042,99 +805,89 @@ function PrePostTestPageContent() {
                     return;
                 }
                 showLoading("Menghapus soal...");
-                if (targetBank.type === "pretest") {
-                    await guruPretestApi.deleteAllQuestions(
-                        targetBank.apiId as string,
-                    );
-                } else {
-                    await guruPosttestApi.deleteAllQuestions(
-                        targetBank.apiId as string,
-                    );
+                if (targetBank.apiId) {
+                    await guruPretestApi.deleteAllQuestions(targetBank.apiId);
                 }
                 if (isTestComputationalThinking) {
                     const nid = Date.now();
-                    setBanks((p) =>
-                        p.map((b) =>
-                            b.id !== targetBank.id
-                                ? b
-                                : {
-                                      ...b,
-                                      questions: [],
-                                      ctStories: [
-                                          {
-                                              id: nid,
-                                              groupId: `ct_${nid}`,
-                                              cerita: "",
-                                              isExpanded: true,
-                                              subQuestions: ctSubLabels.map(
-                                                  (label, i) => ({
-                                                      id: nid + i * 10 + 1,
-                                                      apiSoalId: null,
-                                                      label,
-                                                      ctAspect:
-                                                          ctAspectKeys[i] || "",
-                                                      answers: [
-                                                          {
-                                                              id:
-                                                                  nid +
-                                                                  i * 10 +
-                                                                  100,
-                                                              text: "",
-                                                              isCorrect: false,
-                                                          },
-                                                          {
-                                                              id:
-                                                                  nid +
-                                                                  i * 10 +
-                                                                  101,
-                                                              text: "",
-                                                              isCorrect: false,
-                                                          },
-                                                      ],
-                                                      skor: 10,
-                                                  }),
-                                              ),
-                                          },
-                                      ],
-                                  },
-                        ),
+                    setBank((prev) =>
+                        prev
+                            ? {
+                                  ...prev,
+                                  questions: [],
+                                  ctStories: [
+                                      {
+                                          id: nid,
+                                          groupId: `ct_${nid}`,
+                                          cerita: "",
+                                          isExpanded: true,
+                                          subQuestions: ctSubLabels.map(
+                                              (label, i) => ({
+                                                  id: nid + i * 10 + 1,
+                                                  apiSoalId: null,
+                                                  label,
+                                                  ctAspect:
+                                                      ctAspectKeys[i] || "",
+                                                  answers: [
+                                                      {
+                                                          id:
+                                                              nid +
+                                                              i * 10 +
+                                                              100,
+                                                          text: "",
+                                                          isCorrect: false,
+                                                      },
+                                                      {
+                                                          id:
+                                                              nid +
+                                                              i * 10 +
+                                                              101,
+                                                          text: "",
+                                                          isCorrect: false,
+                                                      },
+                                                  ],
+                                                  skor: 10,
+                                              }),
+                                          ),
+                                      },
+                                  ],
+                              }
+                            : prev,
                     );
                 } else {
-                    setBanks((p) =>
-                        p.map((b) =>
-                            b.id !== targetBank.id
-                                ? b
-                                : {
-                                      ...b,
-                                      ctStories: [],
-                                      questions: [
-                                          {
-                                              id: Date.now(),
-                                              apiSoalId: null,
-                                              pertanyaan: "",
-                                              isExpanded: true,
-                                              skor: 10,
-                                              answers: [
-                                                  {
-                                                      id: Date.now() + 10,
-                                                      text: "",
-                                                      isCorrect: false,
-                                                  },
-                                                  {
-                                                      id: Date.now() + 11,
-                                                      text: "",
-                                                      isCorrect: false,
-                                                  },
-                                                  {
-                                                      id: Date.now() + 12,
-                                                      text: "",
-                                                      isCorrect: false,
-                                                  },
-                                              ],
-                                          },
-                                      ],
-                                  },
-                        ),
+                    setBank((prev) =>
+                        prev
+                            ? {
+                                  ...prev,
+                                  ctStories: [],
+                                  questions: [
+                                      {
+                                          id: Date.now(),
+                                          apiSoalId: null,
+                                          pertanyaan: "",
+                                          isExpanded: true,
+                                          skor: 10,
+                                          answers: [
+                                              {
+                                                  id: Date.now() + 10,
+                                                  text: "",
+                                                  isCorrect: false,
+                                              },
+                                              {
+                                                  id: Date.now() + 11,
+                                                  text: "",
+                                                  isCorrect: false,
+                                              },
+                                              {
+                                                  id: Date.now() + 12,
+                                                  text: "",
+                                                  isCorrect: false,
+                                              },
+                                          ],
+                                      },
+                                  ],
+                              }
+                            : prev,
                     );
                 }
                 setInitialCTMode(isTestComputationalThinking);
@@ -1145,7 +898,6 @@ function PrePostTestPageContent() {
         setIsSaving(true);
         showLoading("Menyimpan pengaturan...");
         try {
-            // Save module-level CT flag
             if (modulId) {
                 await guruModulApi.update(modulId, {
                     isTestComputationalThinking,
@@ -1153,46 +905,41 @@ function PrePostTestPageContent() {
             }
 
             if (targetBank?.apiId) {
-                if (targetBank.type === "pretest") {
-                    await guruPretestApi.updateSettings(targetBank.apiId, {
-                        duration: settingsDuration,
-                        countShownQuestions: settingsSoalTampil,
-                    });
-                    // Save access rules: delete existing, then create new
-                    const existingRules = await guruPretestApi.getAccessRules(
-                        targetBank.apiId,
-                    );
-                    if (Array.isArray(existingRules)) {
-                        for (const rule of existingRules) {
-                            await guruPretestApi.deleteAccessRule(
-                                (rule as any).id,
-                            );
-                        }
+                await guruPretestApi.updateSettings(targetBank.apiId, {
+                    duration: settingsDuration,
+                    countShownQuestions: settingsSoalTampil,
+                });
+                const existingRules = await guruPretestApi.getAccessRules(
+                    targetBank.apiId,
+                );
+                if (Array.isArray(existingRules)) {
+                    for (const rule of existingRules) {
+                        await guruPretestApi.deleteAccessRule((rule as any).id);
                     }
-                    for (const ar of aksesRules) {
-                        if (!ar.topikId) continue;
-                        const topik = topikOptions.find(
-                            (t) => t.id === ar.topikId,
-                        );
-                        const firstMateriId = topik?.materis?.[0]?.id;
-                        if (!firstMateriId) continue;
-                        await guruPretestApi.createAccessRule({
-                            pretestId: targetBank.apiId,
-                            materiId: firstMateriId,
-                            minScore: ar.minScore,
-                            selectedTopicIds: [ar.topikId],
-                        });
-                    }
-                } else {
-                    await guruPosttestApi.updateSettings(targetBank.apiId, {
-                        duration: settingsDuration,
-                        countShownQuestions: settingsSoalTampil,
+                }
+                for (const ar of aksesRules) {
+                    if (!ar.topikId) continue;
+                    const topik = topikOptions.find((t) => t.id === ar.topikId);
+                    const firstMateriId = topik?.materis?.[0]?.id;
+                    if (!firstMateriId) continue;
+                    await guruPretestApi.createAccessRule({
+                        pretestId: targetBank.apiId,
+                        materiId: firstMateriId,
+                        minScore: ar.minScore,
+                        selectedTopicIds: [ar.topikId],
                     });
                 }
             }
+
+            if (posttestId) {
+                await guruPosttestApi.updateSettings(posttestId, {
+                    duration: posttestDuration,
+                    countShownQuestions: posttestCountShown,
+                });
+            }
+
             toast("Pengaturan berhasil disimpan!", "success");
             setIsSettingsOpen(false);
-            setSettingsTargetBankId(null);
         } catch (err: unknown) {
             console.error("Save settings error:", err);
             toast(
@@ -1209,9 +956,12 @@ function PrePostTestPageContent() {
         modulId,
         isTestComputationalThinking,
         initialCTMode,
-        settingsTargetBank,
+        bank,
         settingsDuration,
         settingsSoalTampil,
+        posttestDuration,
+        posttestCountShown,
+        posttestId,
         aksesRules,
         topikOptions,
         hideLoading,
@@ -1335,7 +1085,9 @@ function PrePostTestPageContent() {
                 <main className="w-full">
                     {/* Mobile hamburger */}
                     <div className="sticky top-0 z-30 flex items-center justify-between border-b border-[#e5e3ee] bg-white px-4 py-3 lg:hidden">
-                        <p className="text-[13px] font-semibold text-[#232530]">Menu Navigasi</p>
+                        <p className="text-[13px] font-semibold text-[#232530]">
+                            Menu Navigasi
+                        </p>
                         <button
                             type="button"
                             onClick={() => setIsDrawerOpen(true)}
@@ -1360,7 +1112,9 @@ function PrePostTestPageContent() {
                         }`}
                     >
                         <div className="flex items-center justify-between mb-4">
-                            <p className="text-[13px] font-semibold text-[#232530]">Menu</p>
+                            <p className="text-[13px] font-semibold text-[#232530]">
+                                Menu
+                            </p>
                             <button
                                 type="button"
                                 onClick={() => setIsDrawerOpen(false)}
@@ -1370,26 +1124,56 @@ function PrePostTestPageContent() {
                             </button>
                         </div>
                         <div className="flex h-full flex-col">
-                            <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
+                            <p className="text-[13px] font-semibold text-[#232530]">
+                                Rencanakan Modul anda
+                            </p>
                             <nav className="mt-4 space-y-3 text-[13px]">
-                                <Link href={modulId ? `/modul-guru/tambah/profil?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                                <Link
+                                    href={
+                                        modulId
+                                            ? `/modul-guru/tambah/profil?modulId=${modulId}`
+                                            : "#"
+                                    }
+                                    className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
+                                    onClick={() => setIsDrawerOpen(false)}
+                                >
                                     <FiFileText size={12} />
                                     Profil Modul Anda
                                 </Link>
-                                <Link href={modulId ? `/modul-guru/tambah/harga?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                                <Link
+                                    href={
+                                        modulId
+                                            ? `/modul-guru/tambah/harga?modulId=${modulId}`
+                                            : "#"
+                                    }
+                                    className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
+                                    onClick={() => setIsDrawerOpen(false)}
+                                >
                                     <FiDollarSign size={12} />
                                     Penetapan Harga Modul
                                 </Link>
                             </nav>
-                            <p className="mt-8 text-[13px] font-semibold text-[#232530]">Konten Modul Anda</p>
+                            <p className="mt-8 text-[13px] font-semibold text-[#232530]">
+                                Konten Modul Anda
+                            </p>
                             <nav className="mt-4 space-y-3 text-[13px]">
-                                <Link href={modulId ? `/modul-guru/tambah/konten?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                                <Link
+                                    href={
+                                        modulId
+                                            ? `/modul-guru/tambah/konten?modulId=${modulId}`
+                                            : "#"
+                                    }
+                                    className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
+                                    onClick={() => setIsDrawerOpen(false)}
+                                >
                                     <FiLayers size={12} />
                                     Konten Modul
                                 </Link>
                                 <div className="flex items-center gap-2 text-[#7054dc]">
                                     <FiCheckSquare size={12} />
-                                    <span className="font-semibold">Pree - Post Test Modul</span>
+                                    <span className="font-semibold">
+                                        Pree - Post Test Modul
+                                    </span>
                                 </div>
                             </nav>
                             <button
@@ -1409,13 +1193,6 @@ function PrePostTestPageContent() {
                     <div className="grid w-full gap-8 lg:grid-cols-[260px_1fr]">
                         {sidebar}
                         <section className="px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
-                            <button
-                                type="button"
-                                onClick={() => setActiveBankId(null)}
-                                className="mb-4 text-[12px] font-medium text-[#7054dc]"
-                            >
-                                ← Kembali ke Daftar Bank Soal
-                            </button>
                             <h1 className="text-[18px] font-semibold text-[#232530]">
                                 Pree Test dan Post Test Modul anda
                             </h1>
@@ -1434,18 +1211,12 @@ function PrePostTestPageContent() {
                                         <p className="text-[13px] font-semibold text-[#232530]">
                                             {activeBank.name}
                                         </p>
-                                        <span
-                                            className={`inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold ${activeBank.type === "pretest" ? "bg-blue-100 text-blue-600" : "bg-green-100 text-green-600"}`}
-                                        >
-                                            {activeBank.type === "pretest"
-                                                ? "Pre Test"
-                                                : "Post Test"}
+                                        <span className="inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold bg-blue-100 text-blue-600">
+                                            Pre Test
                                         </span>
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                openSettings(activeBank.id)
-                                            }
+                                            onClick={openSettings}
                                             className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"
                                         >
                                             <FiSettings size={14} />
@@ -1453,8 +1224,7 @@ function PrePostTestPageContent() {
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                handleDeleteBank(activeBank.id);
-                                                setActiveBankId(null);
+                                                handleDeleteBank();
                                             }}
                                             className="cursor-pointer text-[#7a7e8a] hover:text-[#e04e4e]"
                                         >
@@ -1529,7 +1299,14 @@ function PrePostTestPageContent() {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <span className="text-[12px] font-semibold text-[#232530]" dangerouslySetInnerHTML={{ __html: question.pertanyaan || "(belum ada pertanyaan)" }} />
+                                                                <span
+                                                                    className="text-[12px] font-semibold text-[#232530]"
+                                                                    dangerouslySetInnerHTML={{
+                                                                        __html:
+                                                                            question.pertanyaan ||
+                                                                            "(belum ada pertanyaan)",
+                                                                    }}
+                                                                />
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => {
@@ -1567,29 +1344,26 @@ function PrePostTestPageContent() {
                                                     <button
                                                         type="button"
                                                         onClick={() =>
-                                                            setBanks((p) =>
-                                                                p.map((b) =>
-                                                                    b.id !==
-                                                                    activeBankId
-                                                                        ? b
-                                                                        : {
-                                                                              ...b,
-                                                                              questions:
-                                                                                  b.questions.map(
-                                                                                      (
-                                                                                          q,
-                                                                                      ) =>
-                                                                                          q.id ===
-                                                                                          question.id
-                                                                                              ? {
-                                                                                                    ...q,
-                                                                                                    isExpanded:
-                                                                                                        !q.isExpanded,
-                                                                                                }
-                                                                                              : q,
-                                                                                  ),
-                                                                          },
-                                                                ),
+                                                            setBank((prev) =>
+                                                                prev
+                                                                    ? {
+                                                                          ...prev,
+                                                                          questions:
+                                                                              prev.questions.map(
+                                                                                  (
+                                                                                      q,
+                                                                                  ) =>
+                                                                                      q.id ===
+                                                                                      question.id
+                                                                                          ? {
+                                                                                                ...q,
+                                                                                                isExpanded:
+                                                                                                    !q.isExpanded,
+                                                                                            }
+                                                                                          : q,
+                                                                              ),
+                                                                      }
+                                                                    : prev,
                                                             )
                                                         }
                                                         className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-[#7a7e8a] hover:bg-[#f5f4fb]"
@@ -1782,7 +1556,11 @@ function PrePostTestPageContent() {
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleDeleteCTStory(story.id)}
+                                                    onClick={() =>
+                                                        handleDeleteCTStory(
+                                                            story.id,
+                                                        )
+                                                    }
                                                     className="inline-flex h-[28px] items-center justify-center rounded-lg border border-[#e04e4e] px-3 text-[11px] font-semibold text-[#e04e4e] hover:bg-[#fff5f5]"
                                                 >
                                                     Hapus Soal CT
@@ -1802,29 +1580,26 @@ function PrePostTestPageContent() {
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        setBanks((p) =>
-                                                            p.map((b) =>
-                                                                b.id !==
-                                                                activeBankId
-                                                                    ? b
-                                                                    : {
-                                                                          ...b,
-                                                                          ctStories:
-                                                                              b.ctStories.map(
-                                                                                  (
-                                                                                      s,
-                                                                                  ) =>
-                                                                                      s.id ===
-                                                                                      story.id
-                                                                                          ? {
-                                                                                                ...s,
-                                                                                                isExpanded:
-                                                                                                    !s.isExpanded,
-                                                                                            }
-                                                                                          : s,
-                                                                              ),
-                                                                      },
-                                                            ),
+                                                        setBank((prev) =>
+                                                            prev
+                                                                ? {
+                                                                      ...prev,
+                                                                      ctStories:
+                                                                          prev.ctStories.map(
+                                                                              (
+                                                                                  s,
+                                                                              ) =>
+                                                                                  s.id ===
+                                                                                  story.id
+                                                                                      ? {
+                                                                                            ...s,
+                                                                                            isExpanded:
+                                                                                                !s.isExpanded,
+                                                                                        }
+                                                                                      : s,
+                                                                          ),
+                                                                  }
+                                                                : prev,
                                                         )
                                                     }
                                                     className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#7a7e8a] hover:bg-[#f5f4fb]"
@@ -1850,28 +1625,25 @@ function PrePostTestPageContent() {
                                                         minHeight="80px"
                                                         value={story.cerita}
                                                         onChange={(html) =>
-                                                            setBanks((p) =>
-                                                                p.map((b) =>
-                                                                    b.id !==
-                                                                    activeBankId
-                                                                        ? b
-                                                                        : {
-                                                                              ...b,
-                                                                              ctStories:
-                                                                                  b.ctStories.map(
-                                                                                      (
-                                                                                          s,
-                                                                                      ) =>
-                                                                                          s.id ===
-                                                                                          story.id
-                                                                                              ? {
-                                                                                                    ...s,
-                                                                                                    cerita: html,
-                                                                                                }
-                                                                                              : s,
-                                                                                  ),
-                                                                          },
-                                                                ),
+                                                            setBank((prev) =>
+                                                                prev
+                                                                    ? {
+                                                                          ...prev,
+                                                                          ctStories:
+                                                                              prev.ctStories.map(
+                                                                                  (
+                                                                                      s,
+                                                                                  ) =>
+                                                                                      s.id ===
+                                                                                      story.id
+                                                                                          ? {
+                                                                                                ...s,
+                                                                                                cerita: html,
+                                                                                            }
+                                                                                          : s,
+                                                                              ),
+                                                                      }
+                                                                    : prev,
                                                             )
                                                         }
                                                     />
@@ -1886,29 +1658,59 @@ function PrePostTestPageContent() {
                                                         >
                                                             <p className="mb-2 text-[12px] font-semibold text-[#7054dc]">
                                                                 Soal {sqIdx + 1}
-                                                                : {sq.label ? sq.label.replace(/<[^>]*>?/gm, '') : ""}
+                                                                :{" "}
+                                                                {sq.label
+                                                                    ? sq.label.replace(
+                                                                          /<[^>]*>?/gm,
+                                                                          "",
+                                                                      )
+                                                                    : ""}
                                                             </p>
                                                             <div className="mb-3">
                                                                 <TrixEditor
                                                                     id={`ct-sq-${sq.id}`}
                                                                     placeholder="Masukkan soal ..."
-                                                                    value={sq.label}
+                                                                    value={
+                                                                        sq.label
+                                                                    }
                                                                     minHeight="80px"
-                                                                    onChange={(html) =>
-                                                                        setBanks((p) =>
-                                                                            p.map((b) =>
-                                                                                b.id !== activeBankId ? b : {
-                                                                                    ...b,
-                                                                                    ctStories: b.ctStories.map((s) =>
-                                                                                        s.id !== story.id ? s : {
-                                                                                            ...s,
-                                                                                            subQuestions: s.subQuestions.map((sq2) =>
-                                                                                                sq2.id !== sq.id ? sq2 : { ...sq2, label: html }
-                                                                                            ),
-                                                                                        }
-                                                                                    ),
-                                                                                }
-                                                                            )
+                                                                    onChange={(
+                                                                        html,
+                                                                    ) =>
+                                                                        setBank(
+                                                                            (
+                                                                                prev,
+                                                                            ) =>
+                                                                                prev
+                                                                                    ? {
+                                                                                          ...prev,
+                                                                                          ctStories:
+                                                                                              prev.ctStories.map(
+                                                                                                  (
+                                                                                                      s,
+                                                                                                  ) =>
+                                                                                                      s.id !==
+                                                                                                      story.id
+                                                                                                          ? s
+                                                                                                          : {
+                                                                                                                ...s,
+                                                                                                                subQuestions:
+                                                                                                                    s.subQuestions.map(
+                                                                                                                        (
+                                                                                                                            sq2,
+                                                                                                                        ) =>
+                                                                                                                            sq2.id !==
+                                                                                                                            sq.id
+                                                                                                                                ? sq2
+                                                                                                                                : {
+                                                                                                                                      ...sq2,
+                                                                                                                                      label: html,
+                                                                                                                                  },
+                                                                                                                    ),
+                                                                                                            },
+                                                                                              ),
+                                                                                      }
+                                                                                    : prev,
                                                                         )
                                                                     }
                                                                 />
@@ -1933,46 +1735,40 @@ function PrePostTestPageContent() {
                                                                                     .value,
                                                                             ) ||
                                                                             0;
-                                                                        setBanks(
+                                                                        setBank(
                                                                             (
-                                                                                p,
+                                                                                prev,
                                                                             ) =>
-                                                                                p.map(
-                                                                                    (
-                                                                                        b,
-                                                                                    ) =>
-                                                                                        b.id !==
-                                                                                        activeBankId
-                                                                                            ? b
-                                                                                            : {
-                                                                                                  ...b,
-                                                                                                  ctStories:
-                                                                                                      b.ctStories.map(
-                                                                                                          (
-                                                                                                              s,
-                                                                                                          ) =>
-                                                                                                              s.id ===
-                                                                                                              story.id
-                                                                                                                  ? {
-                                                                                                                        ...s,
-                                                                                                                        subQuestions:
-                                                                                                                            s.subQuestions.map(
-                                                                                                                                (
-                                                                                                                                    sq2,
-                                                                                                                                ) =>
-                                                                                                                                    sq2.id ===
-                                                                                                                                    sq.id
-                                                                                                                                        ? {
-                                                                                                                                              ...sq2,
-                                                                                                                                              skor: v,
-                                                                                                                                          }
-                                                                                                                                        : sq2,
-                                                                                                                            ),
-                                                                                                                    }
-                                                                                                                  : s,
-                                                                                                      ),
-                                                                                              },
-                                                                                ),
+                                                                                prev
+                                                                                    ? {
+                                                                                          ...prev,
+                                                                                          ctStories:
+                                                                                              prev.ctStories.map(
+                                                                                                  (
+                                                                                                      s,
+                                                                                                  ) =>
+                                                                                                      s.id ===
+                                                                                                      story.id
+                                                                                                          ? {
+                                                                                                                ...s,
+                                                                                                                subQuestions:
+                                                                                                                    s.subQuestions.map(
+                                                                                                                        (
+                                                                                                                            sq2,
+                                                                                                                        ) =>
+                                                                                                                            sq2.id ===
+                                                                                                                            sq.id
+                                                                                                                                ? {
+                                                                                                                                      ...sq2,
+                                                                                                                                      skor: v,
+                                                                                                                                  }
+                                                                                                                                : sq2,
+                                                                                                                    ),
+                                                                                                            }
+                                                                                                          : s,
+                                                                                              ),
+                                                                                      }
+                                                                                    : prev,
                                                                         );
                                                                     }}
                                                                     className="h-[28px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[11px] text-[#232530] outline-none"
@@ -1991,56 +1787,50 @@ function PrePostTestPageContent() {
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() =>
-                                                                                    setBanks(
+                                                                                    setBank(
                                                                                         (
-                                                                                            p,
+                                                                                            prev,
                                                                                         ) =>
-                                                                                            p.map(
-                                                                                                (
-                                                                                                    b,
-                                                                                                ) =>
-                                                                                                    b.id !==
-                                                                                                    activeBankId
-                                                                                                        ? b
-                                                                                                        : {
-                                                                                                              ...b,
-                                                                                                              ctStories:
-                                                                                                                  b.ctStories.map(
-                                                                                                                      (
-                                                                                                                          s,
-                                                                                                                      ) =>
-                                                                                                                          s.id ===
-                                                                                                                          story.id
-                                                                                                                              ? {
-                                                                                                                                    ...s,
-                                                                                                                                    subQuestions:
-                                                                                                                                        s.subQuestions.map(
-                                                                                                                                            (
-                                                                                                                                                sq3,
-                                                                                                                                            ) =>
-                                                                                                                                                sq3.id ===
-                                                                                                                                                sq.id
-                                                                                                                                                    ? {
-                                                                                                                                                          ...sq3,
-                                                                                                                                                          answers:
-                                                                                                                                                              sq3.answers.map(
-                                                                                                                                                                  (
-                                                                                                                                                                      a,
-                                                                                                                                                                  ) => ({
-                                                                                                                                                                      ...a,
-                                                                                                                                                                      isCorrect:
-                                                                                                                                                                          a.id ===
-                                                                                                                                                                          ans.id,
-                                                                                                                                                                  }),
-                                                                                                                                                              ),
-                                                                                                                                                      }
-                                                                                                                                                    : sq3,
-                                                                                                                                        ),
-                                                                                                                                }
-                                                                                                                              : s,
-                                                                                                                  ),
-                                                                                                          },
-                                                                                            ),
+                                                                                            prev
+                                                                                                ? {
+                                                                                                      ...prev,
+                                                                                                      ctStories:
+                                                                                                          prev.ctStories.map(
+                                                                                                              (
+                                                                                                                  s,
+                                                                                                              ) =>
+                                                                                                                  s.id ===
+                                                                                                                  story.id
+                                                                                                                      ? {
+                                                                                                                            ...s,
+                                                                                                                            subQuestions:
+                                                                                                                                s.subQuestions.map(
+                                                                                                                                    (
+                                                                                                                                        sq3,
+                                                                                                                                    ) =>
+                                                                                                                                        sq3.id ===
+                                                                                                                                        sq.id
+                                                                                                                                            ? {
+                                                                                                                                                  ...sq3,
+                                                                                                                                                  answers:
+                                                                                                                                                      sq3.answers.map(
+                                                                                                                                                          (
+                                                                                                                                                              a,
+                                                                                                                                                          ) => ({
+                                                                                                                                                              ...a,
+                                                                                                                                                              isCorrect:
+                                                                                                                                                                  a.id ===
+                                                                                                                                                                  ans.id,
+                                                                                                                                                          }),
+                                                                                                                                                      ),
+                                                                                                                                              }
+                                                                                                                                            : sq3,
+                                                                                                                                ),
+                                                                                                                        }
+                                                                                                                      : s,
+                                                                                                          ),
+                                                                                                  }
+                                                                                                : prev,
                                                                                     )
                                                                                 }
                                                                                 className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${ans.isCorrect ? "border-[#7054dc] bg-[#7054dc]" : "border-[#d9d7df] bg-white"}`}
@@ -2057,60 +1847,54 @@ function PrePostTestPageContent() {
                                                                                 onChange={(
                                                                                     e,
                                                                                 ) =>
-                                                                                    setBanks(
+                                                                                    setBank(
                                                                                         (
-                                                                                            p,
+                                                                                            prev,
                                                                                         ) =>
-                                                                                            p.map(
-                                                                                                (
-                                                                                                    b,
-                                                                                                ) =>
-                                                                                                    b.id !==
-                                                                                                    activeBankId
-                                                                                                        ? b
-                                                                                                        : {
-                                                                                                              ...b,
-                                                                                                              ctStories:
-                                                                                                                  b.ctStories.map(
-                                                                                                                      (
-                                                                                                                          s,
-                                                                                                                      ) =>
-                                                                                                                          s.id ===
-                                                                                                                          story.id
-                                                                                                                              ? {
-                                                                                                                                    ...s,
-                                                                                                                                    subQuestions:
-                                                                                                                                        s.subQuestions.map(
-                                                                                                                                            (
-                                                                                                                                                sq3,
-                                                                                                                                            ) =>
-                                                                                                                                                sq3.id ===
-                                                                                                                                                sq.id
-                                                                                                                                                    ? {
-                                                                                                                                                          ...sq3,
-                                                                                                                                                          answers:
-                                                                                                                                                              sq3.answers.map(
-                                                                                                                                                                  (
-                                                                                                                                                                      a,
-                                                                                                                                                                  ) =>
-                                                                                                                                                                      a.id ===
-                                                                                                                                                                      ans.id
-                                                                                                                                                                          ? {
-                                                                                                                                                                                ...a,
-                                                                                                                                                                                text: e
-                                                                                                                                                                                    .target
-                                                                                                                                                                                    .value,
-                                                                                                                                                                            }
-                                                                                                                                                                          : a,
-                                                                                                                                                              ),
-                                                                                                                                                      }
-                                                                                                                                                    : sq3,
-                                                                                                                                        ),
-                                                                                                                                }
-                                                                                                                              : s,
-                                                                                                                  ),
-                                                                                                          },
-                                                                                            ),
+                                                                                            prev
+                                                                                                ? {
+                                                                                                      ...prev,
+                                                                                                      ctStories:
+                                                                                                          prev.ctStories.map(
+                                                                                                              (
+                                                                                                                  s,
+                                                                                                              ) =>
+                                                                                                                  s.id ===
+                                                                                                                  story.id
+                                                                                                                      ? {
+                                                                                                                            ...s,
+                                                                                                                            subQuestions:
+                                                                                                                                s.subQuestions.map(
+                                                                                                                                    (
+                                                                                                                                        sq3,
+                                                                                                                                    ) =>
+                                                                                                                                        sq3.id ===
+                                                                                                                                        sq.id
+                                                                                                                                            ? {
+                                                                                                                                                  ...sq3,
+                                                                                                                                                  answers:
+                                                                                                                                                      sq3.answers.map(
+                                                                                                                                                          (
+                                                                                                                                                              a,
+                                                                                                                                                          ) =>
+                                                                                                                                                              a.id ===
+                                                                                                                                                              ans.id
+                                                                                                                                                                  ? {
+                                                                                                                                                                        ...a,
+                                                                                                                                                                        text: e
+                                                                                                                                                                            .target
+                                                                                                                                                                            .value,
+                                                                                                                                                                    }
+                                                                                                                                                                  : a,
+                                                                                                                                                      ),
+                                                                                                                                              }
+                                                                                                                                            : sq3,
+                                                                                                                                ),
+                                                                                                                        }
+                                                                                                                      : s,
+                                                                                                          ),
+                                                                                                  }
+                                                                                                : prev,
                                                                                     )
                                                                                 }
                                                                                 placeholder="Masukkan jawaban"
@@ -2119,53 +1903,47 @@ function PrePostTestPageContent() {
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() =>
-                                                                                    setBanks(
+                                                                                    setBank(
                                                                                         (
-                                                                                            p,
+                                                                                            prev,
                                                                                         ) =>
-                                                                                            p.map(
-                                                                                                (
-                                                                                                    b,
-                                                                                                ) =>
-                                                                                                    b.id !==
-                                                                                                    activeBankId
-                                                                                                        ? b
-                                                                                                        : {
-                                                                                                              ...b,
-                                                                                                              ctStories:
-                                                                                                                  b.ctStories.map(
-                                                                                                                      (
-                                                                                                                          s,
-                                                                                                                      ) =>
-                                                                                                                          s.id ===
-                                                                                                                          story.id
-                                                                                                                              ? {
-                                                                                                                                    ...s,
-                                                                                                                                    subQuestions:
-                                                                                                                                        s.subQuestions.map(
-                                                                                                                                            (
-                                                                                                                                                sq3,
-                                                                                                                                            ) =>
-                                                                                                                                                sq3.id ===
-                                                                                                                                                sq.id
-                                                                                                                                                    ? {
-                                                                                                                                                          ...sq3,
-                                                                                                                                                          answers:
-                                                                                                                                                              sq3.answers.filter(
-                                                                                                                                                                  (
-                                                                                                                                                                      a,
-                                                                                                                                                                  ) =>
-                                                                                                                                                                      a.id !==
-                                                                                                                                                                      ans.id,
-                                                                                                                                                              ),
-                                                                                                                                                      }
-                                                                                                                                                    : sq3,
-                                                                                                                                        ),
-                                                                                                                                }
-                                                                                                                              : s,
-                                                                                                                  ),
-                                                                                                          },
-                                                                                            ),
+                                                                                            prev
+                                                                                                ? {
+                                                                                                      ...prev,
+                                                                                                      ctStories:
+                                                                                                          prev.ctStories.map(
+                                                                                                              (
+                                                                                                                  s,
+                                                                                                              ) =>
+                                                                                                                  s.id ===
+                                                                                                                  story.id
+                                                                                                                      ? {
+                                                                                                                            ...s,
+                                                                                                                            subQuestions:
+                                                                                                                                s.subQuestions.map(
+                                                                                                                                    (
+                                                                                                                                        sq3,
+                                                                                                                                    ) =>
+                                                                                                                                        sq3.id ===
+                                                                                                                                        sq.id
+                                                                                                                                            ? {
+                                                                                                                                                  ...sq3,
+                                                                                                                                                  answers:
+                                                                                                                                                      sq3.answers.filter(
+                                                                                                                                                          (
+                                                                                                                                                              a,
+                                                                                                                                                          ) =>
+                                                                                                                                                              a.id !==
+                                                                                                                                                              ans.id,
+                                                                                                                                                      ),
+                                                                                                                                              }
+                                                                                                                                            : sq3,
+                                                                                                                                ),
+                                                                                                                        }
+                                                                                                                      : s,
+                                                                                                          ),
+                                                                                                  }
+                                                                                                : prev,
                                                                                     )
                                                                                 }
                                                                                 className="text-[#7a7e8a] hover:text-[#e04e4e]"
@@ -2183,52 +1961,48 @@ function PrePostTestPageContent() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() =>
-                                                                    setBanks(
-                                                                        (p) =>
-                                                                            p.map(
-                                                                                (
-                                                                                    b,
-                                                                                ) =>
-                                                                                    b.id !==
-                                                                                    activeBankId
-                                                                                        ? b
-                                                                                        : {
-                                                                                              ...b,
-                                                                                              ctStories:
-                                                                                                  b.ctStories.map(
-                                                                                                      (
-                                                                                                          s,
-                                                                                                      ) =>
-                                                                                                          s.id ===
-                                                                                                          story.id
-                                                                                                              ? {
-                                                                                                                    ...s,
-                                                                                                                    subQuestions:
-                                                                                                                        s.subQuestions.map(
-                                                                                                                            (
-                                                                                                                                sq3,
-                                                                                                                            ) =>
-                                                                                                                                sq3.id ===
-                                                                                                                                sq.id
-                                                                                                                                    ? {
-                                                                                                                                          ...sq3,
-                                                                                                                                          answers:
-                                                                                                                                              [
-                                                                                                                                                  ...sq3.answers,
-                                                                                                                                                  {
-                                                                                                                                                      id: Date.now(),
-                                                                                                                                                      text: "",
-                                                                                                                                                      isCorrect: false,
-                                                                                                                                                  },
-                                                                                                                                              ],
-                                                                                                                                      }
-                                                                                                                                    : sq3,
-                                                                                                                        ),
-                                                                                                                }
-                                                                                                              : s,
-                                                                                                  ),
-                                                                                          },
-                                                                            ),
+                                                                    setBank(
+                                                                        (
+                                                                            prev,
+                                                                        ) =>
+                                                                            prev
+                                                                                ? {
+                                                                                      ...prev,
+                                                                                      ctStories:
+                                                                                          prev.ctStories.map(
+                                                                                              (
+                                                                                                  s,
+                                                                                              ) =>
+                                                                                                  s.id ===
+                                                                                                  story.id
+                                                                                                      ? {
+                                                                                                            ...s,
+                                                                                                            subQuestions:
+                                                                                                                s.subQuestions.map(
+                                                                                                                    (
+                                                                                                                        sq3,
+                                                                                                                    ) =>
+                                                                                                                        sq3.id ===
+                                                                                                                        sq.id
+                                                                                                                            ? {
+                                                                                                                                  ...sq3,
+                                                                                                                                  answers:
+                                                                                                                                      [
+                                                                                                                                          ...sq3.answers,
+                                                                                                                                          {
+                                                                                                                                              id: Date.now(),
+                                                                                                                                              text: "",
+                                                                                                                                              isCorrect: false,
+                                                                                                                                          },
+                                                                                                                                      ],
+                                                                                                                              }
+                                                                                                                            : sq3,
+                                                                                                                ),
+                                                                                                        }
+                                                                                                      : s,
+                                                                                          ),
+                                                                                  }
+                                                                                : prev,
                                                                     )
                                                                 }
                                                                 className="mt-2 text-[11px] font-semibold text-[#7054dc]"
@@ -2355,20 +2129,19 @@ function PrePostTestPageContent() {
                                                     className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
                                                 />
                                                 <span className="text-[12px] text-[#7a7e8a]">
-                                                    / {settingsTargetBank
-                                                        ? settingsTargetBank
-                                                                  .questions
-                                                                  .length +
-                                                          settingsTargetBank
-                                                              .ctStories
-                                                              .length
+                                                    /{" "}
+                                                    {bank
+                                                        ? bank
+                                                              .questions
+                                                              .length +
+                                                          bank
+                                                              .ctStories.length
                                                         : 0}{" "}
                                                     Soal
                                                 </span>
                                             </div>
                                         </div>
-                                        {settingsTargetBank?.type ===
-                                            "pretest" && (
+                                        {bank && (
                                             <div className="mt-4">
                                                 <p className="text-[13px] font-semibold text-[#232530]">
                                                     Atur Akses Materi Otomatis
@@ -2531,7 +2304,9 @@ function PrePostTestPageContent() {
             <main className="w-full">
                 {/* Mobile hamburger */}
                 <div className="sticky top-0 z-30 flex items-center justify-between border-b border-[#e5e3ee] bg-white px-4 py-3 lg:hidden">
-                    <p className="text-[13px] font-semibold text-[#232530]">Menu Navigasi</p>
+                    <p className="text-[13px] font-semibold text-[#232530]">
+                        Menu Navigasi
+                    </p>
                     <button
                         type="button"
                         onClick={() => setIsDrawerOpen(true)}
@@ -2556,7 +2331,9 @@ function PrePostTestPageContent() {
                     }`}
                 >
                     <div className="flex items-center justify-between mb-4">
-                        <p className="text-[13px] font-semibold text-[#232530]">Menu</p>
+                        <p className="text-[13px] font-semibold text-[#232530]">
+                            Menu
+                        </p>
                         <button
                             type="button"
                             onClick={() => setIsDrawerOpen(false)}
@@ -2566,26 +2343,56 @@ function PrePostTestPageContent() {
                         </button>
                     </div>
                     <div className="flex h-full flex-col">
-                        <p className="text-[13px] font-semibold text-[#232530]">Rencanakan Modul anda</p>
+                        <p className="text-[13px] font-semibold text-[#232530]">
+                            Rencanakan Modul anda
+                        </p>
                         <nav className="mt-4 space-y-3 text-[13px]">
-                            <Link href={modulId ? `/modul-guru/tambah/profil?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                            <Link
+                                href={
+                                    modulId
+                                        ? `/modul-guru/tambah/profil?modulId=${modulId}`
+                                        : "#"
+                                }
+                                className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
+                                onClick={() => setIsDrawerOpen(false)}
+                            >
                                 <FiFileText size={12} />
                                 Profil Modul Anda
                             </Link>
-                            <Link href={modulId ? `/modul-guru/tambah/harga?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                            <Link
+                                href={
+                                    modulId
+                                        ? `/modul-guru/tambah/harga?modulId=${modulId}`
+                                        : "#"
+                                }
+                                className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
+                                onClick={() => setIsDrawerOpen(false)}
+                            >
                                 <FiDollarSign size={12} />
                                 Penetapan Harga Modul
                             </Link>
                         </nav>
-                        <p className="mt-8 text-[13px] font-semibold text-[#232530]">Konten Modul Anda</p>
+                        <p className="mt-8 text-[13px] font-semibold text-[#232530]">
+                            Konten Modul Anda
+                        </p>
                         <nav className="mt-4 space-y-3 text-[13px]">
-                            <Link href={modulId ? `/modul-guru/tambah/konten?modulId=${modulId}` : "#"} className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors" onClick={() => setIsDrawerOpen(false)}>
+                            <Link
+                                href={
+                                    modulId
+                                        ? `/modul-guru/tambah/konten?modulId=${modulId}`
+                                        : "#"
+                                }
+                                className="flex items-center gap-2 text-[#7a7e8a] hover:text-[#7054dc] transition-colors"
+                                onClick={() => setIsDrawerOpen(false)}
+                            >
                                 <FiLayers size={12} />
                                 Konten Modul
                             </Link>
                             <div className="flex items-center gap-2 text-[#7054dc]">
                                 <FiCheckSquare size={12} />
-                                <span className="font-semibold">Pree - Post Test Modul</span>
+                                <span className="font-semibold">
+                                    Pre - Post Test Modul
+                                </span>
                             </div>
                         </nav>
                         <button
@@ -2607,19 +2414,11 @@ function PrePostTestPageContent() {
                     <section className="px-4 pb-8 pt-6 sm:px-6 lg:pr-6">
                         <div className="flex items-center gap-3">
                             <h1 className="text-[18px] font-semibold text-[#232530]">
-                                Bank Soal Pree Test dan Post Test Modul
+                                Bank Soal PreTest dan PostTest Modul
                             </h1>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    const pretestBank = banks.find(
-                                        (b) => b.type === "pretest",
-                                    );
-                                    if (pretestBank) {
-                                        setSettingsTargetBankId(pretestBank.id);
-                                    }
-                                    setIsSettingsOpen(true);
-                                }}
+                                onClick={() => setIsSettingsOpen(true)}
                                 className="text-[#7a7e8a] hover:text-[#7054dc]"
                                 title="Pengaturan Modul"
                             >
@@ -2633,203 +2432,30 @@ function PrePostTestPageContent() {
                             untuk soal ini.
                         </p>
 
-                        {banks.length > 0 && (
-                            <div className="mt-6 flex flex-wrap gap-4">
-                                {banks.map((bank) => (
-                                    <div
-                                        key={bank.id}
-                                        onClick={() => setActiveBankId(bank.id)}
-                                        className="group relative h-[130px] w-full sm:w-[170px] cursor-pointer overflow-hidden rounded-2xl bg-gradient-to-br from-[#c8b8f8] to-[#ddd4fa] p-4 transition-transform hover:scale-[1.03]"
-                                    >
-                                        <div className="flex items-start justify-between">
-                                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#7054dc] text-white">
-                                                <svg
-                                                    width="14"
-                                                    height="14"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                >
-                                                    <rect
-                                                        x="3"
-                                                        y="4"
-                                                        width="18"
-                                                        height="16"
-                                                        rx="2"
-                                                        stroke="currentColor"
-                                                        strokeWidth="2"
-                                                    />
-                                                    <path
-                                                        d="M7 8h10M7 12h6"
-                                                        stroke="currentColor"
-                                                        strokeWidth="2"
-                                                        strokeLinecap="round"
-                                                    />
-                                                </svg>
-                                            </span>
-                                            <div className="relative">
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setOpenMenuId(
-                                                            openMenuId ===
-                                                                bank.id
-                                                                ? null
-                                                                : bank.id,
-                                                        );
-                                                    }}
-                                                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#7054dc] opacity-70 hover:bg-white/30 hover:opacity-100"
-                                                >
-                                                    <FiMoreVertical size={16} />
-                                                </button>
-                                                {openMenuId === bank.id && (
-                                                    <div
-                                                        className="absolute right-0 top-full z-10 mt-1 w-[130px] rounded-xl border border-[#eceaf4] bg-white p-1.5 shadow-[0_12px_24px_rgba(0,0,0,0.12)]"
-                                                        onClick={(e) =>
-                                                            e.stopPropagation()
-                                                        }
-                                                    >
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setActiveBankId(
-                                                                    bank.id,
-                                                                );
-                                                                setOpenMenuId(
-                                                                    null,
-                                                                );
-                                                            }}
-                                                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-semibold text-[#232530] hover:bg-[#f7f6ff]"
-                                                        >
-                                                            <FiEdit2
-                                                                size={13}
-                                                            />
-                                                            Sunting
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                handleDeleteBank(
-                                                                    bank.id,
-                                                                )
-                                                            }
-                                                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-semibold text-[#e04e4e] hover:bg-[#fef2f2]"
-                                                        >
-                                                            <FiTrash2
-                                                                size={13}
-                                                            />
-                                                            Hapus
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <svg
-                                            className="absolute bottom-0 left-0 right-0 opacity-20"
-                                            viewBox="0 0 170 50"
-                                            fill="none"
-                                        >
-                                            <path
-                                                d="M0 30 Q40 10 85 25 T170 20 V50 H0Z"
-                                                fill="#7054dc"
-                                            />
-                                        </svg>
-                                        <div className="absolute bottom-3 left-4 right-4">
-                                            <p className="text-[13px] font-semibold text-white">
-                                                {bank.name}
-                                            </p>
-                                            <p className="text-[10px] text-white/70">
-                                                {bank.type === "pretest"
-                                                    ? "Pre Test"
-                                                    : "Post Test"}{" "}
-                                                • {bank.questions.length + (bank.ctStories ? bank.ctStories.length : 0)} soal
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {isCreating ? (
-                            <div className="mt-6 w-full max-w-[400px] rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
-                                <p className="text-[13px] font-semibold text-[#232530]">
-                                    Nama Bank Soal
-                                </p>
-                                <input
-                                    type="text"
-                                    value={newBankName}
-                                    onChange={(e) =>
-                                        setNewBankName(e.target.value)
-                                    }
-                                    placeholder={`Bank Soal ${banks.length + 1}`}
-                                    className="mt-2 h-[36px] w-full rounded-lg border border-[#8e7bff] bg-white px-3 text-[12px] text-[#232530] outline-none"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter")
-                                            handleSaveNewBank();
-                                    }}
-                                />
-
-                                <p className="mt-3 text-[13px] font-semibold text-[#232530]">
-                                    Tipe Tes
-                                </p>
-                                <div className="mt-2 flex items-center gap-4 text-[12px] text-[#6e7280]">
-                                    <label className="flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            name="bankType"
-                                            checked={newBankType === "pretest"}
-                                            onChange={() =>
-                                                setNewBankType("pretest")
-                                            }
-                                        />
+                        {bank && (
+                            <div className="mt-6 rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
+                                <div className="flex items-center gap-3">
+                                    <p className="text-[13px] font-semibold text-[#232530]">
+                                        {bank.name}
+                                    </p>
+                                    <span className="inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold bg-blue-100 text-blue-600">
                                         Pre Test
-                                    </label>
-                                    <label className="flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            name="bankType"
-                                            checked={newBankType === "posttest"}
-                                            onChange={() =>
-                                                setNewBankType("posttest")
-                                            }
-                                        />
-                                        Post Test
-                                    </label>
-                                </div>
-
-                                <div className="mt-3 flex items-center justify-end gap-3">
+                                    </span>
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setIsCreating(false);
-                                            setNewBankName("");
-                                        }}
-                                        className="text-[12px] font-semibold text-[#7a7e8a]"
+                                        onClick={openSettings}
+                                        className="cursor-pointer text-[#7a7e8a] hover:text-[#7054dc]"
                                     >
-                                        Batal
+                                        <FiSettings size={14} />
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={handleSaveNewBank}
-                                        disabled={isCreatingBank}
-                                        className="inline-flex h-[32px] items-center justify-center rounded-lg bg-[#7054dc] px-5 text-[12px] font-semibold text-white hover:bg-[#5f46cc] disabled:opacity-50"
+                                        onClick={handleDeleteBank}
+                                        className="cursor-pointer text-[#7a7e8a] hover:text-[#e04e4e]"
                                     >
-                                        {isCreatingBank
-                                            ? "Menyimpan..."
-                                            : "Simpan"}
+                                        <FiTrash2 size={14} />
                                     </button>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="mt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsCreating(true)}
-                                    className="inline-flex h-[40px] w-full sm:w-[160px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#8e7bff] bg-white text-[12px] font-semibold text-[#7054dc]"
-                                >
-                                    Bank Soal <FiPlus size={14} />
-                                </button>
                             </div>
                         )}
 
@@ -2879,81 +2505,43 @@ function PrePostTestPageContent() {
                                         </button>
                                     </div>
 
-                                    {/* Per-bank settings (only shown when respective bank exists) */}
-                                    {banks.find(
-                                        (b) => b.type === "pretest",
-                                    ) && (
-                                        <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
-                                            <div>
-                                                <p className="text-[13px] font-semibold text-[#232530]">
-                                                    Durasi Pengerjaan (Menit) -
-                                                    Pre Test
-                                                </p>
-                                                <p className="mt-1 text-[11px] text-[#7a7e8a]">
-                                                    Batas waktu siswa untuk
-                                                    menyelesaikan pre test
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="number"
-                                                    value={settingsDuration}
-                                                    onChange={(e) =>
-                                                        setSettingsDuration(
-                                                            parseInt(
-                                                                e.target.value,
-                                                            ) || 0,
-                                                        )
-                                                    }
-                                                    className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
-                                                />
-                                                <span className="text-[12px] text-[#7a7e8a]">
-                                                    Menit
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {banks.find(
-                                        (b) => b.type === "posttest",
-                                    ) && (
-                                        <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
-                                            <div>
-                                                <p className="text-[13px] font-semibold text-[#232530]">
-                                                    Durasi Pengerjaan (Menit) -
-                                                    Post Test
-                                                </p>
-                                                <p className="mt-1 text-[11px] text-[#7a7e8a]">
-                                                    Batas waktu siswa untuk
-                                                    menyelesaikan post test
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="number"
-                                                    value={settingsDuration}
-                                                    onChange={(e) =>
-                                                        setSettingsDuration(
-                                                            parseInt(
-                                                                e.target.value,
-                                                            ) || 0,
-                                                        )
-                                                    }
-                                                    className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
-                                                />
-                                                <span className="text-[12px] text-[#7a7e8a]">
-                                                    Menit
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {banks.find(
-                                        (b) => b.type === "pretest",
-                                    ) && (
+                                    {bank && (
                                         <>
                                             <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
                                                 <div>
                                                     <p className="text-[13px] font-semibold text-[#232530]">
-                                                        Jumlah Soal Tampil
+                                                        Durasi Pengerjaan
+                                                        (Menit) - Pre Test
+                                                    </p>
+                                                    <p className="mt-1 text-[11px] text-[#7a7e8a]">
+                                                        Batas waktu siswa untuk
+                                                        menyelesaikan pre test
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        value={settingsDuration}
+                                                        onChange={(e) =>
+                                                            setSettingsDuration(
+                                                                parseInt(
+                                                                    e.target
+                                                                        .value,
+                                                                ) || 0,
+                                                            )
+                                                        }
+                                                        className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
+                                                    />
+                                                    <span className="text-[12px] text-[#7a7e8a]">
+                                                        Menit
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+                                                <div>
+                                                    <p className="text-[13px] font-semibold text-[#232530]">
+                                                        Jumlah Soal Tampil - Pre
+                                                        Test
                                                     </p>
                                                     <p className="mt-1 text-[11px] text-[#7a7e8a]">
                                                         Jumlah soal yang akan
@@ -3103,6 +2691,73 @@ function PrePostTestPageContent() {
                                                         Tambahkan aturan lain
                                                         &nbsp;+
                                                     </button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                    {posttestId && (
+                                        <>
+                                            <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+                                                <div>
+                                                    <p className="text-[13px] font-semibold text-[#232530]">
+                                                        Durasi Pengerjaan
+                                                        (Menit) - Post Test
+                                                    </p>
+                                                    <p className="mt-1 text-[11px] text-[#7a7e8a]">
+                                                        Batas waktu siswa untuk
+                                                        menyelesaikan post test
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        value={posttestDuration}
+                                                        onChange={(e) =>
+                                                            setPosttestDuration(
+                                                                parseInt(
+                                                                    e.target
+                                                                        .value,
+                                                                ) || 0,
+                                                            )
+                                                        }
+                                                        className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
+                                                    />
+                                                    <span className="text-[12px] text-[#7a7e8a]">
+                                                        Menit
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+                                                <div>
+                                                    <p className="text-[13px] font-semibold text-[#232530]">
+                                                        Jumlah Soal Tampil -
+                                                        Post Test
+                                                    </p>
+                                                    <p className="mt-1 text-[11px] text-[#7a7e8a]">
+                                                        Jumlah soal yang akan
+                                                        muncul secara acak dari
+                                                        bank soal
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        value={
+                                                            posttestCountShown
+                                                        }
+                                                        onChange={(e) =>
+                                                            setPosttestCountShown(
+                                                                parseInt(
+                                                                    e.target
+                                                                        .value,
+                                                                ) || 0,
+                                                            )
+                                                        }
+                                                        className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
+                                                    />
+                                                    <span className="text-[12px] text-[#7a7e8a]">
+                                                        Soal
+                                                    </span>
                                                 </div>
                                             </div>
                                         </>

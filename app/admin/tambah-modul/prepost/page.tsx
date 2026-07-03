@@ -53,7 +53,6 @@ type LocalCTStory = {
 type BankSoal = {
   id: number;
   name: string;
-  type: 'pretest' | 'posttest';
   apiId: string | null;
   questions: LocalQuestion[];
   ctStories: LocalCTStory[];
@@ -86,34 +85,26 @@ function AdminPrePostPageContent() {
   const modulId = searchParams.get('id');
   const { toast, confirm } = usePopup();
 
-  const [banks, setBanks] = useState<BankSoal[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [newBankName, setNewBankName] = useState('');
-  const [newBankType, setNewBankType] = useState<'pretest' | 'posttest'>('pretest');
-  const [activeBankId, setActiveBankId] = useState<number | null>(null);
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [bank, setBank] = useState<BankSoal | null>(null);
   const [editingSoalId, setEditingSoalId] = useState<number | null>(null);
   const [editSoalTitle, setEditSoalTitle] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsTargetBankId, setSettingsTargetBankId] = useState<number | null>(null);
   const [settingsDuration, setSettingsDuration] = useState(90);
   const [settingsSoalTampil, setSettingsSoalTampil] = useState(30);
+  const [settingsPosttestDuration, setSettingsPosttestDuration] = useState(90);
+  const [settingsPosttestSoalTampil, setSettingsPosttestSoalTampil] = useState(30);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isCreatingBank, setIsCreatingBank] = useState(false);
+  const [posttestId, setPosttestId] = useState<string | null>(null);
 
   // CT mode for the whole module
   const [isTestComputationalThinking, setIsTestComputationalThinking] = useState(false);
   const [isSavingCTMode, setIsSavingCTMode] = useState(false);
 
-  const activeBank = banks.find((b) => b.id === activeBankId) ?? null;
-  const settingsTargetBank = banks.find((b) => b.id === settingsTargetBankId) ?? null;
-
-  /* Load existing pretest & posttest */
+  /* Load pretest & posttest */
   useEffect(() => {
     if (!modulId) { setIsLoading(false); return; }
     const load = async () => {
-      const loadedBanks: BankSoal[] = [];
       try {
         // Load module CT flag
         try {
@@ -134,7 +125,7 @@ function AdminPrePostPageContent() {
                   isCorrect: opt.option === q.correctAnswer,
                 })),
               }));
-            
+
             // Group CT questions by ctGroupId
             const ctGroups: Record<string, any[]> = {};
             (pretest.pretestQuestions || [])
@@ -143,7 +134,7 @@ function AdminPrePostPageContent() {
                 if (!ctGroups[q.ctGroupId]) ctGroups[q.ctGroupId] = [];
                 ctGroups[q.ctGroupId].push(q);
               });
-            
+
             const ctStories: LocalCTStory[] = Object.entries(ctGroups).map(([gid, qs], si) => ({
               id: Date.now() + 10000 + si,
               groupId: gid,
@@ -163,42 +154,45 @@ function AdminPrePostPageContent() {
               })),
             }));
 
-            loadedBanks.push({
+            setBank({
               id: Date.now(), name: pretest.pretestName || 'Pre Test',
-              type: 'pretest', apiId: pretest.id, questions, ctStories,
+              apiId: pretest.id, questions, ctStories,
             });
             const settings = pretest.pretestSettings;
             if (settings?.length) {
               setSettingsDuration(settings[0].duration ?? 90);
               setSettingsSoalTampil(settings[0].countShownQuestions ?? 30);
             }
+          } else {
+            const created = await adminPretestApi.create({ modul_id: modulId });
+            setBank({
+              id: Date.now(), name: 'Pre Test',
+              apiId: created.id, questions: [], ctStories: [],
+            });
           }
-        } catch { /* no pretest yet */ }
+        } catch {
+          try {
+            const created = await adminPretestApi.create({ modul_id: modulId });
+            setBank({
+              id: Date.now(), name: 'Pre Test',
+              apiId: created.id, questions: [], ctStories: [],
+            });
+          } catch { /* ignore */ }
+        }
 
+        // Load posttest for settings
         try {
           const posttest = await adminPosttestApi.getByModul(modulId);
           if (posttest?.id) {
-            const questions = (posttest.soals || []).map((q: any, idx: number) => ({
-              id: Date.now() + 5000 + idx, apiSoalId: q.id,
-              pertanyaan: q.question, isExpanded: false, skor: q.skor || 10,
-              answers: (q.pilihan || []).map((opt: string, aidx: number) => ({
-                id: Date.now() + 5000 + idx * 100 + aidx, text: opt,
-                isCorrect: opt === q.correctAnswer,
-              })),
-            }));
-            loadedBanks.push({
-              id: Date.now() + 9000, name: 'Post Test',
-              type: 'posttest', apiId: posttest.id, questions, ctStories: [],
-            });
+            setPosttestId(posttest.id);
             const ptSettings = posttest.posttestSettings;
             if (ptSettings?.length) {
-              setSettingsDuration(ptSettings[0].duration ?? 90);
-              setSettingsSoalTampil(ptSettings[0].countShownQuestions ?? 30);
+              setSettingsPosttestDuration(ptSettings[0].duration ?? 90);
+              setSettingsPosttestSoalTampil(ptSettings[0].countShownQuestions ?? 30);
             }
           }
         } catch { /* no posttest yet */ }
 
-        if (loadedBanks.length > 0) setBanks(loadedBanks);
       } finally { setIsLoading(false); }
     };
     load();
@@ -207,7 +201,7 @@ function AdminPrePostPageContent() {
   const handleToggleCTMode = async (enabled: boolean) => {
     if (!modulId) { setIsLoading(false); return; }
 
-    if (!activeBank) {
+    if (!bank) {
       setIsTestComputationalThinking(enabled);
       setIsSavingCTMode(true);
       try {
@@ -222,7 +216,7 @@ function AdminPrePostPageContent() {
       return;
     }
 
-    const hasQuestions = activeBank.questions.length > 0 || activeBank.ctStories.length > 0;
+    const hasQuestions = bank.questions.length > 0 || bank.ctStories.length > 0;
     if (hasQuestions) {
       const ok = await confirm({
         title: 'Ubah Mode Test',
@@ -238,49 +232,35 @@ function AdminPrePostPageContent() {
     setIsTestComputationalThinking(enabled);
     setIsSavingCTMode(true);
     try {
-      if (activeBank.apiId) {
+      if (bank.apiId) {
         if (enabled) {
-          if (activeBank.type === 'pretest') {
-            await adminPretestApi.deleteAllQuestions(activeBank.apiId);
-          } else {
-            await adminPosttestApi.deleteAllQuestions(activeBank.apiId);
-          }
-          setBanks((p) =>
-            p.map((b) =>
-              b.id !== activeBank.id
-                ? b
-                : { ...b, questions: [], ctStories: [makeCTStory()] },
-            ),
+          await adminPretestApi.deleteAllQuestions(bank.apiId);
+          setBank((prev) =>
+            prev ? { ...prev, questions: [], ctStories: [makeCTStory()] } : prev,
           );
         } else {
-          if (activeBank.type === 'pretest') {
-            await adminPretestApi.deleteAllQuestions(activeBank.apiId);
-          } else {
-            await adminPosttestApi.deleteAllQuestions(activeBank.apiId);
-          }
-          setBanks((p) =>
-            p.map((b) =>
-              b.id !== activeBank.id
-                ? b
-                : {
-                    ...b,
-                    ctStories: [],
-                    questions: [
-                      {
-                        id: Date.now(),
-                        apiSoalId: null,
-                        pertanyaan: '',
-                        isExpanded: true,
-                        skor: 10,
-                        answers: [
-                          { id: Date.now() + 10, text: '', isCorrect: false },
-                          { id: Date.now() + 11, text: '', isCorrect: false },
-                          { id: Date.now() + 12, text: '', isCorrect: false },
-                        ],
-                      },
-                    ],
-                  },
-            ),
+          await adminPretestApi.deleteAllQuestions(bank.apiId);
+          setBank((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  ctStories: [],
+                  questions: [
+                    {
+                      id: Date.now(),
+                      apiSoalId: null,
+                      pertanyaan: '',
+                      isExpanded: true,
+                      skor: 10,
+                      answers: [
+                        { id: Date.now() + 10, text: '', isCorrect: false },
+                        { id: Date.now() + 11, text: '', isCorrect: false },
+                        { id: Date.now() + 12, text: '', isCorrect: false },
+                      ],
+                    },
+                  ],
+                }
+              : prev,
           );
         }
       }
@@ -295,171 +275,143 @@ function AdminPrePostPageContent() {
     }
   };
 
-  const handleSaveNewBank = useCallback(async () => {
-    if (!modulId) { toast('Simpan profil modul terlebih dahulu.', 'error'); return; }
-    const name = newBankName.trim() || `Bank Soal ${banks.length + 1}`;
-    const nid = Date.now();
-    setIsCreatingBank(true);
+  const handleDeleteBank = useCallback(async () => {
+    if (!bank?.apiId) return;
     try {
-      let apiId: string | null = null;
-      if (newBankType === 'pretest') {
-        const created = await adminPretestApi.create({ modul_id: modulId });
-        apiId = created.id;
-      } else {
-        const created = await adminPosttestApi.create({ modul_id: modulId });
-        apiId = created.id;
-      }
-      setBanks((p) => [...p, { id: nid, name, type: newBankType, apiId, questions: [], ctStories: [] }]);
-      setNewBankName(''); setNewBankType('pretest'); setIsCreating(false);
+      await adminPretestApi.delete(bank.apiId);
+      setBank(null);
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Gagal membuat bank soal.', 'error');
-    } finally { setIsCreatingBank(false); }
-  }, [modulId, newBankName, newBankType, banks.length, toast]);
-
-  const handleDeleteBank = useCallback(async (id: number) => {
-    const bank = banks.find((b) => b.id === id);
-    if (bank?.apiId) {
-      try {
-        if (bank.type === 'pretest') await adminPretestApi.delete(bank.apiId);
-        else await adminPosttestApi.delete(bank.apiId);
-      } catch (err: unknown) {
-        toast(err instanceof Error ? err.message : 'Gagal menghapus bank soal.', 'error'); return;
-      }
+      toast(err instanceof Error ? err.message : 'Gagal menghapus bank soal.', 'error');
     }
-    setBanks((p) => p.filter((b) => b.id !== id));
-    setOpenMenuId(null);
-    if (activeBankId === id) setActiveBankId(null);
-  }, [banks, activeBankId, toast]);
+  }, [bank, toast]);
 
   const handleAddQuestion = () => {
-    if (!activeBankId) return;
+    if (!bank) return;
     const nid = Date.now();
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, questions: [...b.questions, {
+    setBank((prev) => prev ? {
+      ...prev, questions: [...prev.questions, {
         id: nid, apiSoalId: null, pertanyaan: '', isExpanded: true, skor: 10,
         answers: [{ id: nid + 10, text: '', isCorrect: false }, { id: nid + 11, text: '', isCorrect: false }, { id: nid + 12, text: '', isCorrect: false }],
       }],
-    }));
+    } : prev);
   };
 
   const handleAddCTStory = () => {
-    if (!activeBankId) return;
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : { ...b, ctStories: [...b.ctStories, makeCTStory()] }));
+    if (!bank) return;
+    setBank((prev) => prev ? { ...prev, ctStories: [...prev.ctStories, makeCTStory()] } : prev);
   };
 
   const handleDeleteQuestion = useCallback(async (qId: number) => {
-    if (!activeBank) return;
-    const question = activeBank.questions.find((q) => q.id === qId);
+    if (!bank) return;
+    const question = bank.questions.find((q) => q.id === qId);
     if (question?.apiSoalId) {
       try {
-        if (activeBank.type === 'pretest') await adminPretestApi.deleteSoal(question.apiSoalId);
-        else await adminPosttestApi.deleteSoal(question.apiSoalId);
+        await adminPretestApi.deleteSoal(question.apiSoalId);
       } catch (err: unknown) {
         toast(err instanceof Error ? err.message : 'Gagal menghapus soal.', 'error'); return;
       }
     }
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : { ...b, questions: b.questions.filter((q) => q.id !== qId) }));
-  }, [activeBank, activeBankId, toast]);
+    setBank((prev) => prev ? { ...prev, questions: prev.questions.filter((q) => q.id !== qId) } : prev);
+  }, [bank, toast]);
 
   const handleDeleteCTStory = useCallback(async (storyId: number) => {
-    if (!activeBank) return;
-    const story = activeBank.ctStories.find((s) => s.id === storyId);
+    if (!bank) return;
+    const story = bank.ctStories.find((s) => s.id === storyId);
     if (story) {
       for (const sq of story.subQuestions) {
         if (sq.apiSoalId) {
           try {
-            if (activeBank.type === 'pretest') await adminPretestApi.deleteSoal(sq.apiSoalId);
-            else await adminPosttestApi.deleteSoal(sq.apiSoalId);
+            await adminPretestApi.deleteSoal(sq.apiSoalId);
           } catch { /* ignore */ }
         }
       }
     }
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : { ...b, ctStories: b.ctStories.filter((s) => s.id !== storyId) }));
-  }, [activeBank, activeBankId]);
+    setBank((prev) => prev ? { ...prev, ctStories: prev.ctStories.filter((s) => s.id !== storyId) } : prev);
+  }, [bank]);
 
   const handleToggleCorrect = (qId: number, aId: number) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, questions: b.questions.map((q) => q.id !== qId ? q : { ...q, answers: q.answers.map((a) => ({ ...a, isCorrect: a.id === aId })) }),
-    }));
+    setBank((prev) => prev ? {
+      ...prev, questions: prev.questions.map((q) => q.id !== qId ? q : { ...q, answers: q.answers.map((a) => ({ ...a, isCorrect: a.id === aId })) }),
+    } : prev);
   };
   const handleRemoveAnswer = (qId: number, aId: number) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, questions: b.questions.map((q) => q.id !== qId ? q : { ...q, answers: q.answers.filter((a) => a.id !== aId) }),
-    }));
+    setBank((prev) => prev ? {
+      ...prev, questions: prev.questions.map((q) => q.id !== qId ? q : { ...q, answers: q.answers.filter((a) => a.id !== aId) }),
+    } : prev);
   };
   const handleAddAnswer = (qId: number) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, questions: b.questions.map((q) => q.id !== qId ? q : { ...q, answers: [...q.answers, { id: Date.now(), text: '', isCorrect: false }] }),
-    }));
+    setBank((prev) => prev ? {
+      ...prev, questions: prev.questions.map((q) => q.id !== qId ? q : { ...q, answers: [...q.answers, { id: Date.now(), text: '', isCorrect: false }] }),
+    } : prev);
   };
   const handleUpdateQuestionText = (qId: number, text: string) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, questions: b.questions.map((q) => q.id === qId ? { ...q, pertanyaan: text } : q),
-    }));
+    setBank((prev) => prev ? {
+      ...prev, questions: prev.questions.map((q) => q.id === qId ? { ...q, pertanyaan: text } : q),
+    } : prev);
   };
   const handleUpdateSkor = (qId: number, skor: number) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, questions: b.questions.map((q) => q.id === qId ? { ...q, skor } : q),
-    }));
+    setBank((prev) => prev ? {
+      ...prev, questions: prev.questions.map((q) => q.id === qId ? { ...q, skor } : q),
+    } : prev);
   };
   const handleUpdateAnswerText = (qId: number, aId: number, text: string) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, questions: b.questions.map((q) => q.id !== qId ? q : { ...q, answers: q.answers.map((a) => a.id === aId ? { ...a, text } : a) }),
-    }));
+    setBank((prev) => prev ? {
+      ...prev, questions: prev.questions.map((q) => q.id !== qId ? q : { ...q, answers: q.answers.map((a) => a.id === aId ? { ...a, text } : a) }),
+    } : prev);
   };
 
   // CT story update helpers
   const handleUpdateCTCerita = (storyId: number, cerita: string) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, ctStories: b.ctStories.map((s) => s.id === storyId ? { ...s, cerita } : s),
-    }));
+    setBank((prev) => prev ? {
+      ...prev, ctStories: prev.ctStories.map((s) => s.id === storyId ? { ...s, cerita } : s),
+    } : prev);
   };
   const handleUpdateCTAnswer = (storyId: number, sqId: number, aId: number, text: string) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, ctStories: b.ctStories.map((s) => s.id !== storyId ? s : {
+    setBank((prev) => prev ? {
+      ...prev, ctStories: prev.ctStories.map((s) => s.id !== storyId ? s : {
         ...s, subQuestions: s.subQuestions.map((sq) => sq.id !== sqId ? sq : {
           ...sq, answers: sq.answers.map((a) => a.id === aId ? { ...a, text } : a),
         }),
       }),
-    }));
+    } : prev);
   };
   const handleToggleCTCorrect = (storyId: number, sqId: number, aId: number) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, ctStories: b.ctStories.map((s) => s.id !== storyId ? s : {
+    setBank((prev) => prev ? {
+      ...prev, ctStories: prev.ctStories.map((s) => s.id !== storyId ? s : {
         ...s, subQuestions: s.subQuestions.map((sq) => sq.id !== sqId ? sq : {
           ...sq, answers: sq.answers.map((a) => ({ ...a, isCorrect: a.id === aId })),
         }),
       }),
-    }));
+    } : prev);
   };
   const handleAddCTAnswer = (storyId: number, sqId: number) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, ctStories: b.ctStories.map((s) => s.id !== storyId ? s : {
+    setBank((prev) => prev ? {
+      ...prev, ctStories: prev.ctStories.map((s) => s.id !== storyId ? s : {
         ...s, subQuestions: s.subQuestions.map((sq) => sq.id !== sqId ? sq : {
           ...sq, answers: [...sq.answers, { id: Date.now(), text: '', isCorrect: false }],
         }),
       }),
-    }));
+    } : prev);
   };
   const handleRemoveCTAnswer = (storyId: number, sqId: number, aId: number) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, ctStories: b.ctStories.map((s) => s.id !== storyId ? s : {
+    setBank((prev) => prev ? {
+      ...prev, ctStories: prev.ctStories.map((s) => s.id !== storyId ? s : {
         ...s, subQuestions: s.subQuestions.map((sq) => sq.id !== sqId ? sq : {
           ...sq, answers: sq.answers.filter((a) => a.id !== aId),
         }),
       }),
-    }));
+    } : prev);
   };
   const handleUpdateCTSkor = (storyId: number, sqId: number, skor: number) => {
-    setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-      ...b, ctStories: b.ctStories.map((s) => s.id !== storyId ? s : {
+    setBank((prev) => prev ? {
+      ...prev, ctStories: prev.ctStories.map((s) => s.id !== storyId ? s : {
         ...s, subQuestions: s.subQuestions.map((sq) => sq.id !== sqId ? sq : { ...sq, skor }),
       }),
-    }));
+    } : prev);
   };
 
   const handleSaveQuestion = useCallback(async (question: LocalQuestion) => {
-    if (!activeBank?.apiId) { toast('Bank soal belum tersimpan.', 'error'); return; }
+    if (!bank?.apiId) { toast('Bank soal belum tersimpan.', 'error'); return; }
     if (!question.pertanyaan.trim()) { toast('Pertanyaan tidak boleh kosong.', 'error'); return; }
     const correctAns = question.answers.find((a) => a.isCorrect);
     if (!correctAns?.text.trim()) { toast('Pilih dan isi jawaban yang benar.', 'error'); return; }
@@ -470,23 +422,21 @@ function AdminPrePostPageContent() {
     try {
       const payload = { pertanyaan: question.pertanyaan, pilihan: filledAnswers.map((a) => a.text), jawaban_benar: correctAns.text, skor: question.skor };
       if (question.apiSoalId) {
-        if (activeBank.type === 'pretest') await adminPretestApi.updateSoal(question.apiSoalId, payload);
-        else await adminPosttestApi.updateSoal(question.apiSoalId, payload);
+        await adminPretestApi.updateSoal(question.apiSoalId, payload);
       } else {
-        if (activeBank.type === 'pretest') await adminPretestApi.addSoal({ pretest_id: activeBank.apiId, ...payload });
-        else await adminPosttestApi.addSoal({ posttest_id: activeBank.apiId, ...payload });
+        await adminPretestApi.addSoal({ pretest_id: bank.apiId, ...payload });
       }
-      setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-        ...b, questions: b.questions.map((q) => q.id === question.id ? { ...q, isExpanded: false } : q),
-      }));
+      setBank((prev) => prev ? {
+        ...prev, questions: prev.questions.map((q) => q.id === question.id ? { ...q, isExpanded: false } : q),
+      } : prev);
       toast('Soal berhasil disimpan!', 'success');
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : 'Gagal menyimpan soal.', 'error');
     } finally { setIsSaving(false); }
-  }, [activeBank, activeBankId, toast]);
+  }, [bank, toast]);
 
   const handleSaveCTStory = useCallback(async (story: LocalCTStory) => {
-    if (!activeBank?.apiId) { toast('Bank soal belum tersimpan.', 'error'); return; }
+    if (!bank?.apiId) { toast('Bank soal belum tersimpan.', 'error'); return; }
     if (!story.cerita.trim()) { toast('Cerita/konteks CT tidak boleh kosong.', 'error'); return; }
     for (const sq of story.subQuestions) {
       const filled = sq.answers.filter((a) => a.text.trim());
@@ -507,54 +457,46 @@ function AdminPrePostPageContent() {
           ctGroupId: story.groupId,
           ctStory: story.cerita,
           ctAspect: sq.ctAspect,
+          pretest_id: bank.apiId,
         };
-        if (activeBank.type === 'pretest') {
-          payload.pretest_id = activeBank.apiId;
-        } else {
-          payload.posttest_id = activeBank.apiId;
-        }
 
         if (sq.apiSoalId) {
-          if (activeBank.type === 'pretest') await adminPretestApi.updateSoal(sq.apiSoalId, payload);
-          else await adminPosttestApi.updateSoal(sq.apiSoalId, payload);
+          await adminPretestApi.updateSoal(sq.apiSoalId, payload);
         } else {
-          let result: any;
-          if (activeBank.type === 'pretest') result = await adminPretestApi.addSoal(payload);
-          else result = await adminPosttestApi.addSoal(payload);
+          const result: any = await adminPretestApi.addSoal(payload);
           if (result?.id) updatedSubIds[sq.id] = result.id;
         }
       }
 
-      setBanks((p) => p.map((b) => b.id !== activeBankId ? b : {
-        ...b, ctStories: b.ctStories.map((s) => s.id !== story.id ? s : {
+      setBank((prev) => prev ? {
+        ...prev, ctStories: prev.ctStories.map((s) => s.id !== story.id ? s : {
           ...s,
           isExpanded: false,
           subQuestions: s.subQuestions.map((sq) =>
             updatedSubIds[sq.id] ? { ...sq, apiSoalId: updatedSubIds[sq.id] } : sq
           ),
         }),
-      }));
+      } : prev);
       toast('Soal CT berhasil disimpan!', 'success');
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : 'Gagal menyimpan soal CT.', 'error');
     } finally { setIsSaving(false); }
-  }, [activeBank, activeBankId, toast]);
+  }, [bank, toast]);
 
   const handleSaveSettings = useCallback(async () => {
-    if (!settingsTargetBank?.apiId) { setIsSettingsOpen(false); return; }
+    if (!bank?.apiId) { setIsSettingsOpen(false); return; }
     setIsSaving(true);
     try {
-      if (settingsTargetBank.type === 'pretest') {
-        await adminPretestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil });
-      } else {
-        await adminPosttestApi.updateSettings(settingsTargetBank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil });
+      await adminPretestApi.updateSettings(bank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil });
+      if (posttestId) {
+        await adminPosttestApi.updateSettings(posttestId, { duration: settingsPosttestDuration, countShownQuestions: settingsPosttestSoalTampil });
       }
       toast('Pengaturan berhasil disimpan!', 'success');
-      setIsSettingsOpen(false); setSettingsTargetBankId(null);
+      setIsSettingsOpen(false);
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : 'Gagal menyimpan pengaturan.', 'error');
     } finally { setIsSaving(false); }
-  }, [settingsTargetBank, settingsDuration, settingsSoalTampil, toast]);
+  }, [bank, settingsDuration, settingsSoalTampil, posttestId, settingsPosttestDuration, settingsPosttestSoalTampil, toast]);
 
   const SettingsModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -563,13 +505,29 @@ function AdminPrePostPageContent() {
           <h3 className="text-[16px] font-semibold text-[#7054dc]">Pengaturan Bank Soal</h3>
           <button type="button" onClick={() => setIsSettingsOpen(false)} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#e5e3ee] text-[#7a7e8a] hover:bg-[#f5f4fb]"><FiX size={16} /></button>
         </div>
-        <div className="mt-5 flex items-center justify-between border-b border-[#f0eff5] pb-4">
-          <div><p className="text-[13px] font-semibold text-[#232530]">Durasi Pengerjaan (Menit)</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Batas waktu siswa untuk menyelesaikan</p></div>
-          <div className="flex items-center gap-2"><input type="number" value={settingsDuration} onChange={(e) => setSettingsDuration(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] outline-none" /><span className="text-[12px] text-[#7a7e8a]">Menit</span></div>
+        {/* Pre Test Settings */}
+        <div className="mt-5">
+          <h4 className="text-[13px] font-semibold text-[#7054dc]">Pre Test</h4>
+          <div className="mt-3 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+            <div><p className="text-[13px] font-semibold text-[#232530]">Durasi Pengerjaan (Menit)</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Batas waktu siswa untuk menyelesaikan</p></div>
+            <div className="flex items-center gap-2"><input type="number" value={settingsDuration} onChange={(e) => setSettingsDuration(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] outline-none" /><span className="text-[12px] text-[#7a7e8a]">Menit</span></div>
+          </div>
+          <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+            <div><p className="text-[13px] font-semibold text-[#232530]">Jumlah Soal Tampil</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Jumlah soal acak dari bank soal</p></div>
+            <div className="flex items-center gap-2"><input type="number" value={settingsSoalTampil} onChange={(e) => setSettingsSoalTampil(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] outline-none" /><span className="text-[12px] text-[#7a7e8a]">Soal</span></div>
+          </div>
         </div>
-        <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
-          <div><p className="text-[13px] font-semibold text-[#232530]">Jumlah Soal Tampil</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Jumlah soal acak dari bank soal</p></div>
-          <div className="flex items-center gap-2"><input type="number" value={settingsSoalTampil} onChange={(e) => setSettingsSoalTampil(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] outline-none" /><span className="text-[12px] text-[#7a7e8a]">Soal</span></div>
+        {/* Post Test Settings */}
+        <div className="mt-5">
+          <h4 className="text-[13px] font-semibold text-[#7054dc]">Post Test</h4>
+          <div className="mt-3 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+            <div><p className="text-[13px] font-semibold text-[#232530]">Durasi Pengerjaan (Menit)</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Batas waktu siswa untuk menyelesaikan</p></div>
+            <div className="flex items-center gap-2"><input type="number" value={settingsPosttestDuration} onChange={(e) => setSettingsPosttestDuration(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] outline-none" /><span className="text-[12px] text-[#7a7e8a]">Menit</span></div>
+          </div>
+          <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+            <div><p className="text-[13px] font-semibold text-[#232530]">Jumlah Soal Tampil</p><p className="mt-1 text-[11px] text-[#7a7e8a]">Jumlah soal acak dari bank soal</p></div>
+            <div className="flex items-center gap-2"><input type="number" value={settingsPosttestSoalTampil} onChange={(e) => setSettingsPosttestSoalTampil(parseInt(e.target.value) || 0)} className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] outline-none" /><span className="text-[12px] text-[#7a7e8a]">Soal</span></div>
+          </div>
         </div>
         <div className="mt-5 flex items-center justify-end gap-3">
           <button type="button" onClick={() => setIsSettingsOpen(false)} className="text-[12px] font-semibold text-[#7a7e8a]">Batal</button>
@@ -590,33 +548,31 @@ function AdminPrePostPageContent() {
     );
   }
 
-  /* Detail view (inside a bank) */
-  if (activeBank) {
-    return (
-      <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
-        <AdminHeader />
-        <main className="flex w-full">
-          <AdminModuleSidebar basePath="/admin/tambah-modul" modulId={modulId ?? undefined} title="Tambah Modul" showSiswaTab={false} />
-          <section className="flex-1 px-4 pb-10 pt-6 sm:px-6 lg:px-8">
-            <button type="button" onClick={() => setActiveBankId(null)} className="mb-4 text-[12px] font-medium text-[#7054dc]">← Kembali ke Daftar Bank Soal</button>
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ece7ff] text-[#7054dc]"><FiCheckSquare size={18} /></div>
-              <h1 className="text-[18px] font-bold text-[#232530]">Pre - Post Test Modul</h1>
-            </div>
+  return (
+    <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
+      <AdminHeader />
+      <main className="flex w-full">
+        <AdminModuleSidebar basePath="/admin/tambah-modul" modulId={modulId ?? undefined} title="Tambah Modul" showSiswaTab={false} />
+        <section className="flex-1 px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ece7ff] text-[#7054dc]"><FiCheckSquare size={18} /></div>
+            <h1 className="text-[18px] font-bold text-[#232530]">Pre - Post Test Modul</h1>
+          </div>
 
+          {!modulId && <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-700">Simpan profil modul terlebih dahulu untuk membuat bank soal.</div>}
+
+          {bank && (
             <div className="mt-6">
               <div className="rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <p className="text-[13px] font-semibold text-[#232530]">{activeBank.name}</p>
-                  <span className={`inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold ${activeBank.type === 'pretest' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
-                    {activeBank.type === 'pretest' ? 'Pre Test' : 'Post Test'}
-                  </span>
-                  <button type="button" onClick={() => { setSettingsTargetBankId(activeBank.id); setIsSettingsOpen(true); }} className="text-[#7a7e8a] hover:text-[#7054dc]"><FiSettings size={14} /></button>
-                  <button type="button" onClick={() => { handleDeleteBank(activeBank.id); }} className="ml-auto text-[#7a7e8a] hover:text-red-500"><FiTrash2 size={14} /></button>
+                  <p className="text-[13px] font-semibold text-[#232530]">{bank.name}</p>
+                  <span className="rounded-full bg-[#ece7ff] px-2 py-0.5 text-[10px] font-semibold text-[#7054dc]">Pre Test</span>
+                  <button type="button" onClick={() => setIsSettingsOpen(true)} className="text-[#7a7e8a] hover:text-[#7054dc]"><FiSettings size={14} /></button>
+                  <button type="button" onClick={handleDeleteBank} className="ml-auto text-[#7a7e8a] hover:text-red-500"><FiTrash2 size={14} /></button>
                 </div>
               </div>
 
-              {/* CT Mode Toggle — only visible when inside a bank */}
+              {/* CT Mode Toggle */}
               {modulId && (
                 <div className="mt-4 flex items-center gap-4 rounded-xl border border-[#e5e3ee] bg-white px-4 py-3">
                   <div className="flex-1">
@@ -636,7 +592,7 @@ function AdminPrePostPageContent() {
 
               {/* Regular questions */}
               <div className="mt-5 space-y-4">
-                {activeBank.questions.map((question, idx) => (
+                {bank.questions.map((question, idx) => (
                   <div key={question.id} className="rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -654,7 +610,7 @@ function AdminPrePostPageContent() {
                         )}
                         <button type="button" onClick={() => handleDeleteQuestion(question.id)} className="text-[#7a7e8a] hover:text-red-500"><FiTrash2 size={14} /></button>
                       </div>
-                      <button type="button" onClick={() => setBanks((p) => p.map((b) => b.id !== activeBankId ? b : { ...b, questions: b.questions.map((q) => q.id === question.id ? { ...q, isExpanded: !q.isExpanded } : q) }))} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#7a7e8a] hover:bg-[#f5f4fb]">
+                      <button type="button" onClick={() => setBank((prev) => prev ? { ...prev, questions: prev.questions.map((q) => q.id === question.id ? { ...q, isExpanded: !q.isExpanded } : q) } : prev)} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#7a7e8a] hover:bg-[#f5f4fb]">
                         <FiChevronDown size={16} className={`transition-transform ${question.isExpanded ? 'rotate-180' : ''}`} />
                       </button>
                     </div>
@@ -696,15 +652,15 @@ function AdminPrePostPageContent() {
               </div>
 
               {/* CT Stories */}
-              {activeBank.ctStories.length > 0 && (
+              {bank.ctStories.length > 0 && (
                 <div className="mt-5 space-y-4">
                   <p className="text-[12px] font-bold uppercase tracking-wide text-[#7054dc]">Soal Computational Thinking</p>
-                  {activeBank.ctStories.map((story, si) => (
+                  {bank.ctStories.map((story, si) => (
                     <div key={story.id} className="rounded-2xl border-2 border-[#c8b8f8] bg-white px-5 py-4">
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] font-bold text-[#7054dc]">CT Story {si + 1}</span>
                         <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => setBanks((p) => p.map((b) => b.id !== activeBankId ? b : { ...b, ctStories: b.ctStories.map((s) => s.id === story.id ? { ...s, isExpanded: !s.isExpanded } : s) }))} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#7a7e8a] hover:bg-[#f5f4fb]">
+                          <button type="button" onClick={() => setBank((prev) => prev ? { ...prev, ctStories: prev.ctStories.map((s) => s.id === story.id ? { ...s, isExpanded: !s.isExpanded } : s) } : prev)} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#7a7e8a] hover:bg-[#f5f4fb]">
                             <FiChevronDown size={16} className={`transition-transform ${story.isExpanded ? 'rotate-180' : ''}`} />
                           </button>
                           <button type="button" onClick={() => handleDeleteCTStory(story.id)} className="text-[#7a7e8a] hover:text-red-500"><FiTrash2 size={14} /></button>
@@ -765,77 +721,6 @@ function AdminPrePostPageContent() {
                   + Soal CT <FiPlus size={14} />
                 </button>
               </div>
-            </div>
-            {isSettingsOpen && <SettingsModal />}
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  /* Cards view */
-  return (
-    <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
-      <AdminHeader />
-      <main className="flex w-full">
-        <AdminModuleSidebar basePath="/admin/tambah-modul" modulId={modulId ?? undefined} title="Tambah Modul" showSiswaTab={false} />
-        <section className="flex-1 px-4 pb-10 pt-6 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ece7ff] text-[#7054dc]"><FiCheckSquare size={18} /></div>
-            <div>
-              <h1 className="text-[18px] font-bold text-[#232530]">Pre - Post Test Modul</h1>
-              <p className="text-[12px] text-[#7a7e8a]">Buat soal evaluasi awal dan akhir modul</p>
-            </div>
-          </div>
-          {!modulId && <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-700">Simpan profil modul terlebih dahulu untuk membuat bank soal.</div>}
-
-          {banks.length > 0 && (
-            <div className="mt-6 flex flex-wrap gap-4">
-              {banks.map((bank) => (
-                <div key={bank.id} onClick={() => setActiveBankId(bank.id)} className="group relative h-[130px] w-[170px] cursor-pointer overflow-hidden rounded-2xl bg-gradient-to-br from-[#c8b8f8] to-[#ddd4fa] p-4 transition-transform hover:scale-[1.03]">
-                  <div className="flex items-start justify-between">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#7054dc] text-white">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="2" /><path d="M7 8h10M7 12h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-                    </span>
-                    <div className="relative">
-                      <button type="button" onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === bank.id ? null : bank.id); }} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[#7054dc] opacity-70 hover:bg-white/30 hover:opacity-100"><FiMoreVertical size={16} /></button>
-                      {openMenuId === bank.id && (
-                        <div className="absolute right-0 top-full z-10 mt-1 w-[130px] rounded-xl border border-[#eceaf4] bg-white p-1.5 shadow-md" onClick={(e) => e.stopPropagation()}>
-                          <button type="button" onClick={() => { setActiveBankId(bank.id); setOpenMenuId(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-semibold text-[#232530] hover:bg-[#f7f6ff]"><FiEdit2 size={13} />Sunting</button>
-                          <button type="button" onClick={() => handleDeleteBank(bank.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-semibold text-red-500 hover:bg-red-50"><FiTrash2 size={13} />Hapus</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <svg className="absolute bottom-0 left-0 right-0 opacity-20" viewBox="0 0 170 50" fill="none"><path d="M0 30 Q40 10 85 25 T170 20 V50 H0Z" fill="#7054dc" /></svg>
-                  <div className="absolute bottom-3 left-4 right-4">
-                    <p className="text-[13px] font-semibold text-white">{bank.name}</p>
-                    <p className="text-[10px] text-white/70">{bank.type === 'pretest' ? 'Pre Test' : 'Post Test'} • {bank.questions.length + bank.ctStories.length} soal</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {isCreating ? (
-            <div className="mt-6 w-[400px] rounded-2xl border border-[#e5e3ee] bg-white px-5 py-4">
-              <p className="text-[13px] font-semibold text-[#232530]">Nama Bank Soal</p>
-              <input type="text" value={newBankName} onChange={(e) => setNewBankName(e.target.value)} placeholder={`Bank Soal ${banks.length + 1}`} className="mt-2 h-[36px] w-full rounded-lg border border-[#8e7bff] bg-white px-3 text-[12px] text-[#232530] outline-none" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') handleSaveNewBank(); }} />
-              <p className="mt-3 text-[13px] font-semibold text-[#232530]">Tipe Tes</p>
-              <div className="mt-2 flex items-center gap-4 text-[12px] text-[#6e7280]">
-                <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="bankType" checked={newBankType === 'pretest'} onChange={() => setNewBankType('pretest')} /> Pre Test</label>
-                <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="bankType" checked={newBankType === 'posttest'} onChange={() => setNewBankType('posttest')} /> Post Test</label>
-              </div>
-              <div className="mt-3 flex items-center justify-end gap-3">
-                <button type="button" onClick={() => { setIsCreating(false); setNewBankName(''); }} className="text-[12px] font-semibold text-[#7a7e8a]">Batal</button>
-                <button type="button" onClick={handleSaveNewBank} disabled={isCreatingBank} className="inline-flex h-[32px] items-center justify-center rounded-lg bg-[#7054dc] px-5 text-[12px] font-semibold text-white hover:bg-[#5f46cc] disabled:opacity-50">{isCreatingBank ? 'Menyimpan...' : 'Simpan'}</button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6">
-              <button type="button" onClick={() => setIsCreating(true)} className="inline-flex h-[40px] w-[160px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#8e7bff] bg-white text-[12px] font-semibold text-[#7054dc]">
-                Bank Soal <FiPlus size={14} />
-              </button>
             </div>
           )}
           {isSettingsOpen && <SettingsModal />}
