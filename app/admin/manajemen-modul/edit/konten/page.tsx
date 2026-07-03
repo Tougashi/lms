@@ -1419,14 +1419,20 @@ function EditModulKontenPageContent() {
                 toast("Kuis CT berhasil disimpan.", "success");
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                // Bug 3: Strip HTML dari question label saat submit
-                const question = stripHtml(quiz.questions[0]?.label || "Soal Kuis");
+                const question = quiz.questions[0]?.label || "Soal Kuis";
                 const answers = quiz.questions[0]?.answers || [];
                 const correctAnswer =
                     answers.find((a) => a.isCorrect)?.text ||
                     answers[0]?.text ||
                     "";
                 const answerOptions = answers.map((a) => ({ option: a.text }));
+                
+                // DEBUG: log what we're about to send to the backend
+                console.log("=== QUIZ SUBMIT DEBUG ===");
+                console.log("question:", question);
+                console.log("question includes figure:", question.includes("<figure"));
+                console.log("correctAnswer:", correctAnswer);
+                console.log("========================");
 
                 const apiId = quizApiIds[quizId];
                 if (apiId) {
@@ -1445,10 +1451,13 @@ function EditModulKontenPageContent() {
                         },
                     });
                     // Update title di state lokal setelah simpan berhasil
-                    const newTitle = question.length > 40 ? question.substring(0, 40) + "…" : question;
+                    const rawText = stripHtml(question);
+                    const newTitle = rawText.length > 40 ? rawText.substring(0, 40) + "…" : rawText;
                     setQuizzes((prev) =>
                         prev.map((q) =>
-                            q.id === quizId ? { ...q, title: newTitle } : q,
+                            q.id === quizId
+                                ? { ...q, title: newTitle, isEditing: false }
+                                : q,
                         ),
                     );
                     toast("Kuis berhasil diperbarui.", "success");

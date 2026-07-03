@@ -232,13 +232,15 @@ export default function AdminHeader() {
           </div>
 
           {/* Customer Service */}
-          <button
-            type="button"
+          <a
+            href="https://wa.me/6285194225607"
+            target="_blank"
+            rel="noopener noreferrer"
             aria-label="Customer Service"
-            className="rounded-full p-2 hover:bg-[#f7f6ff]"
+            className="rounded-full p-2 hover:bg-[#f7f6ff] transition-colors"
           >
             <RiCustomerService2Line size={20} className="text-[#21212b]" />
-          </button>
+          </a>
 
           {/* Profile dropdown */}
           <div className="relative" ref={profileMenuRef}>

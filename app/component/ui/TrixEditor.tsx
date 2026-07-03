@@ -25,6 +25,8 @@ interface TrixEditorProps {
   uploadFileType?: string;
 }
 
+// FORCE HMR UPDATE: v2
+
 export default function TrixEditor({
   id,
   placeholder = "",
@@ -83,20 +85,59 @@ export default function TrixEditor({
       lastReportedValue.current = html;
       onChangeRef.current?.(html);
     };
+    
 
     const handleAttachmentAdd = async (event: any) => {
       const { attachment } = event;
       if (!attachment.file) return;
       try {
-        attachment.setUploadProgress(0);
-        const result = await uploadApi.upload(attachment.file, uploadFileType);
-        attachment.setUploadProgress(1);
-        attachment.setAttributes({
-          url: result.url,
-          href: result.url,
-        });
+        const file = attachment.file;
+        
+        // Upload ke Cloudinary
+        const response = await uploadApi.upload(file, uploadFileType);
+        
+        // Hapus attachment pending HANYA SETELAH upload selesai
+        attachment.remove();
+
+        // Dapatkan object Trix
+        let TrixObj: any = (window as any).Trix;
+        if (!TrixObj) {
+          const TrixModule = await import("trix");
+          TrixObj = TrixModule.default || TrixModule;
+        }
+
+        if (TrixObj && TrixObj.Attachment) {
+          const newAttachment = new TrixObj.Attachment({
+            url: response.url,
+            href: response.url,
+            contentType: file.type || "image/jpeg",
+            filename: file.name
+          });
+          editorEl.editor.insertAttachment(newAttachment);
+        } else {
+          const attachmentData = JSON.stringify({
+            contentType: file.type || "image/jpeg",
+            url: response.url,
+            href: response.url,
+            filename: file.name
+          }).replace(/'/g, "&#39;");
+          const imgHtml = `<figure data-trix-attachment='${attachmentData}' data-trix-content-type="${file.type || 'image/jpeg'}" class="attachment attachment--preview"><img src="${response.url}"><figcaption class="attachment__caption"><span class="attachment__name">${file.name}</span></figcaption></figure>`;
+          editorEl.editor.insertHTML(imgHtml);
+        }
+
+        // KRITIS: Tunggu Trix selesai memperbarui hidden input-nya,
+        // lalu sinkronisasi. Set lastReportedValue DULU sebelum memanggil
+        // onChange untuk mencegah useEffect([value]) mereset editor kembali.
+        setTimeout(() => {
+          const html = inputEl.value ?? "";
+          // Dengan meng-set lastReportedValue terlebih dahulu, useEffect([value])
+          // tidak akan memicu loadHTML ulang karena value === lastReportedValue.current
+          lastReportedValue.current = html;
+          onChangeRef.current?.(html);
+        }, 300);
       } catch (error) {
         console.error("TrixEditor upload failed:", error);
+        alert("Gagal mengupload gambar.");
       }
     };
 
@@ -117,7 +158,8 @@ export default function TrixEditor({
     const editorEl = container.querySelector("trix-editor") as any;
     if (!editorEl?.editor) return;
 
-    // Only sync if the incoming value is different from what we last reported
+    // Only sync if the incoming value is different from what we last reported.
+    // This prevents overwriting the editor after an image upload completes.
     if (value !== lastReportedValue.current) {
       lastReportedValue.current = value;
 

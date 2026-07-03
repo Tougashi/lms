@@ -1094,6 +1094,7 @@ export const guruKuisApi = {
 
 export const guruQuizGroupApi = {
     create(payload: GuruQuizGroupCreatePayload) {
+        console.log("=== QUIZ CREATE PAYLOAD ===", JSON.stringify(payload, null, 2));
         return apiFetch<GuruQuizGroupItem>("/tutor/quiz-group", {
             method: "POST",
             data: payload,
@@ -1109,6 +1110,7 @@ export const guruQuizGroupApi = {
     },
 
     update(id: string, payload: Partial<GuruQuizGroupCreatePayload>) {
+        console.log("=== QUIZ UPDATE PAYLOAD ===", JSON.stringify(payload, null, 2));
         return apiFetch<GuruQuizGroupItem>(`/tutor/quiz-group/${id}`, {
             method: "PUT",
             data: payload,
