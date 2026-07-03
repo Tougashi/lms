@@ -175,6 +175,7 @@ function EditModulContent() {
   const [hasCertificate, setHasCertificate] = useState(false);
   const [hasStudyGroup, setHasStudyGroup] = useState(false);
 
+
   /* derived kelas options */
   const kelasOptions = useMemo((): SelectOption[] => {
     const map: Record<string, string[]> = {
@@ -230,6 +231,8 @@ function EditModulContent() {
         setPretestPostTestEnabled(m.pretestPostTestEnabled ?? true);
         setHasCertificate(m.hasCertificate ?? false);
         setHasStudyGroup(m.hasStudyGroup ?? false);
+
+
         const imgUrl = normalizeStoredImageUrl(m.moduleImgUrl) || null;
         setCoverPreview(imgUrl);
         setCoverUrl(imgUrl);
@@ -539,7 +542,7 @@ function EditModulContent() {
               <div>
                 <label className={labelCls}>Tipe Akses</label>
                 <div className="mt-1.5 inline-flex overflow-hidden rounded-xl border border-[#e2e0ea]">
-                  <button type="button" className={pillBtn(accessType === 'siswa')} onClick={() => setAccessType('siswa')}>Siswa</button>
+                  <button type="button" className={pillBtn(accessType === 'siswa')} onClick={() => setAccessType('siswa')}>Siswa (Berjenjang)</button>
                   <button type="button" className={pillBtn(accessType === 'umum')} onClick={() => setAccessType('umum')}>Umum</button>
                 </div>
                 <p className={hintCls}>Tentukan siapa yang dapat mengakses modul ini.</p>
@@ -654,18 +657,10 @@ function EditModulContent() {
             <div className="flex items-center justify-end gap-3 pb-4">
               <button
                 type="button"
-                onClick={() => router.push('/admin/manajemen-modul')}
-                className="inline-flex h-[44px] items-center rounded-xl border border-[#e2e0ea] px-6 text-[13px] font-semibold text-[#6b6880] hover:border-[#c8c4db] hover:bg-[#f7f6fb] transition-colors"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
                 onClick={handleSave}
                 disabled={isSaving}
                 className="inline-flex h-[44px] items-center gap-2 rounded-xl bg-[#7054dc] px-7 text-[13px] font-semibold text-white shadow-[0_6px_18px_rgba(112,84,220,0.28)] hover:bg-[#5f46cc] transition-colors disabled:opacity-60"
               >
-                {isSaving && <Spinner size={14} className="text-white" />}
                 {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>

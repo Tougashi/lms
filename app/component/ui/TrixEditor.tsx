@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { uploadApi } from "../../lib/api";
 
 // Import Trix CSS & JS on first mount
@@ -25,7 +25,7 @@ interface TrixEditorProps {
   uploadFileType?: string;
 }
 
-// FORCE HMR UPDATE: v2
+// FORCE HMR UPDATE: v3
 
 export default function TrixEditor({
   id,
@@ -37,6 +37,7 @@ export default function TrixEditor({
 }: TrixEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lastReportedValue = useRef<string | null>(null);
+  const [fontSize, setFontSize] = useState(13);
 
   // Keep a stable ref to the latest onChange callback
   const onChangeRef = useRef(onChange);
@@ -51,10 +52,59 @@ export default function TrixEditor({
 
   const inputId = useMemo(() => `trix-input-${id}`, [id]);
 
+  useEffect(() => {
+    const editor = containerRef.current?.querySelector('trix-editor') as HTMLElement | null;
+    if (editor) editor.style.fontSize = `${fontSize}px`;
+  }, [fontSize]);
+
   // Mount the editor manually to hide its internal DOM from React
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // Register alignment block attributes
+    const TrixObj = (window as any).Trix;
+    if (TrixObj) {
+      TrixObj.config.blockAttributes.alignLeft = {
+        tagName: "div", attributes: { class: "text-align-left" }, nestable: true,
+      };
+      TrixObj.config.blockAttributes.alignCenter = {
+        tagName: "div", attributes: { class: "text-align-center" }, nestable: true,
+      };
+      TrixObj.config.blockAttributes.alignRight = {
+        tagName: "div", attributes: { class: "text-align-right" }, nestable: true,
+      };
+      TrixObj.config.blockAttributes.alignJustify = {
+        tagName: "div", attributes: { class: "text-align-justify" }, nestable: true,
+      };
+    }
+
+    // Inject alignment toolbar buttons after editor initializes
+    const injectToolbarButtons = () => {
+      const toolbar = container.querySelector('trix-toolbar');
+      if (!toolbar) return;
+      const row = toolbar.querySelector('.trix-button-row');
+      if (!row) return;
+      // Avoid duplicate injection
+      if (row.querySelector('[data-trix-attribute="alignLeft"]')) return;
+      const group = document.createElement('span');
+      group.className = 'trix-button-group';
+      group.innerHTML = `
+        <button type="button" class="trix-button" data-trix-attribute="alignLeft" title="Rata Kiri" tabindex="-1">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM1 6h10v2H1zM1 10h14v2H1zM1 14h10v2H1z" fill="currentColor"/></svg>
+        </button>
+        <button type="button" class="trix-button" data-trix-attribute="alignCenter" title="Rata Tengah" tabindex="-1">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM3 6h10v2H3zM1 10h14v2H1zM3 14h10v2H3z" fill="currentColor"/></svg>
+        </button>
+        <button type="button" class="trix-button" data-trix-attribute="alignRight" title="Rata Kanan" tabindex="-1">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM5 6h10v2H5zM1 10h14v2H1zM5 14h10v2H5z" fill="currentColor"/></svg>
+        </button>
+        <button type="button" class="trix-button" data-trix-attribute="alignJustify" title="Rata Kanan-Kiri" tabindex="-1">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM1 6h14v2H1zM1 10h14v2H1zM1 14h14v2H1z" fill="currentColor"/></svg>
+        </button>
+      `;
+      row.appendChild(group);
+    };
 
     // Create the HTML structure manually
     container.innerHTML = `
@@ -65,19 +115,21 @@ export default function TrixEditor({
     const inputEl = container.querySelector("input") as HTMLInputElement;
     const editorEl = container.querySelector("trix-editor") as any;
 
+    // Inject toolbar buttons after Trix initializes
+    const onInitOrReady = () => {
+      injectToolbarButtons();
+      if (value) editorEl.editor?.loadHTML(value);
+    };
+
     // Initialize value
     if (value) {
       inputEl.value = value;
       lastReportedValue.current = value;
-      // We must wait for trix-initialize before loading HTML
-      const onInit = () => {
-        editorEl.editor?.loadHTML(value);
-      };
-      if (editorEl.editor) {
-        editorEl.editor.loadHTML(value);
-      } else {
-        editorEl.addEventListener("trix-initialize", onInit, { once: true });
-      }
+    }
+    if (editorEl.editor) {
+      onInitOrReady();
+    } else {
+      editorEl.addEventListener("trix-initialize", onInitOrReady, { once: true });
     }
 
     const handleTrixChange = () => {
@@ -181,6 +233,12 @@ export default function TrixEditor({
 
   return (
     <div className="trix-editor-wrapper prose-trix">
+      <div className="flex items-center gap-2 px-2 py-1 border-b border-[#e8e9ef] bg-[#fcfbff]">
+        <label className="text-[11px] text-[#7a7e8a]">Font:</label>
+        <input type="number" min="8" max="72" value={fontSize}
+          onChange={(e) => setFontSize(Number(e.target.value) || 13)}
+          className="w-14 h-7 rounded border border-[#d9d7df] px-2 text-xs text-center outline-none" />
+      </div>
       <div ref={containerRef} />
       <style>{`
         .trix-editor-wrapper {
@@ -283,6 +341,10 @@ export default function TrixEditor({
           margin: 0.5em 0;
           overflow-x: auto;
         }
+        .trix-editor-wrapper trix-editor .text-align-left { text-align: left; }
+        .trix-editor-wrapper trix-editor .text-align-center { text-align: center; }
+        .trix-editor-wrapper trix-editor .text-align-right { text-align: right; }
+        .trix-editor-wrapper trix-editor .text-align-justify { text-align: justify; }
         .trix-editor-wrapper trix-editor img {
           max-width: 100%;
           border-radius: 8px;

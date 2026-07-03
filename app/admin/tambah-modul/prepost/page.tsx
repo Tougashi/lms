@@ -234,10 +234,14 @@ function AdminPrePostPageContent() {
     try {
       if (bank.apiId) {
         if (enabled) {
-          await adminPretestApi.deleteAllQuestions(bank.apiId);
-          setBank((prev) =>
-            prev ? { ...prev, questions: [], ctStories: [makeCTStory()] } : prev,
-          );
+          if (bank.ctStories.length > 0) {
+            setBank((prev) => prev ? { ...prev, questions: [] } : prev);
+          } else {
+            await adminPretestApi.deleteAllQuestions(bank.apiId);
+            setBank((prev) =>
+              prev ? { ...prev, questions: [], ctStories: [makeCTStory()] } : prev,
+            );
+          }
         } else {
           await adminPretestApi.deleteAllQuestions(bank.apiId);
           setBank((prev) =>

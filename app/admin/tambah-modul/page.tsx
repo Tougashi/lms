@@ -254,6 +254,7 @@ export default function TambahModulAdminPage() {
   const [hasCertificate, setHasCertificate] = useState(false);
   const [hasStudyGroup, setHasStudyGroup] = useState(false);
 
+
   /* derived */
   const kelasOptions = useMemo((): SelectOption[] => {
     const map: Record<string, string[]> = {
@@ -681,7 +682,7 @@ export default function TambahModulAdminPage() {
                   className={pillBtn(accessType === "siswa")}
                   onClick={() => setAccessType("siswa")}
                 >
-                  Siswa
+                  Siswa (Berjenjang)
                 </button>
                 <button
                   type="button"
@@ -871,7 +872,7 @@ export default function TambahModulAdminPage() {
               className="inline-flex h-[44px] items-center gap-2 rounded-xl bg-[#7054dc] px-7 text-[13px] font-semibold text-white shadow-[0_6px_18px_rgba(112,84,220,0.28)] hover:bg-[#5f46cc] transition-colors disabled:opacity-60"
             >
               {isSaving && <Spinner size={14} className="text-white" />}
-              {isSaving ? "Menyimpan..." : "Simpan & Lanjutkan"}
+              {isSaving ? "Menyimpan..." : "Simpan"}
             </button>
           </div>
         </div>

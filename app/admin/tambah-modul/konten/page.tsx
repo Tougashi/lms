@@ -849,7 +849,15 @@ function TambahModulKontenPageContent() {
   const handleToggleCTMode = (quizId: number, enabled: boolean) => {
     if (isTopicCT) return;
     setQuizzes((prev) =>
-      prev.map((q) => (q.id === quizId ? { ...q, ctMode: enabled } : q)),
+      prev.map((q) => {
+        if (q.id !== quizId) return q;
+        if (!enabled) return { ...q, ctMode: false };
+        return {
+          ...q,
+          ctMode: true,
+          ctStories: q.ctStories.length > 0 ? q.ctStories : [makeCTStory()],
+        };
+      }),
     );
   };
 

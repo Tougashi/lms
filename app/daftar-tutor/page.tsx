@@ -32,6 +32,7 @@ export default function DaftarTutorPage() {
     const pendidikanDropdownRef = useRef<HTMLDivElement>(null);
 
     const pendidikanOptions = [
+        { value: "sma", label: "SMA/SMK/Sederajat" },
         { value: "d3", label: "D3" },
         { value: "s1", label: "S1" },
         { value: "s2", label: "S2" },
@@ -372,7 +373,7 @@ export default function DaftarTutorPage() {
                                     className="mb-1.5 block text-xs font-medium text-[#21212b]"
                                     htmlFor="universitas"
                                 >
-                                    Nama Universitas
+                                    {tingkatPendidikan === "sma" ? "Nama Sekolah" : "Nama Universitas"}
                                 </label>
                                 <input
                                     id="universitas"
@@ -391,7 +392,7 @@ export default function DaftarTutorPage() {
                                     className="mb-1.5 block text-xs font-medium text-[#21212b]"
                                     htmlFor="program-studi"
                                 >
-                                    Program Studi
+                                    {tingkatPendidikan === "sma" ? "Jurusan" : "Program Studi"}
                                 </label>
                                 <input
                                     id="program-studi"
@@ -400,7 +401,7 @@ export default function DaftarTutorPage() {
                                     onChange={(e) =>
                                         setProgramStudi(e.target.value)
                                     }
-                                    placeholder="Masukkan Program Studi"
+                                    placeholder={tingkatPendidikan === "sma" ? "Masukkan Jurusan" : "Masukkan Program Studi"}
                                     className="w-full rounded-lg border border-[#e0dfe6] px-3 py-2 text-sm text-[#21212b] placeholder:text-[#8a8a96] focus:outline-none focus:ring-2 focus:ring-[#7054dc]/15 focus:border-[#7054dc]"
                                 />
                             </div>

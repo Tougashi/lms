@@ -46,7 +46,6 @@ function TambahModulProfilPageContent() {
     const modulId = searchParams.get("modulId");
 
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [isExpanded, setIsExpanded] = useState(false);
     const [accessType, setAccessType] = useState<"SISWA" | "UMUM">("SISWA");
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
     const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -100,7 +99,6 @@ function TambahModulProfilPageContent() {
                     setCoverPreview(data.moduleImgUrl);
                 }
                 setHasCertificate(data.hasCertificate ?? false);
-                setIsExpanded(true);
             } catch (err) {
                 console.error("Load module error:", err);
                 setError("Gagal memuat data modul.");
@@ -113,7 +111,8 @@ function TambahModulProfilPageContent() {
 
     useEffect(() => {
         return () => {
-            if (coverObjectUrlRef.current) URL.revokeObjectURL(coverObjectUrlRef.current);
+            if (coverObjectUrlRef.current)
+                URL.revokeObjectURL(coverObjectUrlRef.current);
         };
     }, []);
 
@@ -153,14 +152,17 @@ function TambahModulProfilPageContent() {
             confirmText: "Terbitkan",
         });
         if (!ok) return;
-        
+
         showLoading("Menerbitkan modul...");
         try {
             await guruModulApi.update(modulId, { isDraft: false });
             router.push("/modul-guru?tab=published");
         } catch (err: unknown) {
             console.error("Publish error:", err);
-            toast(err instanceof Error ? err.message : "Gagal menerbitkan modul.", "error");
+            toast(
+                err instanceof Error ? err.message : "Gagal menerbitkan modul.",
+                "error",
+            );
         } finally {
             hideLoading();
         }
@@ -198,6 +200,7 @@ function TambahModulProfilPageContent() {
             if (modulId) {
                 await guruModulApi.update(modulId, payload);
                 setSuccessMsg("Modul berhasil diperbarui!");
+                router.push(`/modul-guru/tambah/harga?modulId=${modulId}`);
             } else {
                 if (!user?.id) {
                     setError(
@@ -214,9 +217,7 @@ function TambahModulProfilPageContent() {
                     tutorId: user.id,
                 });
                 setSuccessMsg("Modul berhasil dibuat!");
-                router.replace(
-                    `/modul-guru/tambah/profil?modulId=${newModul.id}`,
-                );
+                router.push(`/modul-guru/tambah/harga?modulId=${newModul.id}`);
             }
         } catch (err: unknown) {
             console.error("Save module error:", err);
@@ -279,7 +280,9 @@ function TambahModulProfilPageContent() {
                     }`}
                 >
                     <div className="flex items-center justify-between mb-4">
-                        <p className="text-[13px] font-semibold text-[#232530]">Menu</p>
+                        <p className="text-[13px] font-semibold text-[#232530]">
+                            Menu
+                        </p>
                         <button
                             type="button"
                             onClick={() => setIsDrawerOpen(false)}
@@ -437,9 +440,24 @@ function TambahModulProfilPageContent() {
                                     {coverUploading && (
                                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 rounded-[20px]">
                                             <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[11px] font-medium text-[#7054dc] shadow-md">
-                                                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                <svg
+                                                    className="animate-spin h-3.5 w-3.5"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                >
+                                                    <circle
+                                                        className="opacity-25"
+                                                        cx="12"
+                                                        cy="12"
+                                                        r="10"
+                                                        stroke="currentColor"
+                                                        strokeWidth="4"
+                                                    />
+                                                    <path
+                                                        className="opacity-75"
+                                                        fill="currentColor"
+                                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                                    />
                                                 </svg>
                                                 Mengunggah...
                                             </div>
@@ -479,15 +497,21 @@ function TambahModulProfilPageContent() {
                                             if (!file) return;
                                             setCoverUrl(null);
                                             if (coverObjectUrlRef.current) {
-                                                URL.revokeObjectURL(coverObjectUrlRef.current);
-                                                coverObjectUrlRef.current = null;
+                                                URL.revokeObjectURL(
+                                                    coverObjectUrlRef.current,
+                                                );
+                                                coverObjectUrlRef.current =
+                                                    null;
                                             }
                                             const localUrl =
                                                 URL.createObjectURL(file);
-                                            coverObjectUrlRef.current = localUrl;
+                                            coverObjectUrlRef.current =
+                                                localUrl;
                                             setCoverPreview(localUrl);
                                             setCoverUploading(true);
-                                            showLoading("Mengunggah cover modul...");
+                                            showLoading(
+                                                "Mengunggah cover modul...",
+                                            );
                                             try {
                                                 const res =
                                                     await uploadApi.upload(
@@ -497,10 +521,14 @@ function TambahModulProfilPageContent() {
                                                 setCoverUrl(res.url);
                                                 setCoverPreview(res.url);
                                                 URL.revokeObjectURL(localUrl);
-                                                coverObjectUrlRef.current = null;
+                                                coverObjectUrlRef.current =
+                                                    null;
                                             } catch {
                                                 // preview lokal tetap dipakai
-                                                toast("Gagal mengunggah gambar", "error");
+                                                toast(
+                                                    "Gagal mengunggah gambar",
+                                                    "error",
+                                                );
                                             } finally {
                                                 hideLoading();
                                                 setCoverUploading(false);
@@ -563,221 +591,204 @@ function TambahModulProfilPageContent() {
                             </div>
                         </div>
 
-                        {!isExpanded && (
-                            <div className="mt-5">
+                        <div className="mt-5">
+                            <p className="text-[12px] font-semibold text-[#232530]">
+                                Tipe Modul
+                            </p>
+                            <div className="flex rounded-xl border border-[#e0dfe6] p-1 bg-[#f7f6ff] w-fit mt-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setAccessType("SISWA")}
+                                    className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
+                                        accessType === "SISWA"
+                                            ? "bg-white shadow text-[#7054dc]"
+                                            : "text-[#7a7e8a]"
+                                    }`}
+                                >
+                                    Siswa (Berjenjang)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setAccessType("UMUM")}
+                                    className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
+                                        accessType === "UMUM"
+                                            ? "bg-white shadow text-[#7054dc]"
+                                            : "text-[#7a7e8a]"
+                                    }`}
+                                >
+                                    Umum
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 space-y-4">
+                            {accessType === "SISWA" && (
+                                <>
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <div>
+                                            <label className="text-[12px] font-semibold text-[#232530]">
+                                                Jenjang Sekolah
+                                            </label>
+                                            <select
+                                                className={inputClassName}
+                                                value={level}
+                                                onChange={(e) =>
+                                                    setLevel(e.target.value)
+                                                }
+                                                disabled={
+                                                    accessType !== "SISWA"
+                                                }
+                                            >
+                                                <option value="" disabled>
+                                                    Pilih Jenjang
+                                                </option>
+                                                <option value="SD">SD</option>
+                                                <option value="SMP">SMP</option>
+                                                <option value="SMA">SMA</option>
+                                            </select>
+                                            <p className="mt-1 text-[11px] text-[#7e8290]">
+                                                Sebutkan kurikulum modul anda
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <label className="text-[12px] font-semibold text-[#232530]">
+                                                Kelas
+                                            </label>
+                                            <select
+                                                className={inputClassName}
+                                                value={kelas}
+                                                onChange={(e) =>
+                                                    setKelas(e.target.value)
+                                                }
+                                                disabled={
+                                                    accessType !== "SISWA" ||
+                                                    !level
+                                                }
+                                            >
+                                                <option value="" disabled>
+                                                    {level
+                                                        ? "Pilih Tingkatan Kelas"
+                                                        : "Pilih jenjang terlebih dahulu"}
+                                                </option>
+                                                {kelasOptions.map((k) => (
+                                                    <option key={k} value={k}>
+                                                        Kelas {k}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="mt-1 text-[11px] text-[#7e8290]">
+                                                Berapa lama pengerjaan modul ini
+                                                bagi siswa
+                                            </p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                            <div>
+                                <label className="text-[12px] font-semibold text-[#232530]">
+                                    Level Kesulitan
+                                </label>
+                                <select
+                                    className={inputClassName}
+                                    value={difficulty}
+                                    onChange={(e) =>
+                                        setDifficulty(e.target.value)
+                                    }
+                                >
+                                    <option value="Beginner">Mudah</option>
+                                    <option value="Intermediate">
+                                        Menengah
+                                    </option>
+                                    <option value="Advanced">Sulit</option>
+                                </select>
+                                <p className="mt-1 text-[11px] text-[#7e8290]">
+                                    Level kesulitan yang sesuai dengan isi modul
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="text-[12px] font-semibold text-[#232530]">
+                                    Durasi Pembelajaran
+                                </label>
+                                <div className="mt-2 flex gap-2">
+                                    <input
+                                        type="number"
+                                        value={targetTime}
+                                        onChange={(e) =>
+                                            setTargetTime(
+                                                Number(e.target.value) || 1,
+                                            )
+                                        }
+                                        min={1}
+                                        className={`${inputClassName} mt-0 w-[90px]`}
+                                    />
+                                    <select
+                                        className={`${inputClassName} mt-0 w-[120px]`}
+                                        value={targetTimeUnit}
+                                        onChange={(e) =>
+                                            setTargetTimeUnit(
+                                                e.target.value as
+                                                    | "bulan"
+                                                    | "minggu",
+                                            )
+                                        }
+                                    >
+                                        <option value="bulan">Bulan</option>
+                                        <option value="minggu">Minggu</option>
+                                    </select>
+                                </div>
+                                <p className="mt-1 text-[11px] text-[#7e8290]">
+                                    Durasi pembelajaran modul yang diakses siswa
+                                    merupakan materi selama beberapa waktu
+                                </p>
+                            </div>
+
+                            <div>
                                 <p className="text-[12px] font-semibold text-[#232530]">
-                                    Pilih Akses
+                                    Sertifikat
                                 </p>
                                 <div className="mt-3 flex items-center gap-6 text-[12px] text-[#6e7280]">
                                     <label className="flex items-center gap-2">
                                         <input
                                             type="radio"
-                                            name="akses"
-                                            checked={accessType === "SISWA"}
+                                            name="hasCertificate"
+                                            checked={hasCertificate}
                                             onChange={() =>
-                                                setAccessType("SISWA")
+                                                setHasCertificate(true)
                                             }
                                         />
-                                        Siswa
+                                        Ya
                                     </label>
                                     <label className="flex items-center gap-2">
                                         <input
                                             type="radio"
-                                            name="akses"
-                                            checked={accessType === "UMUM"}
+                                            name="hasCertificate"
+                                            checked={!hasCertificate}
                                             onChange={() =>
-                                                setAccessType("UMUM")
+                                                setHasCertificate(false)
                                             }
                                         />
-                                        Umum
+                                        Tidak
                                     </label>
                                 </div>
+                                <p className="mt-1 text-[11px] text-[#7e8290]">
+                                    Apakah modul ini memberikan sertifikat
+                                    kepada siswa yang lulus
+                                </p>
                             </div>
-                        )}
-
-                        {isExpanded && (
-                            <div className="mt-6 space-y-4">
-                                {accessType === "SISWA" && (
-                                    <>
-                                        <div className="grid gap-4 sm:grid-cols-2">
-                                            <div>
-                                                <label className="text-[12px] font-semibold text-[#232530]">
-                                                    Jenjang Sekolah
-                                                </label>
-                                                <select
-                                                    className={inputClassName}
-                                                    value={level}
-                                                    onChange={(e) =>
-                                                        setLevel(e.target.value)
-                                                    }
-                                                >
-                                                    <option value="" disabled>
-                                                        Pilih Jenjang
-                                                    </option>
-                                                    <option value="SD">
-                                                        SD
-                                                    </option>
-                                                    <option value="SMP">
-                                                        SMP
-                                                    </option>
-                                                    <option value="SMA">
-                                                        SMA
-                                                    </option>
-                                                </select>
-                                                <p className="mt-1 text-[11px] text-[#7e8290]">
-                                                    Sebutkan kurikulum modul
-                                                    anda
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <label className="text-[12px] font-semibold text-[#232530]">
-                                                    Kelas
-                                                </label>
-                                                <select
-                                                    className={inputClassName}
-                                                    value={kelas}
-                                                    onChange={(e) =>
-                                                        setKelas(e.target.value)
-                                                    }
-                                                    disabled={!level}
-                                                >
-                                                    <option value="" disabled>
-                                                        {level
-                                                            ? "Pilih Tingkatan Kelas"
-                                                            : "Pilih jenjang terlebih dahulu"}
-                                                    </option>
-                                                    {kelasOptions.map((k) => (
-                                                        <option
-                                                            key={k}
-                                                            value={k}
-                                                        >
-                                                            Kelas {k}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <p className="mt-1 text-[11px] text-[#7e8290]">
-                                                    Berapa lama pengerjaan modul
-                                                    ini bagi siswa
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                                <div>
-                                    <label className="text-[12px] font-semibold text-[#232530]">
-                                        Level Kesulitan
-                                    </label>
-                                    <select
-                                        className={inputClassName}
-                                        value={difficulty}
-                                        onChange={(e) =>
-                                            setDifficulty(e.target.value)
-                                        }
-                                    >
-                                        <option value="Beginner">Mudah</option>
-                                        <option value="Intermediate">
-                                            Menengah
-                                        </option>
-                                        <option value="Advanced">Sulit</option>
-                                    </select>
-                                    <p className="mt-1 text-[11px] text-[#7e8290]">
-                                        Level kesulitan yang sesuai dengan isi
-                                        modul
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <label className="text-[12px] font-semibold text-[#232530]">
-                                        Durasi Pembelajaran
-                                    </label>
-                                    <div className="mt-2 flex gap-2">
-                                        <input
-                                            type="number"
-                                            value={targetTime}
-                                            onChange={(e) =>
-                                                setTargetTime(
-                                                    Number(e.target.value) || 1,
-                                                )
-                                            }
-                                            min={1}
-                                            className={`${inputClassName} mt-0 w-[90px]`}
-                                        />
-                                        <select
-                                            className={`${inputClassName} mt-0 w-[120px]`}
-                                            value={targetTimeUnit}
-                                            onChange={(e) =>
-                                                setTargetTimeUnit(
-                                                    e.target.value as
-                                                        | "bulan"
-                                                        | "minggu",
-                                                )
-                                            }
-                                        >
-                                            <option value="bulan">Bulan</option>
-                                            <option value="minggu">
-                                                Minggu
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <p className="mt-1 text-[11px] text-[#7e8290]">
-                                        Durasi pembelajaran modul yang diakses
-                                        siswa merupakan materi selama beberapa
-                                        waktu
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-[12px] font-semibold text-[#232530]">
-                                        Sertifikat
-                                    </p>
-                                    <div className="mt-3 flex items-center gap-6 text-[12px] text-[#6e7280]">
-                                        <label className="flex items-center gap-2">
-                                            <input
-                                                type="radio"
-                                                name="hasCertificate"
-                                                checked={hasCertificate}
-                                                onChange={() => setHasCertificate(true)}
-                                            />
-                                            Ya
-                                        </label>
-                                        <label className="flex items-center gap-2">
-                                            <input
-                                                type="radio"
-                                                name="hasCertificate"
-                                                checked={!hasCertificate}
-                                                onChange={() => setHasCertificate(false)}
-                                            />
-                                            Tidak
-                                        </label>
-                                    </div>
-                                    <p className="mt-1 text-[11px] text-[#7e8290]">
-                                        Apakah modul ini memberikan sertifikat kepada siswa yang lulus
-                                    </p>
-                                </div>
-                            </div>
-                        )}
+                        </div>
 
                         <div className="mt-8 pb-6">
-                            {isExpanded ? (
-                                <button
-                                    type="button"
-                                    onClick={handleSave}
-                                    disabled={isSaving}
-                                    className="inline-flex h-[40px] w-[260px] cursor-pointer items-center justify-center rounded-xl bg-[#7054dc] text-[13px] font-semibold text-white disabled:opacity-50"
-                                >
-                                    {isSaving
-                                        ? "Menyimpan..."
-                                        : "Simpan Profil Modul"}
-                                </button>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={() => setIsExpanded(true)}
-                                    className="inline-flex h-[40px] w-[260px] cursor-pointer items-center justify-center rounded-xl bg-[#7054dc] text-[13px] font-semibold text-white"
-                                >
-                                    Selanjutnya
-                                </button>
-                            )}
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={isSaving}
+                                className="inline-flex h-[40px] w-[260px] cursor-pointer items-center justify-center rounded-xl bg-[#7054dc] text-[13px] font-semibold text-white disabled:opacity-50"
+                            >
+                                {isSaving
+                                    ? "Menyimpan..."
+                                    : "Simpan Profil Modul"}
+                            </button>
                         </div>
                     </section>
                 </div>

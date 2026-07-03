@@ -57,6 +57,7 @@ function makeCTStory() {
     subQuestions: CT_SUB_LABELS.map((label, i) => ({
       id: ts + i + 1,
       label,
+      ctAspect: ["decomposition", "patternRecognition", "abstraction", "algorithm"][i] || "",
       answers: [
         { id: ts + i * 10 + 100, text: "", isCorrect: false },
         { id: ts + i * 10 + 101, text: "", isCorrect: false },
@@ -140,6 +141,7 @@ function TambahModulKontenPageContent() {
         subQuestions: {
           id: number;
           label: string;
+          ctAspect?: string;
           answers: { id: number; text: string; isCorrect: boolean }[];
         }[];
       }[];
@@ -250,31 +252,32 @@ function TambahModulKontenPageContent() {
               ctGroup.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
               const localId = baseTs + mappedQuizzes.length * 100 + 1000;
               quizIds[localId] = ctGroup[0].id;
-              const subQs = ctGroup.map((ctQ, ctIdx) => {
-                const sqId = baseTs + mappedQuizzes.length * 1000 + ctIdx * 10 + 5000;
-                if (ctIdx > 0) subQuizIds[sqId] = ctQ.id;
-                return {
-                  id: sqId,
-                  label: ctQ.question || CT_SUB_LABELS[ctIdx] || `Soal CT ${ctIdx + 1}`,
-                  answers: (() => {
-                    let foundCorrect = false;
-                    return (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
-                      const isMatch = opt.option === ctQ.correctAnswer;
-                      const isCorrect = isMatch && !foundCorrect;
-                      if (isMatch) foundCorrect = true;
-                      return {
-                        id: baseTs + mappedQuizzes.length * 1000 + ctIdx * 10 + oIdx + 9000,
-                        text: opt.option,
-                        isCorrect,
-                      };
-                    });
-                  })(),
-                };
-              });
+            const subQs = ctGroup.map((ctQ, ctIdx) => {
+              const sqId = baseTs + mappedQuizzes.length * 1000 + ctIdx * 10 + 5000;
+              if (ctIdx > 0) subQuizIds[sqId] = ctQ.id;
+              return {
+                id: sqId,
+                label: ctQ.question || CT_SUB_LABELS[ctIdx] || `Soal CT ${ctIdx + 1}`,
+                ctAspect: ctQ.ctAspect || undefined,
+                answers: (() => {
+                  let foundCorrect = false;
+                  return (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                    const isMatch = opt.option === ctQ.correctAnswer;
+                    const isCorrect = isMatch && !foundCorrect;
+                    if (isMatch) foundCorrect = true;
+                    return {
+                      id: baseTs + mappedQuizzes.length * 1000 + ctIdx * 10 + oIdx + 9000,
+                      text: opt.option,
+                      isCorrect,
+                    };
+                  });
+                })(),
+              };
+            });
               while (subQs.length < CT_SUB_LABELS.length) {
                 const padIdx = subQs.length;
                 const padId = baseTs + mappedQuizzes.length * 1000 + padIdx * 10 + 3000;
-                subQs.push({ id: padId, label: CT_SUB_LABELS[padIdx], answers: [
+                subQs.push({ id: padId, label: CT_SUB_LABELS[padIdx], ctAspect: ["decomposition", "patternRecognition", "abstraction", "algorithm"][padIdx] || "", answers: [
                   { id: padId * 2 + 1, text: "", isCorrect: false },
                   { id: padId * 2 + 2, text: "", isCorrect: false },
                 ]});
@@ -720,6 +723,7 @@ function TambahModulKontenPageContent() {
           return {
             id: sqId,
             label: ctQ.question || CT_SUB_LABELS[ctIdx] || `Soal CT ${ctIdx + 1}`,
+            ctAspect: ctQ.ctAspect || undefined,
             answers: (() => {
               let foundCorrect = false;
               return (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
@@ -738,7 +742,7 @@ function TambahModulKontenPageContent() {
         while (subQs.length < CT_SUB_LABELS.length) {
           const padIdx = subQs.length;
           const padId = bTs + mappedQuiz.length * 1000 + padIdx * 10 + 3000;
-          subQs.push({ id: padId, label: CT_SUB_LABELS[padIdx], answers: [
+          subQs.push({ id: padId, label: CT_SUB_LABELS[padIdx], ctAspect: ["decomposition", "patternRecognition", "abstraction", "algorithm"][padIdx] || "", answers: [
             { id: padId * 2 + 1, text: "", isCorrect: false },
             { id: padId * 2 + 2, text: "", isCorrect: false },
           ]});
@@ -1333,10 +1337,9 @@ function TambahModulKontenPageContent() {
         const newSubIds: Record<number, string> = {};
 
         for (const story of quiz.ctStories) {
-          const ctGroupId = `ctg-${quiz.id}-${story.id}-${Date.now()}`;
+          const ctGroupId = `ctg-${quiz.id}-${story.id}`;
           for (const sq of story.subQuestions) {
-            const sqIdx = story.subQuestions.indexOf(sq);
-            const ctAspect = ["decomposition", "patternRecognition", "abstraction", "algorithm"][sqIdx] || null;
+            const ctAspect = sq.ctAspect || ["decomposition", "patternRecognition", "abstraction", "algorithm"][story.subQuestions.indexOf(sq)] || null;
             const payload = {
               question: sq.label || "Soal CT",
               correctAnswer:
@@ -2709,9 +2712,14 @@ function TambahModulKontenPageContent() {
                                     <TrixEditor id={`quiz-ct-story-${story.id}`} placeholder="Masukkan cerita di sini ..." minHeight="80px" value={story.cerita} onChange={(html) => setQuizzes((p) => p.map((q) => q.id !== quiz.id ? q : { ...q, ctStories: q.ctStories.map((s) => s.id !== story.id ? s : { ...s, cerita: html }) }))} />
                                     {story.subQuestions.map((sq) => (
                                       <div key={sq.id} className="mt-4">
-                                        <p className="mb-2 text-[12px] font-semibold text-[#232530]">
-                                          {sq.label ? sq.label.replace(/<[^>]*>?/gm, '') : ""}
-                                        </p>
+                                        <div className="mb-2 flex items-center gap-2">
+                                          <span className="inline-flex h-5 items-center rounded-full bg-[#f1ecff] px-2.5 text-[10px] font-semibold text-[#7054dc]">
+                                            {sq.ctAspect === "decomposition" ? "Dekomposisi" :
+                                             sq.ctAspect === "patternRecognition" ? "Pengenalan Pola" :
+                                             sq.ctAspect === "abstraction" ? "Abstraksi" :
+                                             sq.ctAspect === "algorithm" ? "Algoritma" : "CT"}
+                                          </span>
+                                        </div>
                                         <TrixEditor
                                           id={`quiz-ct-sq-${sq.id}`}
                                           placeholder="Masukkan soal ..."
@@ -2859,9 +2867,6 @@ function TambahModulKontenPageContent() {
                               <>
                                 {quiz.questions.map((question) => (
                                   <div key={question.id} className="mb-4">
-                                    <p className="mb-2 text-[12px] font-semibold text-[#232530]">
-                                      {question.label ? question.label.replace(/<[^>]*>?/gm, '') : ""}
-                                    </p>
                                     <TrixEditor
                                       id={`quiz-q-${question.id}`}
                                       placeholder="Masukkan soal ..."
@@ -3320,7 +3325,10 @@ function TambahModulKontenPageContent() {
 
                       const modeChanged = tempCTMode !== quiz.ctMode;
 
-                      if (modeChanged) {
+                      const hasContent = quiz.questions.some(q => q.answers.some(a => a.text))
+                        || quiz.ctStories.some(s => s.cerita || s.subQuestions.some(sq => sq.answers.some(a => a.text)));
+
+                      if (modeChanged && hasContent) {
                         const ok = await confirm({
                           title: "Ubah Mode Kuis",
                           message: tempCTMode
@@ -3329,7 +3337,9 @@ function TambahModulKontenPageContent() {
                           confirmText: "Ya, Ubah",
                         });
                         if (!ok) return;
+                      }
 
+                      if (modeChanged) {
                         const apiId = quizApiIds[quiz.id];
 
                         if (tempCTMode) {

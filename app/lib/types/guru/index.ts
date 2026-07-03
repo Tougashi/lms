@@ -178,6 +178,9 @@ export interface GuruTopikQuizItem {
     correctAnswer: string;
     skor: number;
     quizImgQuestionUrl?: string | null;
+    ctGroupId?: string | null;
+    ctStory?: string | null;
+    ctAspect?: string | null;
     quizAnswerOptions: { id: string; quizId: string; option: string; createdAt?: string }[];
     quizSettings: {
         id: string;

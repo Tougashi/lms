@@ -493,13 +493,22 @@ export default function ProfilPage() {
                                   <p className="text-xs text-[#7d8291]">No. WhatsApp</p>
                                   <p className="mt-1 font-medium text-[#202126]">{tutorProfile?.whatsappNumber ?? "-"}</p>
                                 </div>
-                                {tutorProfile?.biografi && (
-                                  <div className="sm:col-span-2">
-                                    <p className="text-xs text-[#7d8291]">Biografi</p>
-                                    <p className="mt-1 font-medium text-[#202126]">{tutorProfile.biografi}</p>
-                                  </div>
-                                )}
-                              </>
+                                  {tutorProfile?.biografi && (
+                                    <div className="sm:col-span-2">
+                                      <p className="text-xs text-[#7d8291]">Biografi</p>
+                                      <p className="mt-1 font-medium text-[#202126]">{tutorProfile.biografi}</p>
+                                    </div>
+                                  )}
+                                  {tutorProfile?.cvPathUrl && (
+                                    <div className="sm:col-span-2">
+                                      <p className="text-xs text-[#7d8291]">CV / Curriculum Vitae</p>
+                                      <a href={tutorProfile.cvPathUrl} target="_blank" rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-[#7054dc] underline text-sm">
+                                        Lihat CV
+                                      </a>
+                                    </div>
+                                  )}
+                                </>
                             ) : (
                               <>
                                 <div>
