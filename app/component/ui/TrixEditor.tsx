@@ -16,6 +16,68 @@ function ensureTrixLoaded() {
   }
 }
 
+// Register custom alignment elements (Web Components) — once globally
+let alignElementsRegistered = false;
+function ensureAlignElements() {
+  alignElementsRegistered = true;
+  if (typeof window === "undefined" || typeof customElements === "undefined") return;
+
+  const alignments: Record<string, string> = {
+    "align-left": "left",
+    "align-center": "center",
+    "align-right": "right",
+    "align-justify": "justify",
+  };
+
+  for (const [tag, alignment] of Object.entries(alignments)) {
+    if (!customElements.get(tag)) {
+      customElements.define(
+        tag,
+        class extends HTMLElement {
+          connectedCallback() {
+            this.style.display = "block";
+            this.style.textAlign = alignment;
+          }
+        }
+      );
+    }
+  }
+}
+
+// Register Trix block attributes — once globally
+let trixAlignConfigured = false;
+function ensureTrixAlignConfig() {
+  if (trixAlignConfigured) return;
+  const TrixObj = (window as any).Trix;
+  if (!TrixObj) return;
+  trixAlignConfigured = true;
+
+  TrixObj.config.blockAttributes.alignLeft = {
+    tagName: "align-left",
+    parse: false,
+    nestable: false,
+    exclusive: true,
+  };
+  TrixObj.config.blockAttributes.alignCenter = {
+    tagName: "align-center",
+    parse: false,
+    nestable: false,
+    exclusive: true,
+  };
+  TrixObj.config.blockAttributes.alignRight = {
+    tagName: "align-right",
+    parse: false,
+    nestable: false,
+    exclusive: true,
+  };
+  TrixObj.config.blockAttributes.alignJustify = {
+    tagName: "align-justify",
+    parse: false,
+    nestable: false,
+    exclusive: true,
+  };
+}
+
 interface TrixEditorProps {
   id: string;
   placeholder?: string;
@@ -25,7 +87,7 @@ interface TrixEditorProps {
   uploadFileType?: string;
 }
 
-// FORCE HMR UPDATE: v3
+// FORCE HMR UPDATE: v5
 
 export default function TrixEditor({
   id,
@@ -43,11 +105,14 @@ export default function TrixEditor({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Ensure Trix is loaded
+  // Ensure Trix + custom elements are loaded
   useEffect(() => {
     ensureTrixLoaded();
+    ensureAlignElements();
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    import("trix").catch(() => {});
+    import("trix").then(() => {
+      ensureTrixAlignConfig();
+    }).catch(() => {});
   }, []);
 
   const inputId = useMemo(() => `trix-input-${id}`, [id]);
@@ -62,22 +127,10 @@ export default function TrixEditor({
     const container = containerRef.current;
     if (!container) return;
 
-    // Register alignment block attributes
-    const TrixObj = (window as any).Trix;
-    if (TrixObj) {
-      TrixObj.config.blockAttributes.alignLeft = {
-        tagName: "div", attributes: { class: "text-align-left" }, nestable: true,
-      };
-      TrixObj.config.blockAttributes.alignCenter = {
-        tagName: "div", attributes: { class: "text-align-center" }, nestable: true,
-      };
-      TrixObj.config.blockAttributes.alignRight = {
-        tagName: "div", attributes: { class: "text-align-right" }, nestable: true,
-      };
-      TrixObj.config.blockAttributes.alignJustify = {
-        tagName: "div", attributes: { class: "text-align-justify" }, nestable: true,
-      };
-    }
+    // Make sure Trix block attributes are registered before editor mounts
+    ensureTrixAlignConfig();
+
+    const ALIGN_ATTRS = ["alignLeft", "alignCenter", "alignRight", "alignJustify"] as const;
 
     // Inject alignment toolbar buttons after editor initializes
     const injectToolbarButtons = () => {
@@ -86,24 +139,77 @@ export default function TrixEditor({
       const row = toolbar.querySelector('.trix-button-row');
       if (!row) return;
       // Avoid duplicate injection
-      if (row.querySelector('[data-trix-attribute="alignLeft"]')) return;
+      if (row.querySelector('.trix-align-btn')) return;
+
+      const editorEl = container.querySelector('trix-editor') as any;
       const group = document.createElement('span');
-      group.className = 'trix-button-group';
-      group.innerHTML = `
-        <button type="button" class="trix-button" data-trix-attribute="alignLeft" title="Rata Kiri" tabindex="-1">
-          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM1 6h10v2H1zM1 10h14v2H1zM1 14h10v2H1z" fill="currentColor"/></svg>
-        </button>
-        <button type="button" class="trix-button" data-trix-attribute="alignCenter" title="Rata Tengah" tabindex="-1">
-          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM3 6h10v2H3zM1 10h14v2H1zM3 14h10v2H3z" fill="currentColor"/></svg>
-        </button>
-        <button type="button" class="trix-button" data-trix-attribute="alignRight" title="Rata Kanan" tabindex="-1">
-          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM5 6h10v2H5zM1 10h14v2H1zM5 14h10v2H5z" fill="currentColor"/></svg>
-        </button>
-        <button type="button" class="trix-button" data-trix-attribute="alignJustify" title="Rata Kanan-Kiri" tabindex="-1">
-          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM1 6h14v2H1zM1 10h14v2H1zM1 14h14v2H1z" fill="currentColor"/></svg>
-        </button>
-      `;
+      group.className = 'trix-button-group trix-button-group--align';
+
+      const buttons = [
+        { attr: 'alignLeft' as const, title: 'Rata Kiri', svg: '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM1 6h10v2H1zM1 10h14v2H1zM1 14h10v2H1z" fill="currentColor"/></svg>' },
+        { attr: 'alignCenter' as const, title: 'Rata Tengah', svg: '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM3 6h10v2H3zM1 10h14v2H1zM3 14h10v2H3z" fill="currentColor"/></svg>' },
+        { attr: 'alignRight' as const, title: 'Rata Kanan', svg: '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM5 6h10v2H5zM1 10h14v2H1zM5 14h10v2H5z" fill="currentColor"/></svg>' },
+        { attr: 'alignJustify' as const, title: 'Rata Kanan-Kiri', svg: '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M1 2h14v2H1zM1 6h14v2H1zM1 10h14v2H1zM1 14h14v2H1z" fill="currentColor"/></svg>' },
+      ];
+
+      buttons.forEach(({ attr, title, svg }) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'trix-button trix-align-btn';
+        btn.title = title;
+        btn.tabIndex = -1;
+        btn.innerHTML = svg;
+
+        // Prevent focus loss on mousedown
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+        });
+
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (!editorEl?.editor) return;
+
+          const editor = editorEl.editor;
+          const isActive = editor.attributeIsActive(attr);
+
+          // Deactivate all alignment attributes first (mutual exclusion)
+          for (const a of ALIGN_ATTRS) {
+            if (editor.attributeIsActive(a)) {
+              editor.deactivateAttribute(a);
+            }
+          }
+
+          // Toggle: if wasn't active, activate it
+          if (!isActive) {
+            editor.activateAttribute(attr);
+          }
+
+          // Update button visual states
+          updateAlignButtonStates(group, editorEl);
+        });
+
+        group.appendChild(btn);
+      });
+
       row.appendChild(group);
+
+      // Listen for selection changes to update button states
+      editorEl.addEventListener('trix-selection-change', () => {
+        updateAlignButtonStates(group, editorEl);
+      });
+    };
+
+    const updateAlignButtonStates = (group: HTMLElement, editorEl: any) => {
+      if (!editorEl?.editor) return;
+      const btns = group.querySelectorAll('.trix-align-btn');
+      btns.forEach((btn) => {
+        const attr = ALIGN_ATTRS[Array.from(btns).indexOf(btn)];
+        if (attr && editorEl.editor.attributeIsActive(attr)) {
+          btn.classList.add('trix-active');
+        } else {
+          btn.classList.remove('trix-active');
+        }
+      });
     };
 
     // Create the HTML structure manually
@@ -341,14 +447,31 @@ export default function TrixEditor({
           margin: 0.5em 0;
           overflow-x: auto;
         }
-        .trix-editor-wrapper trix-editor .text-align-left { text-align: left; }
-        .trix-editor-wrapper trix-editor .text-align-center { text-align: center; }
-        .trix-editor-wrapper trix-editor .text-align-right { text-align: right; }
-        .trix-editor-wrapper trix-editor .text-align-justify { text-align: justify; }
+        /* Alignment styles for custom elements */
+        .trix-editor-wrapper trix-editor align-left {
+          display: block;
+          text-align: left;
+        }
+        .trix-editor-wrapper trix-editor align-center {
+          display: block;
+          text-align: center;
+        }
+        .trix-editor-wrapper trix-editor align-right {
+          display: block;
+          text-align: right;
+        }
+        .trix-editor-wrapper trix-editor align-justify {
+          display: block;
+          text-align: justify;
+        }
         .trix-editor-wrapper trix-editor img {
           max-width: 100%;
           border-radius: 8px;
           margin: 0.5em 0;
+        }
+        .trix-button-group--align {
+          display: inline-flex;
+          gap: 1px;
         }
       `}</style>
     </div>

@@ -207,7 +207,7 @@ function TambahModulKontenPageContent() {
               initApiIds[localId] = item.id;
               return {
                 id: localId,
-        title: item.isVideo ? `Video ${idx + 1}` : `Materi ${idx + 1}`,
+                title: item.judul || (item.isVideo ? `Video ${idx + 1}` : `Materi ${idx + 1}`),
                 type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
                 isSaved: true,
                 isExpanded: false,
@@ -476,9 +476,28 @@ function TambahModulKontenPageContent() {
     setEditTitle(title);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (editingMaterialId === null) {
       return;
+    }
+
+    const newTitle = editTitle.trim();
+    if (!newTitle) {
+      setEditingMaterialId(null);
+      return;
+    }
+
+    // Persist title to API
+    const apiId = materialApiIds[editingMaterialId];
+    if (apiId) {
+      try {
+        await guruMateriApi.update(apiId, { judul: newTitle });
+      } catch (err) {
+        console.error("Update material title error:", err);
+        toast("Gagal menyimpan judul materi.", "error");
+        setEditingMaterialId(null);
+        return;
+      }
     }
 
     setMaterials((prev) =>
@@ -486,7 +505,7 @@ function TambahModulKontenPageContent() {
         material.id === editingMaterialId
           ? {
               ...material,
-              title: editTitle.trim() || material.title,
+              title: newTitle,
             }
           : material,
       ),
@@ -578,6 +597,7 @@ function TambahModulKontenPageContent() {
       showLoading("Menyimpan materi...");
       try {
         await guruMateriApi.update(apiId, {
+          judul: material.title,
           is_video: material.type === "video",
           video_url:
             material.type === "video"
@@ -674,7 +694,7 @@ function TambahModulKontenPageContent() {
       batchApiIds[localId] = item.id;
       return {
         id: localId,
-        title: item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`,
+        title: item.judul || (item.article ? `Materi ${idx + 1}` : `Video ${idx + 1}`),
         type: (item.isVideo ? "video" : "artikel") as "video" | "artikel",
         isSaved: true,
         isExpanded: false,

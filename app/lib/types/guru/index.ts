@@ -103,6 +103,7 @@ export interface GuruMateriCreatePayload {
 }
 
 export interface GuruMateriUpdatePayload {
+    judul?: string;
     is_video?: boolean;
     video_url?: string | null;
     article?: string | null;
