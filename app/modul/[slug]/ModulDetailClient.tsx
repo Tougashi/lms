@@ -382,14 +382,16 @@ export default function ModulDetailPage({
                                     </button>
                                 )}
 
-                                {moduleData.hasStudyGroup && (
-                                    <button
-                                        type="button"
+                                {moduleData.hasStudyGroup && moduleData.whatsappGroupUrl && (
+                                    <a
+                                        href={moduleData.whatsappGroupUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#7054dc] px-3 py-2.5 text-sm font-medium text-[#7054dc] transition-colors hover:bg-[#f6f2ff]"
                                     >
                                         <FaUsers size={12} />
                                         Kelompok Belajar
-                                    </button>
+                                    </a>
                                 )}
 
                                 {isEnrolled && moduleData.progress && (

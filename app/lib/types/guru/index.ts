@@ -24,6 +24,8 @@ export interface GuruModuleItem {
     modulPrice?: number | null;
     hasCertificate?: boolean;
     isTestComputationalThinking?: boolean;
+    hasStudyGroup?: boolean;
+    whatsappGroupUrl?: string | null;
     level?: string | null;
     class?: string | null;
     modulType?: string;
@@ -53,6 +55,8 @@ export interface GuruModuleCreatePayload {
     isPaid?: boolean;
     modulPrice?: number | null;
     hasCertificate?: boolean;
+    hasStudyGroup?: boolean;
+    whatsappGroupUrl?: string | null;
     isTestComputationalThinking?: boolean;
     level?: string;
     class?: string;
@@ -70,6 +74,8 @@ export interface GuruModuleUpdatePayload {
     isPaid?: boolean;
     modulPrice?: number | null;
     hasCertificate?: boolean;
+    hasStudyGroup?: boolean;
+    whatsappGroupUrl?: string | null;
     isTestComputationalThinking?: boolean;
     level?: string;
     class?: string;

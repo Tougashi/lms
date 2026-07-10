@@ -294,6 +294,7 @@ export interface ModuleDetailResponse {
   class: string | null;
   pretestPostTestEnabled: boolean;
   hasStudyGroup: boolean;
+  whatsappGroupUrl: string | null;
   hasCertificate: boolean;
   moduleImgUrl: string | null;
   modulType: string;

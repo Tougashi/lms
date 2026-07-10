@@ -32,7 +32,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 // Provider
 // ---------------------------------------------------------------------------
 
-const PUBLIC_PATHS = ['/', '/login', '/daftar', '/daftar-tutor', '/tentang-kami', '/eksplor-modul'];
+const PUBLIC_PATHS = ['/', '/login', '/daftar', '/daftar-tutor', '/tentang-kami', '/eksplor-modul', '/forgot-password', '/reset-password'];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
