@@ -342,7 +342,7 @@ export default function BerandaAdminPage() {
                       col3: String(r.totalSiswa ?? 0),
                   }))
                 : kuisRows.flatMap((r) => {
-                      const quizzes: { id: string; col1: string; col2: string; col3: string }[] = [];
+                      const quizzes: { id: string; moduleId?: string; col1: string; col2: string; col3: string }[] = [];
                       (r.topiks || []).forEach((t) => {
                           (t.quizzes || []).forEach((q: any) => {
                               const rawQuestion = (q.question || "").replace(/<[^>]*>?/gm, "");
