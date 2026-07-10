@@ -177,7 +177,8 @@ function EditModulPrePostContent() {
                 id: Date.now() + 10000 + si * 100 + qi,
                 apiSoalId: q.id,
                 ctAspect: (q.ctAspect || CT_ASPECTS[qi % CT_ASPECTS.length]) as CTAspect,
-                label: q.pertanyaan || `Soal ${q.ctAspect || qi + 1}`,
+                label: `Soal ${q.ctAspect || qi + 1}`,
+                pertanyaan: q.pertanyaan || '',
                 skor: q.skor || 10,
                 answers: (q.answerOptions || []).map((opt: any, aidx: number) => ({
                   id: Date.now() + 10000 + si * 1000 + qi * 10 + aidx,
