@@ -65,27 +65,23 @@ const filterOptionsByTab: Record<
   kuis: [
     {
       id: 'nama-az',
-      label: 'Nama Modul A → Z',
-      sortFn: (a, b) => (a as AdminKuisItem).moduleName.localeCompare((b as AdminKuisItem).moduleName),
+      label: 'Nama Kuis A → Z',
+      sortFn: (a, b) => ((a as any).col1 || "").localeCompare((b as any).col1 || ""),
     },
     {
       id: 'nama-za',
-      label: 'Nama Modul Z → A',
-      sortFn: (a, b) => (b as AdminKuisItem).moduleName.localeCompare((a as AdminKuisItem).moduleName),
+      label: 'Nama Kuis Z → A',
+      sortFn: (a, b) => ((b as any).col1 || "").localeCompare((a as any).col1 || ""),
+    },
+    {
+      id: 'modul-az',
+      label: 'Nama Modul A → Z',
+      sortFn: (a, b) => ((a as any).moduleName || "").localeCompare((b as any).moduleName || ""),
     },
     {
       id: 'guru-az',
       label: 'Nama Guru A → Z',
-      sortFn: (a, b) => ((a as AdminKuisItem).tutor?.fullName ?? '').localeCompare((b as AdminKuisItem).tutor?.fullName ?? ''),
-    },
-    {
-      id: 'kuis-banyak',
-      label: 'Jml. Quiz Terbanyak',
-      sortFn: (a, b) => {
-        const countA = (a as AdminKuisItem).topiks?.reduce((s, t) => s + (t.quizzes?.length || 0), 0) ?? 0;
-        const countB = (b as AdminKuisItem).topiks?.reduce((s, t) => s + (t.quizzes?.length || 0), 0) ?? 0;
-        return countB - countA;
-      },
+      sortFn: (a, b) => (((a as any).tutor?.fullName) ?? '').localeCompare(((b as any).tutor?.fullName) ?? ''),
     },
   ],
 };
@@ -178,31 +174,50 @@ export default function ManajemenModulPage() {
   // Filtered + sorted rows
   const processedRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const rawRows: (AdminModulItem | AdminKuisItem)[] = activeTab === 'modul' ? modulList : kuisList;
+    
+    // First, map the rows according to the active tab
+    const baseRows = activeTab === 'modul' 
+        ? modulList 
+        : kuisList.flatMap((m) => {
+            const quizzes: any[] = [];
+            (m.topiks || []).forEach((t) => {
+                (t.quizzes || []).forEach((quiz: any) => {
+                    const rawQuestion = (quiz.question || "").replace(/<[^>]*>?/gm, "");
+                    quizzes.push({
+                        id: quiz.id,
+                        moduleId: m.id,
+                        moduleName: m.moduleName,
+                        tutor: m.tutor,
+                        col1: rawQuestion.length > 50 ? rawQuestion.substring(0, 50) + "..." : rawQuestion || "Soal Kuis",
+                    });
+                });
+            });
+            return quizzes;
+        });
 
     // 1. Text search
     const searched = q
-      ? rawRows.filter((r) => {
+      ? baseRows.filter((r: any) => {
           if (activeTab === 'modul') {
             const m = r as AdminModulItem;
             return (
-              m.moduleName.toLowerCase().includes(q) ||
+              (m.moduleName || "").toLowerCase().includes(q) ||
               (m.tutor?.fullName ?? '').toLowerCase().includes(q)
             );
           } else {
-            const k = r as AdminKuisItem;
             return (
-              k.moduleName.toLowerCase().includes(q) ||
-              (k.tutor?.fullName ?? '').toLowerCase().includes(q)
+              (r.moduleName || "").toLowerCase().includes(q) ||
+              (r.tutor?.fullName ?? '').toLowerCase().includes(q) ||
+              (r.col1 || "").toLowerCase().includes(q)
             );
           }
         })
-      : rawRows;
+      : baseRows;
 
     // 2. Sort
     const sortFn = filterOptions.find((o) => o.id === activeSortId)?.sortFn;
     if (sortFn) {
-      return [...searched].sort(sortFn);
+      return [...searched].sort(sortFn as any);
     }
     return searched;
   }, [modulList, kuisList, activeTab, searchQuery, activeSortId, filterOptions]);
@@ -401,13 +416,13 @@ export default function ManajemenModulPage() {
                         </button>
                       </th>
                       <th className="px-4 py-3 text-left font-medium">
-                        {activeTab === 'modul' ? 'Judul Modul' : 'Nama Modul'}
+                        {activeTab === 'modul' ? 'Judul Modul' : 'Nama Kuis'}
                       </th>
                       <th className="px-4 py-3 text-left font-medium">
-                        {activeTab === 'modul' ? 'Guru Modul' : 'Nama Guru'}
+                        {activeTab === 'modul' ? 'Guru Modul' : 'Nama Modul'}
                       </th>
                       <th className="px-4 py-3 text-left font-medium">
-                        {activeTab === 'modul' ? 'Jumlah Siswa' : 'Jumlah Quiz'}
+                        {activeTab === 'modul' ? 'Jumlah Siswa' : 'Nama Guru'}
                       </th>
                       <th className="w-[48px] px-4 py-3 text-left font-medium" />
                     </tr>
@@ -457,7 +472,7 @@ export default function ManajemenModulPage() {
                                     Edit
                                   </Link>
                                   <Link
-                                    href={`/admin/manajemen-modul/siswa?id=${row.id}`}
+                                    href={`/admin/manajemen-modul/edit/siswa?id=${row.id}`}
                                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#7054dc] hover:bg-[#f7f6ff]"
                                   >
                                     <MdSupervisorAccount size={14} />
@@ -478,7 +493,7 @@ export default function ManajemenModulPage() {
                         </tr>
                       ))
                     ) : (
-                      (paginatedRows as AdminKuisItem[]).map((row) => (
+                      (paginatedRows as any[]).map((row) => (
                         <tr key={row.id} className="border-t border-[#eef0f5] text-sm text-[#4d5260]">
                           <td className="px-4 py-3 align-middle">
                             <button
@@ -489,10 +504,10 @@ export default function ManajemenModulPage() {
                               <FaCheckSquare size={12} />
                             </button>
                           </td>
-                          <td className="px-4 py-3 align-middle font-medium text-[#5a5f6a] max-w-[260px] truncate">{row.moduleName}</td>
-                          <td className="px-4 py-3 align-middle">{row.tutor?.fullName ?? '-'}</td>
+                          <td className="px-4 py-3 align-middle font-medium text-[#5a5f6a] max-w-[260px] truncate">{row.col1}</td>
+                          <td className="px-4 py-3 align-middle">{row.moduleName}</td>
                           <td className="px-4 py-3 align-middle">
-                            {row.topiks?.reduce((acc, t) => acc + (t.quizzes?.length || 0), 0) ?? 0} quiz
+                            {row.tutor?.fullName ?? '-'}
                           </td>
                           <td className="px-4 py-3 align-middle text-right">
                             <div className="relative inline-flex">
@@ -506,7 +521,7 @@ export default function ManajemenModulPage() {
                               {openActionMenuId === row.id && (
                                 <div className="absolute right-full mr-2 top-0 z-30 w-[144px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
                                   <Link
-                                    href={`/admin/manajemen-modul/edit?id=${row.id}`}
+                                    href={`/admin/manajemen-modul/edit/konten?id=${row.moduleId}`}
                                     className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[#f39b39] hover:bg-[#fff8ef]"
                                   >
                                     <FaEdit size={13} />

@@ -68,6 +68,7 @@ export interface AdminModulItem {
   moduleImgUrl?: string | null;
   pretestPostTestEnabled?: boolean;
   hasStudyGroup?: boolean;
+  whatsappGroupUrl?: string | null;
   hasCertificate?: boolean;
   totalSiswa?: number;
 }
@@ -89,6 +90,7 @@ export interface AdminModulCreatePayload {
   moduleImgUrl?: string | null;
   pretestPostTestEnabled?: boolean;
   hasStudyGroup?: boolean;
+  whatsappGroupUrl?: string | null;
   hasCertificate?: boolean;
 }
 
@@ -108,6 +110,7 @@ export interface AdminModulUpdatePayload {
   moduleImgUrl?: string | null;
   pretestPostTestEnabled?: boolean;
   hasStudyGroup?: boolean;
+  whatsappGroupUrl?: string | null;
   hasCertificate?: boolean;
 }
 

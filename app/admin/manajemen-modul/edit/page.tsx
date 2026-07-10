@@ -174,6 +174,7 @@ function EditModulContent() {
   const [pretestPostTestEnabled, setPretestPostTestEnabled] = useState(true);
   const [hasCertificate, setHasCertificate] = useState(false);
   const [hasStudyGroup, setHasStudyGroup] = useState(false);
+  const [whatsappGroupUrl, setWhatsappGroupUrl] = useState('');
 
 
   /* derived kelas options */
@@ -231,6 +232,7 @@ function EditModulContent() {
         setPretestPostTestEnabled(m.pretestPostTestEnabled ?? true);
         setHasCertificate(m.hasCertificate ?? false);
         setHasStudyGroup(m.hasStudyGroup ?? false);
+        setWhatsappGroupUrl(m.whatsappGroupUrl ?? '');
 
 
         const imgUrl = normalizeStoredImageUrl(m.moduleImgUrl) || null;
@@ -331,6 +333,7 @@ function EditModulContent() {
         moduleImgUrl,
         pretestPostTestEnabled,
         hasStudyGroup,
+        whatsappGroupUrl: hasStudyGroup ? whatsappGroupUrl.trim() || null : null,
         hasCertificate,
       });
 
@@ -649,6 +652,21 @@ function EditModulContent() {
                     className={inputCls}
                   />
                   <p className={hintCls}>Masukkan harga dalam Rupiah (tanpa titik/koma).</p>
+                </div>
+              )}
+
+              {/* Link Grup WhatsApp */}
+              {hasStudyGroup && (
+                <div className="mt-4">
+                  <label className={labelCls}>Link Grup WhatsApp</label>
+                  <input
+                    type="url"
+                    value={whatsappGroupUrl}
+                    onChange={(e) => setWhatsappGroupUrl(e.target.value)}
+                    placeholder="https://chat.whatsapp.com/..."
+                    className={inputCls}
+                  />
+                  <p className={hintCls}>Masukkan link undangan grup WhatsApp untuk siswa (opsional).</p>
                 </div>
               )}
             </div>

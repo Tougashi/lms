@@ -341,17 +341,21 @@ export default function BerandaAdminPage() {
                       col2: r.tutor?.fullName ?? "-",
                       col3: String(r.totalSiswa ?? 0),
                   }))
-                : kuisRows.map((r) => {
-                      const namaKuis =
-                          r.topiks?.[0]?.nama ??
-                          r.topiks?.[0]?.materis?.[0]?.id ??
-                          "-";
-                      return {
-                          id: r.id,
-                          col1: namaKuis,
-                          col2: r.moduleName,
-                          col3: r.tutor?.fullName ?? "-",
-                      };
+                : kuisRows.flatMap((r) => {
+                      const quizzes: { id: string; col1: string; col2: string; col3: string }[] = [];
+                      (r.topiks || []).forEach((t) => {
+                          (t.quizzes || []).forEach((q: any) => {
+                              const rawQuestion = (q.question || "").replace(/<[^>]*>?/gm, "");
+                              quizzes.push({
+                                  id: q.id,
+                                  moduleId: r.id,
+                                  col1: rawQuestion.length > 50 ? rawQuestion.substring(0, 50) + "..." : rawQuestion || "Soal Kuis",
+                                  col2: r.moduleName,
+                                  col3: r.tutor?.fullName ?? "-",
+                              });
+                          });
+                      });
+                      return quizzes;
                   });
 
     // Apply search filter across all three visible columns
@@ -431,13 +435,15 @@ export default function BerandaAdminPage() {
                 ? ["Nama Modul", "Guru", "Jml. Siswa"]
                 : ["Nama Kuis", "Nama Modul", "Nama Guru"];
 
-    const getEditHref = (id: string) => {
+    const getEditHref = (row: any) => {
         if (activeTab === "guru")
-            return `/admin/manajemen-pengguna/edit-guru?id=${id}`;
+            return `/admin/manajemen-pengguna/edit-guru?id=${row.id}`;
         if (activeTab === "siswa")
-            return `/admin/manajemen-pengguna/edit-siswa?id=${id}`;
+            return `/admin/manajemen-pengguna/edit-siswa?id=${row.id}`;
         if (activeTab === "modul")
-            return `/admin/manajemen-modul/edit?id=${id}`;
+            return `/admin/manajemen-modul/edit?id=${row.id}`;
+        if (activeTab === "kuis")
+            return `/admin/manajemen-modul/edit/konten?id=${row.moduleId}`;
         return "#";
     };
 
@@ -751,7 +757,7 @@ export default function BerandaAdminPage() {
                                                                         <>
                                                                             <Link
                                                                                 href={getEditHref(
-                                                                                    row.id,
+                                                                                    row,
                                                                                 )}
                                                                                 onClick={() =>
                                                                                     setOpenActionMenuId(
@@ -828,7 +834,7 @@ export default function BerandaAdminPage() {
                                                                             {/* Edit */}
                                                                             <Link
                                                                                 href={getEditHref(
-                                                                                    row.id,
+                                                                                    row,
                                                                                 )}
                                                                                 onClick={() =>
                                                                                     setOpenActionMenuId(

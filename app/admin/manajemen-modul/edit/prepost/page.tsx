@@ -68,6 +68,7 @@ type LocalCTSubQuestion = {
   apiSoalId: string | null;
   ctAspect: CTAspect;
   label: string;
+  pertanyaan: string;
   skor: number;
   answers: LocalAnswer[];
 };
@@ -100,6 +101,7 @@ function makeCTStory(): LocalCTStory {
       apiSoalId: null,
       ctAspect: aspect,
       label: `Soal ${aspect}`,
+      pertanyaan: '',
       skor: 10,
       answers: [
         { id: Date.now() + i * 10 + 100, text: '', isCorrect: false },
@@ -362,6 +364,14 @@ function EditModulPrePostContent() {
       ...prev, ctStories: prev.ctStories.map((s) => s.id === storyId ? { ...s, cerita } : s),
     } : prev);
   };
+  const handleUpdateCTQuestionText = (storyId: number, sqId: number, html: string) => {
+    setBank((prev) => prev ? {
+      ...prev, ctStories: prev.ctStories.map((s) => s.id !== storyId ? s : {
+        ...s, subQuestions: s.subQuestions.map((sq) => sq.id !== sqId ? sq : { ...sq, pertanyaan: html }),
+      }),
+    } : null);
+  };
+
   const handleUpdateCTAnswer = (storyId: number, sqId: number, aId: number, text: string) => {
     setBank((prev) => prev ? {
       ...prev, ctStories: prev.ctStories.map((s) => s.id !== storyId ? s : {
@@ -492,7 +502,7 @@ function EditModulPrePostContent() {
       const updatedSubIds: Record<number, string> = {};
       for (const sq of story.subQuestions) {
         const payload: any = {
-          pertanyaan: sq.label,
+          pertanyaan: sq.pertanyaan || sq.label,
           pilihan: sq.answers.filter((a) => a.text.trim()).map((a) => a.text),
           jawaban_benar: sq.answers.find((a) => a.isCorrect)?.text || '',
           skor: sq.skor,
@@ -743,6 +753,10 @@ function EditModulPrePostContent() {
                                 <span className="text-[11px] text-[#7a7e8a]">Skor:</span>
                                 <input type="number" value={sq.skor} onChange={(e) => handleUpdateCTSkor(story.id, sq.id, parseInt(e.target.value) || 0)} min={0} max={100} className="h-[28px] w-[55px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[11px] outline-none" />
                               </div>
+                            </div>
+                            <p className="mb-2 text-[11px] font-semibold text-[#6e7280]">Pertanyaan</p>
+                            <div className="mb-4">
+                              <MiniEditor placeholder="Masukkan soal..." value={sq.pertanyaan} onChange={(html) => handleUpdateCTQuestionText(story.id, sq.id, html)} />
                             </div>
                             <p className="mb-2 text-[11px] font-semibold text-[#6e7280]">Pilihan Jawaban</p>
                             <div className="space-y-2">

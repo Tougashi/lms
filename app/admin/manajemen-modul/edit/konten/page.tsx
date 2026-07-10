@@ -127,6 +127,7 @@ function EditModulKontenPageContent() {
                 subQuestions: {
                     id: number;
                     label: string;
+                    question?: string;
                     ctAspect?: string;
                     answers: { id: number; text: string; isCorrect: boolean }[];
                 }[];
@@ -750,6 +751,7 @@ function EditModulKontenPageContent() {
         subQuestions: ctSubLabels.map((label, i) => ({
             id: Date.now() + i + 1,
             label,
+            question: "",
             answers: [
                 { id: Date.now() + i * 10 + 100, text: "", isCorrect: false },
                 { id: Date.now() + i * 10 + 101, text: "", isCorrect: false },
@@ -1338,7 +1340,7 @@ function EditModulKontenPageContent() {
                     for (const sq of story.subQuestions) {
                         const ctGroupId = "ct-" + story.id;
                         const payload = {
-                            question: sq.label || "Soal CT",
+                            question: sq.question || sq.label || "Soal CT",
                             correctAnswer:
                                 sq.answers.find((a) => a.isCorrect)?.text ||
                                 sq.answers[0]?.text ||
@@ -3103,7 +3105,7 @@ function EditModulKontenPageContent() {
                                                                                                     id={`quiz-ct-sq-${sq.id}`}
                                                                                                     placeholder="Masukkan soal ..."
                                                                                                     value={
-                                                                                                        sq.label
+                                                                                                        sq.question || ""
                                                                                                     }
                                                                                                     minHeight="80px"
                                                                                                     onChange={(
@@ -3142,7 +3144,7 @@ function EditModulKontenPageContent() {
                                                                                                                                                                         ? sub
                                                                                                                                                                         : {
                                                                                                                                                                               ...sub,
-                                                                                                                                                                              label: html,
+                                                                                                                                                                              question: html,
                                                                                                                                                                           },
                                                                                                                                                             ),
                                                                                                                                                     },
