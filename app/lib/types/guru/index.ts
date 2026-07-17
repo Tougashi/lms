@@ -511,6 +511,17 @@ export interface GuruModuleProgressItem {
     recommendation: string;
 }
 
+export interface TopikCTAnalysisItem {
+    topikId: string;
+    topikName: string;
+    computationalThinking: {
+        decomposition:      { score: number; label: string };
+        patternRecognition: { score: number; label: string };
+        abstraction:        { score: number; label: string };
+        algorithm:          { score: number; label: string };
+    };
+}
+
 export interface CTAnalysisResponse {
     studentInfo: { fullName: string; email: string; avatarUrl: string | null };
     moduleProgress: {
@@ -532,6 +543,7 @@ export interface CTAnalysisResponse {
         abstraction:        { score: number; label: string; preTest: number; postTest: number };
         algorithm:          { score: number; label: string; preTest: number; postTest: number };
     };
+    topikCTAnalysis: TopikCTAnalysisItem[];
     quizRecords: Array<{
         topik: string;
         quizType: 'REGULER' | 'COMPUTATIONAL_THINKING';

@@ -17,7 +17,7 @@ import type { CTAnalysisResponse } from '../../../lib/types/guru';
 /* ─── Types ─── */
 
 type CTKey = 'decomposition' | 'patternRecognition' | 'abstraction' | 'algorithm';
-type ViewMode = 'ct-analysis' | 'ct-comparison' | 'quiz-table';
+type ViewMode = 'ct-analysis' | 'ct-comparison' | 'ct-topik-summary' | 'quiz-table';
 
 /* ─── Helpers ─── */
 
@@ -56,18 +56,17 @@ function getRecDesc(rec: string): string {
 
 /* ─── Pie Chart ─── */
 
-function PieChart({ data }: { data: CTAnalysisResponse['computationalThinking'] | null }) {
-  if (!data) return <div className="flex h-[240px] w-[240px] items-center justify-center rounded-full border-4 border-dashed border-[#e5e3ee]"><p className="text-[12px] text-[#8a8d98]">Belum ada data</p></div>;
+function PieChart({ data, size = 240 }: { data: CTAnalysisResponse['computationalThinking'] | null; size?: number }) {
+  if (!data) return <div className="flex items-center justify-center rounded-full border-4 border-dashed border-[#e5e3ee]" style={{ width: size, height: size }}><p className="text-[12px] text-[#8a8d98]">Belum ada data</p></div>;
 
   const entries = Object.entries(data) as [CTKey, { score: number }][];
   const sum = entries.reduce((a, [, v]) => a + v.score, 0);
 
-  if (sum === 0) return <div className="flex h-[240px] w-[240px] items-center justify-center rounded-full border-4 border-dashed border-[#e5e3ee]"><p className="text-[12px] text-[#8a8d98]">Belum ada data CT</p></div>;
+  if (sum === 0) return <div className="flex items-center justify-center rounded-full border-4 border-dashed border-[#e5e3ee]" style={{ width: size, height: size }}><p className="text-[12px] text-[#8a8d98]">Belum ada data CT</p></div>;
 
-  const size = 240;
   const cx = size / 2;
   const cy = size / 2;
-  const radius = 100;
+  const radius = size * 0.42;
   let cumulative = 0;
 
   const slices = entries.map(([key, val]) => {
@@ -86,12 +85,12 @@ function PieChart({ data }: { data: CTAnalysisResponse['computationalThinking'] 
     return (
       <g key={key}>
         <path d={`M${cx},${cy} L${x1},${y1} A${radius},${radius} 0 ${largeArc},1 ${x2},${y2} Z`} fill={PILLAR_META[key].color} stroke="white" strokeWidth="3" />
-        <text x={cx + Math.cos(midAngle) * labelR} y={cy + Math.sin(midAngle) * labelR} textAnchor="middle" dominantBaseline="central" fill="white" fontSize="14" fontWeight="700">{val.score}%</text>
+        <text x={cx + Math.cos(midAngle) * labelR} y={cy + Math.sin(midAngle) * labelR} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={size * 0.058} fontWeight="700">{val.score}%</text>
       </g>
     );
   });
 
-  return <svg viewBox={`0 0 ${size} ${size}`} className="h-[240px] w-[240px] shrink-0">{slices}</svg>;
+  return <svg viewBox={`0 0 ${size} ${size}`} style={{ width: size, height: size }} className="shrink-0">{slices}</svg>;
 }
 
 /* ─── Comparison Bar ─── */
@@ -139,7 +138,7 @@ function SiswaDetailPageContent() {
     guruProgressApi.analyze(studentId, modulId ?? undefined)
       .then(d => {
         setData(d);
-        if (!d.moduleProgress?.isTestComputationalThinking) {
+        if (!d.topikCTAnalysis?.length) {
           setActiveView('quiz-table');
         }
       })
@@ -151,8 +150,9 @@ function SiswaDetailPageContent() {
   const mod = data?.moduleProgress;
   const ct = data?.computationalThinking ?? null;
   const quizRecs = data?.quizRecords ?? [];
+  const topikCT = data?.topikCTAnalysis ?? [];
   const rec = data?.recommendation ?? '';
-  const isCT = mod?.isTestComputationalThinking ?? false;
+  const isCT = topikCT.length > 0;
 
   // Quiz table pagination
   const QUIZ_PER_PAGE = 5;
@@ -278,6 +278,13 @@ function SiswaDetailPageContent() {
               )}
               <button
                 type="button"
+                onClick={() => setActiveView('ct-topik-summary')}
+                className={`rounded-xl px-5 py-2 text-[13px] font-semibold transition-all cursor-pointer ${activeView === 'ct-topik-summary' ? 'bg-[#7054dc] text-white shadow-[0_2px_10px_rgba(112,84,220,0.3)]' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}
+              >
+                Ringkasan per Topik
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveView('quiz-table')}
                 className={`rounded-xl px-5 py-2 text-[13px] font-semibold transition-all cursor-pointer ${activeView === 'quiz-table' ? 'bg-[#7054dc] text-white shadow-[0_2px_10px_rgba(112,84,220,0.3)]' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}
               >
@@ -337,6 +344,54 @@ function SiswaDetailPageContent() {
                       Peningkatan tertinggi pada pilar{' '}
                       <span className="font-bold text-[#22c55e]">{PILLAR_META[highestImprovement.key].label} ({PILLAR_META[highestImprovement.key].subLabel})</span>.
                     </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── VIEW: Ringkasan per Topik ── */}
+            {activeView === 'ct-topik-summary' && (
+              <div className="mt-6">
+                <h2 className="text-[16px] font-bold text-[#232530]">Ringkasan CT per Topik</h2>
+                <p className="mt-1 text-[12px] text-[#7a7e8a]">Skor Computational Thinking pada setiap topik</p>
+                <div className="mt-4 overflow-hidden rounded-2xl border border-[#e8e6f0] bg-white">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[700px] border-separate border-spacing-0">
+                      <thead>
+                        <tr className="bg-[#fafafe]">
+                          <th className="px-5 py-3.5 text-left text-[13px] font-semibold text-[#232530]">Topik</th>
+                          {(Object.entries(PILLAR_META) as [CTKey, typeof PILLAR_META[CTKey]][]).map(([key, meta]) => (
+                            <th key={key} className="px-4 py-3.5 text-center text-[12px] font-semibold" style={{ color: meta.color }}>
+                              {meta.subLabel}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topikCT.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-5 py-8 text-center text-[13px] text-[#8a8d98]">Belum ada data CT.</td>
+                          </tr>
+                        ) : (
+                          topikCT.map((t) => (
+                            <tr key={t.topikId} className="border-t border-[#f0eef6] text-[13px] text-[#232530]">
+                              <td className="px-5 py-4 font-medium">{t.topikName}</td>
+                              {(Object.keys(PILLAR_META) as CTKey[]).map((key) => {
+                                const pillar = t.computationalThinking[key];
+                                const sc = pillar.score;
+                                const gradeColor = sc >= 85 ? '#22c55e' : sc >= 70 ? '#22c55e' : sc >= 50 ? '#e8963a' : '#d63c3c';
+                                return (
+                                  <td key={key} className="px-4 py-4 text-center">
+                                    <span className="text-[15px] font-bold" style={{ color: gradeColor }}>{sc}</span>
+                                    <span className="ml-1.5 text-[11px] font-medium text-[#8a8d98]">{pillar.label}</span>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -425,6 +480,15 @@ function SiswaDetailPageContent() {
               <h3 className="mt-5 text-[18px] font-semibold text-[#232530]">{student?.fullName ?? '—'}</h3>
               <p className="mt-1 text-[13px] text-[#8a8d98]">{student?.email ?? '—'}</p>
 
+              {isCT && ct && (
+                <div className="mt-5 w-full">
+                  <p className="mb-2 text-center text-[12px] font-semibold text-[#555968]">Skor CT Keseluruhan</p>
+                  <div className="flex justify-center">
+                    <PieChart data={ct} size={160} />
+                  </div>
+                </div>
+              )}
+
               {/* Context card */}
               <div className={`mt-6 w-full rounded-2xl border border-[#e8e6f0] px-5 py-5 text-center ${activeView === 'quiz-table' ? recStyle.bg : 'bg-[#fafafe]'}`}>
                 {activeView === 'quiz-table' ? (
@@ -438,6 +502,10 @@ function SiswaDetailPageContent() {
                 ) : activeView === 'ct-analysis' ? (
                   <p className="text-[13px] leading-[1.7] text-[#555968]">
                     Analisis Computational Thinking pada Modul {mod?.moduleName ?? ''}
+                  </p>
+                ) : activeView === 'ct-topik-summary' ? (
+                  <p className="text-[13px] leading-[1.7] text-[#555968]">
+                    Rincian skor CT per topik untuk melihat pilar mana yang perlu dikuatkan pada setiap topik
                   </p>
                 ) : (
                   <p className="text-[13px] leading-[1.7] text-[#555968]">
@@ -456,6 +524,9 @@ function SiswaDetailPageContent() {
                   </button>
                   <button type="button" onClick={() => setActiveView('ct-comparison')} className={`w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors ${activeView === 'ct-comparison' ? 'bg-[#7054dc] text-white' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}>
                     Perbandingan CT
+                  </button>
+                  <button type="button" onClick={() => setActiveView('ct-topik-summary')} className={`w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors ${activeView === 'ct-topik-summary' ? 'bg-[#7054dc] text-white' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}>
+                    Ringkasan per Topik
                   </button>
                 </>
               )}
