@@ -128,7 +128,7 @@ function TambahModulProfilPageContent() {
             case "SMP":
                 return ["7", "8", "9"];
             case "SMA":
-                return ["10", "11", "12"];
+                return ["10", "11", "12", "13"];
             default:
                 return [];
         }
@@ -200,7 +200,9 @@ function TambahModulProfilPageContent() {
                 modulType: accessType,
                 hasCertificate,
                 hasStudyGroup,
-                whatsappGroupUrl: hasStudyGroup ? whatsappGroupUrl.trim() || null : null,
+                whatsappGroupUrl: hasStudyGroup
+                    ? whatsappGroupUrl.trim() || null
+                    : null,
             };
 
             if (modulId) {
@@ -778,62 +780,70 @@ function TambahModulProfilPageContent() {
                                     </label>
                                 </div>
                                 <p className="mt-1 text-[11px] text-[#7e8290]">
-                                Apakah modul ini memberikan sertifikat
-                                kepada siswa yang lulus
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-[12px] font-semibold text-[#232530]">
-                                Grup Belajar WhatsApp
-                            </p>
-                            <div className="mt-3 flex items-center gap-6 text-[12px] text-[#6e7280]">
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="radio"
-                                        name="hasStudyGroup"
-                                        checked={hasStudyGroup}
-                                        onChange={() => setHasStudyGroup(true)}
-                                    />
-                                    Ya
-                                </label>
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="radio"
-                                        name="hasStudyGroup"
-                                        checked={!hasStudyGroup}
-                                        onChange={() => {
-                                            setHasStudyGroup(false);
-                                            setWhatsappGroupUrl("");
-                                        }}
-                                    />
-                                    Tidak
-                                </label>
+                                    Apakah modul ini memberikan sertifikat
+                                    kepada siswa yang lulus
+                                </p>
                             </div>
-                            <p className="mt-1 text-[11px] text-[#7e8290]">
-                                Aktifkan grup diskusi WhatsApp untuk siswa modul ini
-                            </p>
-                            {hasStudyGroup && (
-                                <div className="mt-3">
-                                    <label className="text-[12px] font-semibold text-[#232530]">
-                                        Link Undangan WhatsApp Group
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={whatsappGroupUrl}
-                                        onChange={(e) => setWhatsappGroupUrl(e.target.value)}
-                                        placeholder="https://chat.whatsapp.com/..."
-                                        className={inputClassName}
-                                    />
-                                    <p className="mt-1 text-[11px] text-[#7e8290]">
-                                        Masukkan tautan undangan grup WhatsApp untuk siswa bergabung
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
 
-                    <div className="mt-8 pb-6">
+                            <div>
+                                <p className="text-[12px] font-semibold text-[#232530]">
+                                    Grup Belajar WhatsApp
+                                </p>
+                                <div className="mt-3 flex items-center gap-6 text-[12px] text-[#6e7280]">
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            name="hasStudyGroup"
+                                            checked={hasStudyGroup}
+                                            onChange={() =>
+                                                setHasStudyGroup(true)
+                                            }
+                                        />
+                                        Ya
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            name="hasStudyGroup"
+                                            checked={!hasStudyGroup}
+                                            onChange={() => {
+                                                setHasStudyGroup(false);
+                                                setWhatsappGroupUrl("");
+                                            }}
+                                        />
+                                        Tidak
+                                    </label>
+                                </div>
+                                <p className="mt-1 text-[11px] text-[#7e8290]">
+                                    Aktifkan grup diskusi WhatsApp untuk siswa
+                                    modul ini
+                                </p>
+                                {hasStudyGroup && (
+                                    <div className="mt-3">
+                                        <label className="text-[12px] font-semibold text-[#232530]">
+                                            Link Undangan WhatsApp Group
+                                        </label>
+                                        <input
+                                            type="url"
+                                            value={whatsappGroupUrl}
+                                            onChange={(e) =>
+                                                setWhatsappGroupUrl(
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="https://chat.whatsapp.com/..."
+                                            className={inputClassName}
+                                        />
+                                        <p className="mt-1 text-[11px] text-[#7e8290]">
+                                            Masukkan tautan undangan grup
+                                            WhatsApp untuk siswa bergabung
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-8 pb-6">
                             <button
                                 type="button"
                                 onClick={handleSave}

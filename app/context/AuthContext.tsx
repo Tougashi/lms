@@ -24,6 +24,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<LoginResponse>;
   register: (payload: RegisterPayload) => Promise<UserSession>;
   logout: () => Promise<void>;
+  updateUser: (data: Partial<UserSession>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -128,6 +129,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [router]
   );
 
+  // ── Update user in context + localStorage ─────────────────────────────
+  const updateUser = useCallback((data: Partial<UserSession>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...data };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   // ── Logout ────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
     try {
@@ -145,8 +156,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   const value = useMemo(
-    () => ({ user, role, isLoading, login, register, logout }),
-    [user, role, isLoading, login, register, logout],
+    () => ({ user, role, isLoading, login, register, logout, updateUser }),
+    [user, role, isLoading, login, register, logout, updateUser],
   );
 
   return (

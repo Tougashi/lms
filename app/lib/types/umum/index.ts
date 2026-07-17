@@ -18,6 +18,7 @@ export interface UserSession {
   fullName?: string;
   jenjang?: string;
   kelas_sekolah?: string;
+  profileImage?: string | null;
 }
 
 export interface LoginResponse {
