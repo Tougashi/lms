@@ -73,6 +73,39 @@ function parseYouTubeDuration(durationStr: string | number | undefined): string 
   return "";
 }
 
+async function getVideoDurationFromUrl(url: string, isCloudinary: boolean): Promise<{ duration: string; title?: string }> {
+  if (!url) return { duration: "" };
+  try {
+    if (isCloudinary || url.includes("res.cloudinary.com") || url.includes(".mp4")) {
+      const duration = await new Promise<string>((resolve) => {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.onloadedmetadata = () => {
+          const totalSec = Math.round(video.duration);
+          if (isNaN(totalSec) || !isFinite(totalSec)) {
+            resolve("");
+            return;
+          }
+          const m = Math.floor(totalSec / 60);
+          const s = totalSec % 60;
+          resolve(`${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+        };
+        video.onerror = () => resolve("");
+        video.src = url;
+      });
+      return { duration };
+    } else if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      const res = await fetch(`/api/yt-metadata?url=${encodeURIComponent(url)}`);
+      const data = await res.json();
+      return { duration: parseYouTubeDuration(data.duration), title: data.title };
+    }
+  } catch {
+    // ignore
+  }
+  return { duration: "" };
+}
+
+
 function getYoutubeVideoId(url: string): string | null {
   const match = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
@@ -355,7 +388,8 @@ function TambahModulKontenPageContent() {
           trimmedUrl.includes("vimeo.com")
         ) {
           try {
-            const data = await oembedApi.getMetadata(trimmedUrl);
+            const res = await fetch(`/api/yt-metadata?url=${encodeURIComponent(trimmedUrl)}`);
+            const data = await res.json();
             const parsedDur = parseYouTubeDuration(data.duration);
             setMaterials((prev) =>
               prev.map((item) =>
@@ -442,6 +476,24 @@ function TambahModulKontenPageContent() {
             setMaterialApiIds((prev) => ({ ...prev, ...initApiIds }));
             setMaterials(loaded);
             if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
+
+            loaded.forEach(async (mat) => {
+              if (mat.type === "video") {
+                const url = mat.videoSource === "upload" ? mat.previewUrl : mat.linkUrl;
+                if (url) {
+                  const { duration, title } = await getVideoDurationFromUrl(url, mat.videoSource === "upload");
+                  if (duration) {
+                    setMaterials((prev) =>
+                      prev.map((m) =>
+                        m.id === mat.id
+                          ? { ...m, duration, linkVideoDuration: duration, linkVideoTitle: title || m.linkVideoTitle, linkPreviewTitle: title || m.linkPreviewTitle }
+                          : m
+                      )
+                    );
+                  }
+                }
+              }
+            });
           }
 
           // Load quizzes from API — group consecutive CT quizzes into one entry
@@ -966,6 +1018,24 @@ function TambahModulKontenPageContent() {
     setMaterials(loaded);
     if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
     else setActiveMaterialId(null);
+
+    loaded.forEach(async (mat: any) => {
+      if (mat.type === "video") {
+        const url = mat.videoSource === "upload" ? mat.previewUrl : mat.linkUrl;
+        if (url) {
+          const { duration, title } = await getVideoDurationFromUrl(url, mat.videoSource === "upload");
+          if (duration) {
+            setMaterials((prev) =>
+              prev.map((m) =>
+                m.id === mat.id
+                  ? { ...m, duration, linkVideoDuration: duration, linkVideoTitle: title || m.linkVideoTitle, linkPreviewTitle: title || m.linkPreviewTitle }
+                  : m
+              )
+            );
+          }
+        }
+      }
+    });
 
     // Group consecutive CT quizzes into one entry
     const rawTopikQuizzes: any[] = topik.quizzes || [];
