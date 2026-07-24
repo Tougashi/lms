@@ -134,10 +134,10 @@ function BerandaGuruPageContent() {
         </div>
 
         <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard value={stats.published} label="Modul Terbit" href="/modul-guru" />
-          <StatCard value={stats.drafts} label="Draft Modul" href="/modul-guru" />
-          <StatCard value={stats.totalStudents} label="Total Siswa Terdaftar" href="/modul-guru" />
-          <StatCard value={stats.totalCompleted} label="Total Siswa Lulus" href="/modul-guru" />
+          <StatCard value={stats.published} label="Modul Terbit" href="/modul-guru?tab=published" />
+          <StatCard value={stats.drafts} label="Draft Modul" href="/modul-guru?tab=draft" />
+          <StatCard value={stats.totalStudents} label="Total Siswa Terdaftar" href="/modul-guru?tab=published" />
+          <StatCard value={stats.totalCompleted} label="Total Siswa Lulus" href="/modul-guru?tab=published" />
         </section>
 
         <section className="mt-7 grid gap-4 md:grid-cols-2">

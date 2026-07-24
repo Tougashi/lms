@@ -459,9 +459,9 @@ function VideoEmbed({ url, className }: { url: string; className?: string }) {
   const getEmbedUrl = (src: string): { type: 'iframe' | 'video' | 'link'; src: string } => {
     const trimmed = src.trim();
 
-    // YouTube
+    // YouTube (including Shorts and live)
     const ytMatch = trimmed.match(
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]+)/
     );
     if (ytMatch) {
       return { type: 'iframe', src: `https://www.youtube.com/embed/${ytMatch[1]}` };
@@ -479,9 +479,19 @@ function VideoEmbed({ url, className }: { url: string; className?: string }) {
       return { type: 'iframe', src: `https://drive.google.com/file/d/${gDriveMatch[1]}/preview` };
     }
 
-    // Direct video file
-    if (/\.(mp4|webm|ogg|mov|avi)$/i.test(trimmed)) {
+    // Cloudinary video URLs (used by the app's upload system)
+    if (/res\.cloudinary\.com/i.test(trimmed)) {
       return { type: 'video', src: trimmed };
+    }
+
+    // Direct video file
+    if (/\.(mp4|webm|ogg|mov|avi)(\?|$)/i.test(trimmed)) {
+      return { type: 'video', src: trimmed };
+    }
+
+    // Try as iframe for any other URL (best-effort embed)
+    if (/^https?:\/\//i.test(trimmed)) {
+      return { type: 'iframe', src: trimmed };
     }
 
     return { type: 'link', src: trimmed };

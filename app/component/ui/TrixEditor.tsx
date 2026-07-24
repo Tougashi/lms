@@ -19,6 +19,7 @@ function ensureTrixLoaded() {
 // Register custom alignment elements (Web Components) — once globally
 let alignElementsRegistered = false;
 function ensureAlignElements() {
+  if (alignElementsRegistered) return;
   alignElementsRegistered = true;
   if (typeof window === "undefined" || typeof customElements === "undefined") return;
 

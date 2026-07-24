@@ -67,6 +67,16 @@ const ctAspectKeys = [
     "algorithm",
 ];
 
+const ctAspectDisplayName = (aspect: string): string => {
+    switch (aspect) {
+        case "decomposition": return "Soal Pemecahan Masalah (Dekomposisi)";
+        case "patternRecognition": return "Soal Pengenalan Pola";
+        case "abstraction": return "Soal Menyaring Informasi Penting (Abstraksi)";
+        case "algorithm": return "Soal Menyusun Langkah Solusi";
+        default: return "Soal CT";
+    }
+};
+
 type BankSoal = {
     id: number;
     name: string;
@@ -262,13 +272,22 @@ function PrePostTestPageContent() {
                     }
                 }
 
+                let posttest;
                 try {
-                    const posttest = await guruPosttestApi.getByModul(modulId);
-                    if (posttest && posttest.id) {
-                        setPosttestId(posttest.id);
-                    }
+                    posttest = await guruPosttestApi.getByModul(modulId);
                 } catch {
-                    /* no posttest yet */
+                    posttest = null;
+                }
+                if (!posttest || !posttest.id) {
+                    try {
+                        await guruPosttestApi.create({ modul_id: modulId });
+                        posttest = await guruPosttestApi.getByModul(modulId);
+                    } catch (err) {
+                        console.error("Gagal membuat posttest:", err);
+                    }
+                }
+                if (posttest && posttest.id) {
+                    setPosttestId(posttest.id);
                 }
             } finally {
                 setIsLoading(false);
@@ -348,7 +367,7 @@ function PrePostTestPageContent() {
                 subQuestions: ctSubLabels.map((label, i) => ({
                     id: nid + i * 10 + 1,
                     apiSoalId: null,
-                    label,
+                    label: "",
                     ctAspect: ctAspectKeys[i] || "",
                     answers: [
                         { id: nid + i * 10 + 100, text: "", isCorrect: false },
@@ -834,7 +853,7 @@ function PrePostTestPageContent() {
                                             (label, i) => ({
                                                 id: nid + i * 10 + 1,
                                                 apiSoalId: null,
-                                                label,
+                                                label: "",
                                                 ctAspect:
                                                     ctAspectKeys[i] || "",
                                                 answers: [
@@ -1662,13 +1681,10 @@ function PrePostTestPageContent() {
                                                             className="rounded-xl border border-[#e5e3ee] bg-[#fbfaff] px-4 py-3"
                                                         >
                                                             <p className="mb-2 text-[12px] font-semibold text-[#7054dc]">
-                                                                Soal {sqIdx + 1}
-                                                                :{" "}
-                                                                {sq.label
-                                                                    ? sq.label.replace(
-                                                                        /<[^>]*>?/gm,
-                                                                        "",
-                                                                    )
+                                                                Soal {sqIdx + 1}:{" "}
+                                                                {ctAspectDisplayName(sq.ctAspect)}
+                                                                {sq.label && sq.label.replace(/<[^>]*>?/gm, "").trim()
+                                                                    ? ` : ${sq.label.replace(/<[^>]*>?/gm, "").trim()}`
                                                                     : ""}
                                                             </p>
                                                             <div className="mb-3">

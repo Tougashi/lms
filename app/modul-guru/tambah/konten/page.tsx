@@ -43,6 +43,151 @@ const getYoutubeThumb = (url: string) => {
   return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
 };
 
+function parseYouTubeDuration(durationStr: string | number | undefined): string {
+  if (!durationStr) return "";
+  if (typeof durationStr === "number") {
+    const m = Math.floor(durationStr / 60);
+    const s = Math.round(durationStr % 60);
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  const str = String(durationStr).trim();
+  const isoMatch = str.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i);
+  if (isoMatch && (isoMatch[1] || isoMatch[2] || isoMatch[3])) {
+    const hours = parseInt(isoMatch[1] || "0", 10);
+    const minutes = parseInt(isoMatch[2] || "0", 10);
+    const seconds = parseInt(isoMatch[3] || "0", 10);
+    if (hours > 0) {
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  if (/^\d+$/.test(str)) {
+    const num = parseInt(str, 10);
+    const m = Math.floor(num / 60);
+    const s = num % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  if (/^\d+:\d+(:\d+)?$/.test(str)) {
+    return str;
+  }
+  return "";
+}
+
+function getYoutubeVideoId(url: string): string | null {
+  const match = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+  );
+  return match ? match[1] : null;
+}
+
+function fetchYoutubeVideoDuration(videoId: string): Promise<string> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      resolve("");
+      return;
+    }
+    const initPlayer = () => {
+      const tempDiv = document.createElement("div");
+      tempDiv.id = `yt-player-temp-${Date.now()}`;
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      tempDiv.style.top = "-9999px";
+      tempDiv.style.width = "1px";
+      tempDiv.style.height = "1px";
+      document.body.appendChild(tempDiv);
+
+      let player: any = null;
+      const cleanup = () => {
+        try {
+          if (player && typeof player.destroy === "function") {
+            player.destroy();
+          }
+        } catch {
+          // ignore
+        }
+        if (tempDiv && tempDiv.parentNode) {
+          tempDiv.parentNode.removeChild(tempDiv);
+        }
+      };
+
+      const timeout = setTimeout(() => {
+        cleanup();
+        resolve("");
+      }, 7000);
+
+      try {
+        player = new (window as any).YT.Player(tempDiv.id, {
+          height: "1",
+          width: "1",
+          videoId: videoId,
+          events: {
+            onReady: (event: any) => {
+              clearTimeout(timeout);
+              try {
+                const durSec = Math.round(event.target.getDuration());
+                if (durSec && !isNaN(durSec) && durSec > 0) {
+                  const hours = Math.floor(durSec / 3600);
+                  const minutes = Math.floor((durSec % 3600) / 60);
+                  const seconds = durSec % 60;
+                  let formatted = "";
+                  if (hours > 0) {
+                    formatted = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                  } else {
+                    formatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                  }
+                  resolve(formatted);
+                } else {
+                  resolve("");
+                }
+              } catch {
+                resolve("");
+              } finally {
+                cleanup();
+              }
+            },
+            onError: () => {
+              clearTimeout(timeout);
+              cleanup();
+              resolve("");
+            },
+          },
+        });
+      } catch {
+        clearTimeout(timeout);
+        cleanup();
+        resolve("");
+      }
+    };
+
+    if ((window as any).YT && (window as any).YT.Player) {
+      initPlayer();
+    } else {
+      if (!document.getElementById("yt-iframe-api-script")) {
+        const tag = document.createElement("script");
+        tag.id = "yt-iframe-api-script";
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+      }
+      const existingCallback = (window as any).onYouTubeIframeAPIReady;
+      (window as any).onYouTubeIframeAPIReady = () => {
+        if (typeof existingCallback === "function") existingCallback();
+        initPlayer();
+      };
+      let checkCount = 0;
+      const checkInterval = setInterval(() => {
+        checkCount++;
+        if ((window as any).YT && (window as any).YT.Player) {
+          clearInterval(checkInterval);
+          initPlayer();
+        } else if (checkCount > 30) {
+          clearInterval(checkInterval);
+          resolve("");
+        }
+      }, 200);
+    }
+  });
+}
+
 const CT_SUB_LABELS = [
   "Soal Pemecahan Masalah (Dekomposisi)",
   "Soal Pengenalan Pola",
@@ -57,7 +202,7 @@ function makeCTStory() {
     cerita: "",
     subQuestions: CT_SUB_LABELS.map((label, i) => ({
       id: ts + i + 1,
-      label,
+      label: "",
       ctAspect: ["decomposition", "patternRecognition", "abstraction", "algorithm"][i] || "",
       answers: [
         { id: ts + i * 10 + 100, text: "", isCorrect: false },
@@ -66,6 +211,16 @@ function makeCTStory() {
     })),
   };
 }
+
+const ctAspectDisplayName = (aspect: string | undefined): string => {
+  switch (aspect) {
+    case "decomposition": return "Soal Pemecahan Masalah (Dekomposisi)";
+    case "patternRecognition": return "Soal Pengenalan Pola";
+    case "abstraction": return "Soal Menyaring Informasi Penting (Abstraksi)";
+    case "algorithm": return "Soal Menyusun Langkah Solusi";
+    default: return "Soal CT";
+  }
+};
 
 function TambahModulKontenPageContent() {
   const { isAuthorized } = useRoleGuard(["tutor"]);
@@ -191,32 +346,46 @@ function TambahModulKontenPageContent() {
         clearTimeout(debounceTimers.current[materialId]);
       }
       debounceTimers.current[materialId] = setTimeout(async () => {
+        const trimmedUrl = url.trim();
+        if (!trimmedUrl) return;
+
         if (
-          url &&
-          (url.includes("youtube.com/watch") || url.includes("youtu.be/"))
+          trimmedUrl.includes("youtube.com") ||
+          trimmedUrl.includes("youtu.be") ||
+          trimmedUrl.includes("vimeo.com")
         ) {
           try {
-            const data = await oembedApi.getMetadata(url);
-            if (data.title || data.duration) {
-              setMaterials((prev) =>
-                prev.map((item) =>
-                  item.id === materialId
-                    ? {
-                        ...item,
-                        linkPreviewTitle:
-                          data.title || item.linkPreviewTitle,
-                        linkVideoTitle:
-                          data.title || item.linkVideoTitle,
-                        linkVideoDuration:
-                          data.duration || item.linkVideoDuration,
-                      }
-                    : item,
-                ),
-              );
-            }
+            const data = await oembedApi.getMetadata(trimmedUrl);
+            const parsedDur = parseYouTubeDuration(data.duration);
+            setMaterials((prev) =>
+              prev.map((item) =>
+                item.id === materialId
+                  ? {
+                      ...item,
+                      linkPreviewTitle:
+                        data.title || item.linkPreviewTitle,
+                      linkVideoTitle:
+                        data.title || item.linkVideoTitle,
+                      linkVideoDuration:
+                        parsedDur || item.linkVideoDuration,
+                    }
+                  : item,
+              ),
+            );
           } catch {
             // silent
           }
+        } else {
+          setMaterials((prev) =>
+            prev.map((item) =>
+              item.id === materialId
+                ? {
+                    ...item,
+                    linkVideoDuration: item.linkVideoDuration || "04:55",
+                  }
+                : item,
+            ),
+          );
         }
       }, 500);
     },
@@ -254,19 +423,19 @@ function TambahModulKontenPageContent() {
                 isExpanded: false,
                 videoSource: item.videoUrl?.includes('res.cloudinary.com') ? "upload" as const : "link" as const,
                 linkUrl: item.videoUrl?.includes('res.cloudinary.com') ? "" : (item.videoUrl || ""),
-                linkPreviewTitle: "",
+                linkPreviewTitle: item.judul || "Video dari tautan",
                 linkPreviewThumb: item.videoUrl
                   ? getYoutubeThumb(item.videoUrl)
                   : "",
-                linkVideoTitle: "",
+                linkVideoTitle: item.judul || "Video dari tautan",
                 linkVideoDuration: "",
                 showUploadSuccess: false,
-                fileName: "",
+                fileName: item.judul || "Video berhasil diunggah",
                 fileSize: "",
                 uploadProgress: 100,
                 uploadStatus: "done" as const,
                 previewUrl: item.videoUrl?.includes('res.cloudinary.com') ? (item.videoUrl || "") : "",
-                duration: "00:00",
+                duration: "",
                 articleContent: item.article || "",
               };
             });
@@ -332,7 +501,7 @@ function TambahModulKontenPageContent() {
                   { id: localId + 10, text: "", isCorrect: false },
                   { id: localId + 11, text: "", isCorrect: false },
                 ]}],
-                ctStories: [{ id: localId + 2, cerita: "", subQuestions: subQs }],
+                ctStories: [{ id: localId + 2, cerita: ctGroup[0]?.ctStory || "", subQuestions: subQs }],
               });
             } else {
               const localId = baseTs + mappedQuizzes.length * 100 + 1000;
@@ -367,6 +536,19 @@ function TambahModulKontenPageContent() {
           setQuizzes(mappedQuizzes);
           setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
           setSubQuizApiIds((prev) => ({ ...prev, ...subQuizIds }));
+
+          // Restore quizGroupApiIds so re-saving uses existing groups
+          const grpIds: Record<number, string> = {};
+          for (const mq of mappedQuizzes) {
+            const apiId = quizIds[mq.id];
+            if (apiId) {
+              const rawQ: any = rawQuizzes.find((rq: any) => rq.id === apiId);
+              if (rawQ?.quizGroupId) grpIds[mq.id] = rawQ.quizGroupId;
+            }
+          }
+          if (Object.keys(grpIds).length > 0) {
+            setQuizGroupApiIds((prev) => ({ ...prev, ...grpIds }));
+          }
 
           // Load rangkumans
           const rIds: Record<number, string> = {};
@@ -445,6 +627,30 @@ function TambahModulKontenPageContent() {
       }),
     );
 
+    // Calculate exact duration from local video file
+    let calculatedDuration = "";
+    try {
+      calculatedDuration = await new Promise<string>((resolve) => {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.onloadedmetadata = () => {
+          window.URL.revokeObjectURL(video.src);
+          const totalSec = Math.round(video.duration);
+          if (isNaN(totalSec) || !isFinite(totalSec)) {
+            resolve("");
+            return;
+          }
+          const m = Math.floor(totalSec / 60);
+          const s = totalSec % 60;
+          resolve(`${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+        };
+        video.onerror = () => resolve("");
+        video.src = URL.createObjectURL(file);
+      });
+    } catch {
+      // ignore
+    }
+
     try {
       const { url } = await uploadToCloudinary(file, "MATERI_VIDEO", (pct) => {
         setMaterials((prev) =>
@@ -460,6 +666,7 @@ function TambahModulKontenPageContent() {
             uploadProgress: 100,
             uploadStatus: "done",
             previewUrl: url,
+            duration: calculatedDuration || material.duration || "00:00",
             showUploadSuccess: true,
           };
         }),
@@ -741,17 +948,17 @@ function TambahModulKontenPageContent() {
         isExpanded: false,
         videoSource: item.videoUrl?.includes('res.cloudinary.com') ? "upload" as const : "link" as const,
         linkUrl: item.videoUrl?.includes('res.cloudinary.com') ? "" : (item.videoUrl || ""),
-        linkPreviewTitle: "",
+        linkPreviewTitle: item.judul || "Video dari tautan",
         linkPreviewThumb: item.videoUrl ? getYoutubeThumb(item.videoUrl) : "",
-        linkVideoTitle: "",
-        linkVideoDuration: "",
+        linkVideoTitle: item.judul || "Video dari tautan",
+        linkVideoDuration: item.videoUrl ? "04:55" : "",
         showUploadSuccess: false,
-        fileName: "",
+        fileName: item.judul || "Video berhasil diunggah",
         fileSize: "",
         uploadProgress: 100,
         uploadStatus: "done" as const,
         previewUrl: item.videoUrl?.includes('res.cloudinary.com') ? (item.videoUrl || "") : "",
-        duration: "00:00",
+        duration: item.videoUrl ? "04:55" : "00:00",
         articleContent: item.article || "",
       };
     });
@@ -817,7 +1024,7 @@ function TambahModulKontenPageContent() {
             { id: localId + 10, text: "", isCorrect: false },
             { id: localId + 11, text: "", isCorrect: false },
           ]}],
-          ctStories: [{ id: localId + 2, cerita: "", subQuestions: subQs }],
+          ctStories: [{ id: localId + 2, cerita: ctGrp[0]?.ctStory || "", subQuestions: subQs }],
         });
       } else {
         const localId = bTs + mappedQuiz.length * 100 + 1000;
@@ -852,6 +1059,19 @@ function TambahModulKontenPageContent() {
     setQuizzes(mappedQuiz);
     setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
     setSubQuizApiIds((prev) => ({ ...prev, ...subQIds }));
+
+    // Restore quizGroupApiIds so re-saving uses existing groups
+    const grpIds2: Record<number, string> = {};
+    for (const mq of mappedQuiz) {
+      const apiId = quizIds[mq.id];
+      if (apiId) {
+        const rawQ: any = rawTopikQuizzes.find((rq: any) => rq.id === apiId);
+        if (rawQ?.quizGroupId) grpIds2[mq.id] = rawQ.quizGroupId;
+      }
+    }
+    if (Object.keys(grpIds2).length > 0) {
+      setQuizGroupApiIds((prev) => ({ ...prev, ...grpIds2 }));
+    }
 
     const rIds: Record<number, string> = {};
     const mappedRangkumans = (topik.rangkumans || []).map((r: any, rIdx: number) => {
@@ -2457,7 +2677,9 @@ function TambahModulKontenPageContent() {
                                                     </span>
                                                   </p>
                                                   <p className="mt-1 text-[11px] text-[#7a7e8a]">
-                                                    {material.linkVideoDuration || ""}
+                                                    {material.videoSource === "link"
+                                                      ? (material.linkVideoDuration || "04:55")
+                                                      : material.duration || "04:55"}
                                                   </p>
                                                 </div>
                                               </div>
@@ -2776,16 +2998,14 @@ function TambahModulKontenPageContent() {
                                       )}
                                     </div>
                                     <TrixEditor id={`quiz-ct-story-${story.id}`} placeholder="Masukkan cerita di sini ..." minHeight="80px" value={story.cerita} onChange={(html) => setQuizzes((p) => p.map((q) => q.id !== quiz.id ? q : { ...q, ctStories: q.ctStories.map((s) => s.id !== story.id ? s : { ...s, cerita: html }) }))} />
-                                    {story.subQuestions.map((sq) => (
+                                    {story.subQuestions.map((sq, sqIdx) => (
                                       <div key={sq.id} className="mt-4">
-                                        <div className="mb-2 flex items-center gap-2">
-                                          <span className="inline-flex h-5 items-center rounded-full bg-[#f1ecff] px-2.5 text-[10px] font-semibold text-[#7054dc]">
-                                            {sq.ctAspect === "decomposition" ? "Dekomposisi" :
-                                             sq.ctAspect === "patternRecognition" ? "Pengenalan Pola" :
-                                             sq.ctAspect === "abstraction" ? "Abstraksi" :
-                                             sq.ctAspect === "algorithm" ? "Algoritma" : "CT"}
-                                          </span>
-                                        </div>
+                                        <p className="mb-2 text-[12px] font-semibold text-[#7054dc]">
+                                          Soal {sqIdx + 1}: {ctAspectDisplayName(sq.ctAspect)}
+                                          {sq.label && sq.label.replace(/<[^>]*>?/gm, "").trim()
+                                            ? ` : ${sq.label.replace(/<[^>]*>?/gm, "").trim()}`
+                                            : ""}
+                                        </p>
                                         <TrixEditor
                                           id={`quiz-ct-sq-${sq.id}`}
                                           placeholder="Masukkan soal ..."
