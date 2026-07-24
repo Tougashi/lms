@@ -445,7 +445,7 @@ function mapAssessmentToSoal(
             pilihan_d: optD,
             gambar_url: null,
             isComputationalThinking: q.isComputationalThinking,
-            knowledgeComponentId: q.knowledgeComponentId,
+            knowledgeComponentId: q.knowledgeComponentId ?? undefined,
             ctAspect: q.ctAspect,
             ceritaCT: q.ceritaCT,
         };
