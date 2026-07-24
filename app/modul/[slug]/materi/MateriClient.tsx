@@ -425,6 +425,10 @@ function mapAssessmentToSoal(
         id: string;
         text: string;
         options: Array<{ key: string; label: string }>;
+        isComputationalThinking?: boolean;
+        knowledgeComponentId?: string | null;
+        ctAspect?: string | null;
+        ceritaCT?: string | null;
     }>,
 ): SoalItem[] {
     return questions.map((q) => {
@@ -440,9 +444,99 @@ function mapAssessmentToSoal(
             pilihan_c: optC,
             pilihan_d: optD,
             gambar_url: null,
+            isComputationalThinking: q.isComputationalThinking,
+            knowledgeComponentId: q.knowledgeComponentId,
+            ctAspect: q.ctAspect,
+            ceritaCT: q.ceritaCT,
         };
     });
 }
+
+// ---------------------------------------------------------------------------
+// Video Embed — detects YouTube / Vimeo / Google Drive / direct file
+// ---------------------------------------------------------------------------
+function VideoEmbed({ url, className }: { url: string; className?: string }) {
+  const getEmbedUrl = (src: string): { type: 'iframe' | 'video' | 'link'; src: string } => {
+    const trimmed = src.trim();
+
+    // YouTube
+    const ytMatch = trimmed.match(
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/
+    );
+    if (ytMatch) {
+      return { type: 'iframe', src: `https://www.youtube.com/embed/${ytMatch[1]}` };
+    }
+
+    // Vimeo
+    const vimeoMatch = trimmed.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) {
+      return { type: 'iframe', src: `https://player.vimeo.com/video/${vimeoMatch[1]}` };
+    }
+
+    // Google Drive
+    const gDriveMatch = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (gDriveMatch) {
+      return { type: 'iframe', src: `https://drive.google.com/file/d/${gDriveMatch[1]}/preview` };
+    }
+
+    // Direct video file
+    if (/\.(mp4|webm|ogg|mov|avi)$/i.test(trimmed)) {
+      return { type: 'video', src: trimmed };
+    }
+
+    return { type: 'link', src: trimmed };
+  };
+
+  const info = getEmbedUrl(url);
+
+  if (info.type === 'iframe') {
+    return (
+      <div className={cn('overflow-hidden rounded-2xl', className)}>
+        <iframe
+          src={info.src}
+          className="aspect-video w-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          title="Video"
+        />
+      </div>
+    );
+  }
+
+  if (info.type === 'video') {
+    return (
+      <div className={cn('overflow-hidden rounded-2xl', className)}>
+        <video
+          src={info.src}
+          controls
+          playsInline
+          preload="metadata"
+          controlsList="nodownload noremoteplayback"
+          disablePictureInPicture
+          className="aspect-video w-full bg-black object-cover"
+        >
+          Browser kamu tidak mendukung video.
+        </video>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn('overflow-hidden rounded-2xl border border-[#e6e4ed] p-4', className)}>
+      <a
+        href={info.src}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 text-sm font-medium text-[#7054dc] hover:underline"
+      >
+        <FaPlay size={14} />
+        Buka video di tab baru
+      </a>
+    </div>
+  );
+}
+
+import { cn } from "../../../lib/utils/cn";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -815,7 +909,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         pilihan_d: it.quizAnswerOptions?.[3]?.option || "D",
                         kunci_jawaban: it.correctAnswer,
                         gambar_url: it.quizImgQuestionUrl || null,
-                        knowledgeComponentId: undefined,
                     });
                 }
             }
@@ -841,12 +934,24 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         pilihan_d: item.quizAnswerOptions?.[3]?.option || "D",
                         kunci_jawaban: item.correctAnswer,
                         gambar_url: item.quizImgQuestionUrl || null,
-                        knowledgeComponentId: undefined,
                     },
                 ] as SoalItem[];
             }
         }
         return [];
+    }, [assessmentType, activeQuizItemId, activeCtSubIds, modulDetail]);
+
+    const currentCtStory = useMemo(() => {
+        if (assessmentType !== "kuis" || !modulDetail) return null;
+        const ids = activeCtSubIds.length > 0 ? activeCtSubIds : (activeQuizItemId ? [activeQuizItemId] : []);
+        for (const topik of modulDetail.curriculum.topiks) {
+            for (const item of topik.items) {
+                if (ids.includes(item.id) && item.ctStory) {
+                    return item.ctStory;
+                }
+            }
+        }
+        return null;
     }, [assessmentType, activeQuizItemId, activeCtSubIds, modulDetail]);
 
     const currentSoal =
@@ -879,13 +984,19 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             : undefined;
 
     // ─── Sequential unlock ─────────────────────────────────────────────────
-    // An item is unlocked iff it is the first item OR the previous item is completed.
     const isItemUnlockedByIndex = useCallback(
         (index: number): boolean => {
             if (index === 0) return true;
             if (index >= sequence.length) return false;
-            // Direct unlock: item was explicitly unlocked by pretest (auto-access rule)
-            if (completedContentItemMap[sequence[index].id]) return true;
+            const item = sequence[index];
+            // Direct unlock: item was already completed
+            if (completedContentItemMap[item.id]) return true;
+            // Posttest: unlock when all real items (materi + quiz) are completed
+            if (item.type === "posttest") {
+                return sequence
+                    .filter((s) => s.type !== "posttest" && s.type !== "rating" && s.id !== "rangkuman-akhir")
+                    .every((s) => completedContentItemMap[s.id]);
+            }
             // Sequential unlock: previous item completed
             const prevId = sequence[index - 1].id;
             return completedContentItemMap[prevId] === true;
@@ -926,8 +1037,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
     const markContentItemAsCompleted = useCallback(
         async (itemId: string, itemType?: string) => {
-            // Skip API call for synthetic per-topik summary IDs (not DB-backed)
-            if (itemId.startsWith("summary-")) {
+            // Skip API call for synthetic items (not DB-backed)
+            if (itemId.startsWith("summary-") || itemId === "rangkuman-akhir") {
                 setCompletedContentItemMap((prev) => {
                     if (prev[itemId]) return prev;
                     return { ...prev, [itemId]: true };
@@ -2172,6 +2283,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                         </div>
 
                                         <div className="rounded-2xl border border-[#e6e4ed] bg-white px-4 sm:px-6 py-8">
+                                            {assessmentType === "kuis" && currentCtStory && (
+                                                <div className="mb-5 rounded-xl border border-[#e6e4ed] bg-[#faf9ff] p-4 text-left text-sm leading-relaxed text-[#202126]">
+                                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7054dc]">
+                                                        Cerita CT
+                                                    </p>
+                                                    <p>{currentCtStory}</p>
+                                                </div>
+                                            )}
                                             {activeQuestion.gambar_url && (
                                                 <div className="mb-6 overflow-hidden rounded-xl">
                                                     <Image
@@ -2584,22 +2703,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                         {!isFinalSummaryView &&
                                             currentSeqItem?.hasVideo &&
                                             currentSeqItem.videoUrl && (
-                                                <div className="overflow-hidden rounded-2xl">
-                                                    <video
-                                                        src={
-                                                            currentSeqItem.videoUrl
-                                                        }
-                                                        controls
-                                                        playsInline
-                                                        preload="metadata"
-                                                        controlsList="nodownload noremoteplayback"
-                                                        disablePictureInPicture
-                                                        className="aspect-video w-full bg-black object-cover"
-                                                    >
-                                                        Browser kamu tidak
-                                                        mendukung video.
-                                                    </video>
-                                                </div>
+                                                <VideoEmbed
+                                                    url={currentSeqItem.videoUrl}
+                                                />
                                             )}
 
                                         <div className="mt-5 flex items-center justify-between gap-4">
@@ -2661,18 +2767,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             menyelesaikan semua
                                                             topik dalam modul
                                                             ini. Selamat!
-                                                        </p>
-                                                    )}
-                                                    {progress?.pretestScore !=
-                                                        null && (
-                                                        <p>
-                                                            Nilai Pre-Test kamu:{" "}
-                                                            <strong>
-                                                                {
-                                                                    progress.pretestScore
-                                                                }
-                                                                /100
-                                                            </strong>
                                                         </p>
                                                     )}
                                                     {progress?.posttestScore !=

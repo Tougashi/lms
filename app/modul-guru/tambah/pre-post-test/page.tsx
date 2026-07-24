@@ -1219,9 +1219,6 @@ function PrePostTestPageContent() {
                                         <p className="text-[13px] font-semibold text-[#232530]">
                                             {activeBank.name}
                                         </p>
-                                        <span className="inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold bg-blue-100 text-blue-600">
-                                            Pre Test
-                                        </span>
                                         <button
                                             type="button"
                                             onClick={openSettings}
@@ -2445,9 +2442,6 @@ function PrePostTestPageContent() {
                                     <p className="text-[13px] font-semibold text-[#232530]">
                                         {(bank as unknown as BankSoal).name}
                                     </p>
-                                    <span className="inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold bg-blue-100 text-blue-600">
-                                        Pre Test
-                                    </span>
                                     <button
                                         type="button"
                                         onClick={openSettings}

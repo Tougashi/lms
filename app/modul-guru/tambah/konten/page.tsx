@@ -27,6 +27,7 @@ import {
   guruKuisApi,
   guruRangkumanApi,
   guruQuizGroupApi,
+  oembedApi,
 } from "../../../lib/api";
 import { uploadToCloudinary } from "../../../lib/cloudinary-upload";
 import type { GuruTopikWithMateri } from "../../../lib/types/guru";
@@ -181,6 +182,46 @@ function TambahModulKontenPageContent() {
   useEffect(() => {
     materialsRef.current = materials;
   }, [materials]);
+
+  const debounceTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  const fetchVideoMetadata = useCallback(
+    (materialId: number, url: string) => {
+      if (debounceTimers.current[materialId]) {
+        clearTimeout(debounceTimers.current[materialId]);
+      }
+      debounceTimers.current[materialId] = setTimeout(async () => {
+        if (
+          url &&
+          (url.includes("youtube.com/watch") || url.includes("youtu.be/"))
+        ) {
+          try {
+            const data = await oembedApi.getMetadata(url);
+            if (data.title || data.duration) {
+              setMaterials((prev) =>
+                prev.map((item) =>
+                  item.id === materialId
+                    ? {
+                        ...item,
+                        linkPreviewTitle:
+                          data.title || item.linkPreviewTitle,
+                        linkVideoTitle:
+                          data.title || item.linkVideoTitle,
+                        linkVideoDuration:
+                          data.duration || item.linkVideoDuration,
+                      }
+                    : item,
+                ),
+              );
+            }
+          } catch {
+            // silent
+          }
+        }
+      }, 500);
+    },
+    [],
+  );
 
   // Load existing topics & materials from unified API
   useEffect(() => {
@@ -2052,6 +2093,7 @@ function TambahModulKontenPageContent() {
                           </div>
 
                           {((material.isSaved && material.isExpanded) ||
+                            (!material.isSaved && material.isExpanded) ||
                             (activeMaterialId === material.id &&
                               material.isExpanded)) && (
                             <div className="mt-4 rounded-2xl border border-[#e5e3ee] bg-white px-4 py-4">
@@ -2103,8 +2145,7 @@ function TambahModulKontenPageContent() {
                                               </p>
                                               <p className="mt-1 text-[11px] text-[#7a7e8a]">
                                                 {material.videoSource === "link"
-                                                  ? material.linkVideoDuration ||
-                                                    "04:55"
+                                                  ? material.linkVideoDuration
                                                   : material.duration}
                                                 {material.fileSize
                                                   ? ` (${material.fileSize})`
@@ -2366,18 +2407,24 @@ function TambahModulKontenPageContent() {
                                       <input
                                         type="text"
                                         value={material.linkUrl}
-                                        onChange={(event) =>
+                                        onChange={(event) => {
+                                          const newUrl =
+                                            event.target.value;
+                                          fetchVideoMetadata(
+                                            material.id,
+                                            newUrl,
+                                          );
                                           setMaterials((prev) =>
                                             prev.map((item) =>
                                               item.id === material.id
                                                 ? {
                                                     ...item,
-                                                    linkUrl: event.target.value,
+                                                    linkUrl: newUrl,
                                                   }
                                                 : item,
                                             ),
-                                          )
-                                        }
+                                          );
+                                        }}
                                         placeholder="https://"
                                         className="h-[40px] w-full rounded-lg border border-[#d9d7df] bg-white px-3 text-[12px] text-[#232530] outline-none focus:border-[#7054dc]"
                                       />
@@ -2404,14 +2451,13 @@ function TambahModulKontenPageContent() {
                                                 <div>
                                                   <p className="text-[12px] font-semibold text-[#232530]">
                                                     {material.linkPreviewTitle ||
-                                                      "Satu Kebetulan yang Selamatkan Jutaan Nyawa"}{" "}
+                                                      "Video dari tautan"}{" "}
                                                     <span className="font-normal text-[#7a7e8a]">
                                                       (YouTube)
                                                     </span>
                                                   </p>
                                                   <p className="mt-1 text-[11px] text-[#7a7e8a]">
-                                                    {material.linkVideoDuration ||
-                                                      "04:55"}
+                                                    {material.linkVideoDuration || ""}
                                                   </p>
                                                 </div>
                                               </div>

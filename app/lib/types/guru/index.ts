@@ -534,8 +534,8 @@ export interface CTAnalysisResponse {
         pretestScore?: number | null;
         posttestScore?: number | null;
         progressPercentage: number;
-        totalMateri: number;
-        completedMateri: number;
+        totalTopik: number;
+        completedTopik: number;
     } | null;
     computationalThinking: {
         decomposition:      { score: number; label: string; preTest: number; postTest: number };
@@ -552,4 +552,6 @@ export interface CTAnalysisResponse {
         status: 'tuntas' | 'di-bawah';
     }>;
     recommendation: string;
+    totalTopics: number;
+    completedTopics: number;
 }

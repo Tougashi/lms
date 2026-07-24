@@ -1696,5 +1696,20 @@ export const adminProfileApi = {
 };
 
 // ---------------------------------------------------------------------------
+// oEmbed — fetch video metadata (title, duration) from YouTube links
+// ---------------------------------------------------------------------------
+
+export const oembedApi = {
+    getMetadata(url: string) {
+        return apiFetch<{
+            title?: string;
+            author_name?: string;
+            thumbnail_url?: string;
+            duration?: string;
+        }>(`/guest/oembed?url=${encodeURIComponent(url)}`);
+    },
+};
+
+// ---------------------------------------------------------------------------
 // Upload endpoints (image → Cloudinary → URL)
 // ---------------------------------------------------------------------------

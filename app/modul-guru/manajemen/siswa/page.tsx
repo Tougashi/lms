@@ -251,7 +251,7 @@ function SiswaDetailPageContent() {
                     </div>
                     <span className="text-[13px] font-semibold text-[#232530]">{Math.round(mod?.progressPercentage ?? 0)}%</span>
                   </div>
-                  <p className="mt-1.5 text-[11px] text-[#7a7e8a]">{mod?.completedMateri ?? 0} dari {mod?.totalMateri ?? 0} Materi Selesai</p>
+                  <p className="mt-1.5 text-[11px] text-[#7a7e8a]">{data?.completedTopics ?? 0} dari {data?.totalTopics ?? 0} Topik Selesai</p>
                 </div>
               </div>
             </div>

@@ -15,8 +15,8 @@ import type { TutorDashboard } from '../lib/types/guru';
 import type { ModuleItem } from '../lib/types/modul';
 import type { RatingItem } from '../lib/types/umum';
 
-function StatCard({ value, label }: { value: number; label: string }) {
-  return (
+function StatCard({ value, label, href }: { value: number; label: string; href?: string }) {
+  const content = (
     <div className="flex h-[84px] items-center justify-between rounded-xl border border-[#e9e8f0] bg-white px-6 shadow-[0_2px_10px_rgba(24,24,37,0.05)]">
       <div className="flex items-center gap-3">
         <span className="text-[28px] font-semibold leading-[36px] tracking-[-0.04em] text-[#7557ea]">{value}</span>
@@ -25,6 +25,8 @@ function StatCard({ value, label }: { value: number; label: string }) {
       <MdOutlineKeyboardArrowRight size={18} className="text-[#7d808c]" />
     </div>
   );
+  if (href) return <Link href={href}>{content}</Link>;
+  return content;
 }
 
 function EmptyState({ message }: { message: string }) {
@@ -132,10 +134,10 @@ function BerandaGuruPageContent() {
         </div>
 
         <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard value={stats.published} label="Modul Terbit" />
-          <StatCard value={stats.drafts} label="Draft Modul" />
-          <StatCard value={stats.totalStudents} label="Total Siswa Terdaftar" />
-          <StatCard value={stats.totalCompleted} label="Total Siswa Lulus Modul" />
+          <StatCard value={stats.published} label="Modul Terbit" href="/modul-guru" />
+          <StatCard value={stats.drafts} label="Draft Modul" href="/modul-guru" />
+          <StatCard value={stats.totalStudents} label="Total Siswa Terdaftar" href="/modul-guru" />
+          <StatCard value={stats.totalCompleted} label="Total Siswa Lulus" href="/modul-guru" />
         </section>
 
         <section className="mt-7 grid gap-4 md:grid-cols-2">

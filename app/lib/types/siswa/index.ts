@@ -56,6 +56,9 @@ export interface SoalItem {
   kunci_jawaban?: string;
   gambar_url?: string | null;
   knowledgeComponentId?: string;
+  isComputationalThinking?: boolean;
+  ctAspect?: string | null;
+  ceritaCT?: string | null;
 }
 
 export interface PretestResponse {
@@ -321,6 +324,10 @@ export interface StudyRoomQuestion {
   id: string;
   text: string;
   options: Array<{ key: string; label: string }>;
+  isComputationalThinking?: boolean;
+  knowledgeComponentId?: string | null;
+  ctAspect?: string | null;
+  ceritaCT?: string | null;
 }
 
 export interface StudyRoomAssessment {
@@ -345,6 +352,7 @@ export interface StudyRoomItem {
   quizType?: 'REGULER' | 'COMPUTATIONAL_THINKING';
   ctGroupId?: string | null;
   ctStory?: string | null;
+  ctAspect?: string | null;
   judul: string;
   isVideo?: boolean;
   videoUrl?: string | null;
