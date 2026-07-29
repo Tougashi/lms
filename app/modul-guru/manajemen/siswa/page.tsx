@@ -152,7 +152,9 @@ function SiswaDetailPageContent() {
   const quizRecs = data?.quizRecords ?? [];
   const topikCT = data?.topikCTAnalysis ?? [];
   const rec = data?.recommendation ?? '';
-  const isCT = topikCT.length > 0;
+  const isCT = topikCT.length > 0 || (ct
+    ? Object.values(ct).some((v) => v.score > 0 || v.preTest > 0 || v.postTest > 0)
+    : false);
 
   // Quiz table pagination
   const QUIZ_PER_PAGE = 5;
@@ -429,7 +431,7 @@ function SiswaDetailPageContent() {
                                   <span className="text-[#8a8d98]">Reguler</span>
                                 )}
                               </td>
-                              <td className="px-5 py-4 text-[#555968]">Kuis</td>
+                              <td className="px-5 py-4 text-[#555968]">{row.activityType ?? 'Kuis'}</td>
                               <td className="px-5 py-4 font-semibold">{row.score}</td>
                               <td className="px-5 py-4">
                                 {row.status === 'tuntas' ? (

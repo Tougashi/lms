@@ -818,42 +818,115 @@ function EditModulKontenPageContent() {
             // Bug 3: Strip HTML dari quiz title
             const baseQuizId = baseId + 100000;
             const quizIds: Record<number, string> = {};
-            const mappedQuiz = quizzes.map((q: any, qIdx: number) => {
+            const newSubQuizIds: Record<number, string> = {};
+
+            // Group CT quizzes by ctGroupId (same logic as initial load)
+            const groupedQuizzes: { type: "SINGLE" | "GROUP"; item?: any; items?: any[] }[] = [];
+            const ctGroupMapLocal = new Map<string, any[]>();
+            for (const q of quizzes) {
+                if (q.quizType === "COMPUTATIONAL_THINKING" && q.ctGroupId) {
+                    if (!ctGroupMapLocal.has(q.ctGroupId)) ctGroupMapLocal.set(q.ctGroupId, []);
+                    ctGroupMapLocal.get(q.ctGroupId)!.push(q);
+                } else {
+                    groupedQuizzes.push({ type: "SINGLE", item: q });
+                }
+            }
+            for (const [, items] of Array.from(ctGroupMapLocal.entries())) {
+                groupedQuizzes.push({ type: "GROUP", items });
+            }
+
+            const mappedQuiz = groupedQuizzes.map((entry, qIdx: number) => {
                 const localId = baseQuizId + qIdx * 10;
-                quizIds[localId] = q.id;
-                const rawTitle = stripHtml(q.question || "");
-                return {
-                    id: localId,
-                    title:
-                        rawTitle.length > 40
-                            ? rawTitle.substring(0, 40) + "…"
-                            : rawTitle || "Untitled",
-                    isExpanded: false,
-                    ctMode: q.quizType === "COMPUTATIONAL_THINKING",
-                    duration: q.quizSettings?.[0]?.timeLimit
-                        ? Math.round(q.quizSettings[0].timeLimit / 60)
-                        : 90,
-                    minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
-                    scorePerQuestion:
-                        q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
-                    questions: [
-                        {
-                            id: localId + 1,
-                            label: q.question || "",
-                            answers: (q.quizAnswerOptions || []).map(
-                                (opt: any, oIdx: number) => ({
-                                    id: localId + 10 + oIdx,
-                                    text: opt.option,
-                                    isCorrect: opt.option === q.correctAnswer,
-                                }),
-                            ),
-                        },
-                    ],
-                    ctStories: [makeCTStory()],
-                };
+
+                if (entry.type === "GROUP") {
+                    const items = entry.items!;
+                    const firstItem = items[0];
+                    quizIds[localId] = firstItem.id;
+
+                    const ctStory = {
+                        id: localId + 2,
+                        cerita: firstItem.ctStory || "",
+                        subQuestions: items.map((q: any, i: number) => {
+                            const subId = localId + 100 + i;
+                            if (i > 0) newSubQuizIds[subId] = q.id;
+                            return {
+                                id: subId,
+                                label: q.question || "",
+                                ctAspect: q.ctAspect || "Soal CT",
+                                answers: (() => {
+                                    let foundCorrect = false;
+                                    return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                                        const isMatch = opt.option === q.correctAnswer && !foundCorrect;
+                                        if (isMatch) foundCorrect = true;
+                                        return {
+                                            id: localId + 200 + i * 10 + oIdx,
+                                            text: opt.option,
+                                            isCorrect: isMatch,
+                                        };
+                                    });
+                                })(),
+                            };
+                        }),
+                    };
+
+                    return {
+                        id: localId,
+                        title: "Soal Computational Thinking",
+                        isExpanded: false,
+                        ctMode: true,
+                        duration: firstItem.quizSettings?.[0]?.timeLimit
+                            ? Math.round(firstItem.quizSettings[0].timeLimit / 60)
+                            : 90,
+                        minScore: firstItem.quizSettings?.[0]?.minScoreTreshold ?? 0,
+                        scorePerQuestion: firstItem.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+                        questions: [],
+                        ctStories: [ctStory],
+                    };
+                } else {
+                    const q = entry.item!;
+                    quizIds[localId] = q.id;
+                    const rawTitle = stripHtml(q.question || "");
+                    return {
+                        id: localId,
+                        title:
+                            rawTitle.length > 40
+                                ? rawTitle.substring(0, 40) + "…"
+                                : rawTitle || "Untitled",
+                        isExpanded: false,
+                        ctMode: false,
+                        duration: q.quizSettings?.[0]?.timeLimit
+                            ? Math.round(q.quizSettings[0].timeLimit / 60)
+                            : 90,
+                        minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
+                        scorePerQuestion:
+                            q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+                        questions: [
+                            {
+                                id: localId + 1,
+                                label: q.question || "",
+                                answers: (() => {
+                                    let foundCorrect = false;
+                                    return (q.quizAnswerOptions || []).map(
+                                        (opt: any, oIdx: number) => {
+                                            const isMatch = opt.option === q.correctAnswer && !foundCorrect;
+                                            if (isMatch) foundCorrect = true;
+                                            return {
+                                                id: localId + 10 + oIdx,
+                                                text: opt.option,
+                                                isCorrect: isMatch,
+                                            };
+                                        },
+                                    );
+                                })(),
+                            },
+                        ],
+                        ctStories: [makeCTStory()],
+                    };
+                }
             });
             setQuizzes(mappedQuiz);
             setQuizApiIds(quizIds);
+            setSubQuizApiIds((prev) => ({ ...prev, ...newSubQuizIds }));
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [],

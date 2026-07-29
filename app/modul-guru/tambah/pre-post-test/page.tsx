@@ -69,11 +69,16 @@ const ctAspectKeys = [
 
 const ctAspectDisplayName = (aspect: string): string => {
     switch (aspect) {
-        case "decomposition": return "Soal Pemecahan Masalah (Dekomposisi)";
-        case "patternRecognition": return "Soal Pengenalan Pola";
-        case "abstraction": return "Soal Menyaring Informasi Penting (Abstraksi)";
-        case "algorithm": return "Soal Menyusun Langkah Solusi";
-        default: return "Soal CT";
+        case "decomposition":
+            return "Soal Pemecahan Masalah (Dekomposisi)";
+        case "patternRecognition":
+            return "Soal Pengenalan Pola";
+        case "abstraction":
+            return "Soal Menyaring Informasi Penting (Abstraksi)";
+        case "algorithm":
+            return "Soal Menyusun Langkah Solusi";
+        default:
+            return "Soal CT";
     }
 };
 
@@ -98,9 +103,9 @@ function PrePostTestPageContent() {
     const [editSoalTitle, setEditSoalTitle] = useState("");
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [settingsDuration, setSettingsDuration] = useState(90);
-    const [settingsSoalTampil, setSettingsSoalTampil] = useState(30);
+    const [settingsSoalTampil, setSettingsSoalTampil] = useState(0);
     const [posttestDuration, setPosttestDuration] = useState(90);
-    const [posttestCountShown, setPosttestCountShown] = useState(30);
+    const [posttestCountShown, setPosttestCountShown] = useState(0);
     const [posttestId, setPosttestId] = useState<string | null>(null);
     const [aksesRules, setAksesRules] = useState<
         { id: number; minScore: number; topikId: string }[]
@@ -117,17 +122,33 @@ function PrePostTestPageContent() {
 
     const activeBank = bank;
 
+    const snapToMultipleOf4 = (value: number) =>
+        isTestComputationalThinking ? Math.round(value / 4) * 4 : value;
+
     const openSettings = async () => {
         setIsSettingsOpen(true);
+        const totalPretestQuestions = bank
+            ? bank.questions.length +
+              bank.ctStories.reduce((sum, s) => sum + s.subQuestions.length, 0)
+            : 0;
         if (bank?.apiId) {
             try {
                 const data = await guruPretestApi.getDetail(bank.apiId);
                 const s = data.pretestSettings?.[0];
                 setSettingsDuration(s?.duration ?? 90);
-                setSettingsSoalTampil(s?.countShownQuestions ?? 30);
+                const stored = s?.countShownQuestions;
+                setSettingsSoalTampil(
+                    snapToMultipleOf4(
+                        stored && stored > 0
+                            ? stored
+                            : totalPretestQuestions,
+                    ),
+                );
             } catch {
                 setSettingsDuration(90);
-                setSettingsSoalTampil(30);
+                setSettingsSoalTampil(
+                    snapToMultipleOf4(totalPretestQuestions),
+                );
             }
         }
         if (posttestId) {
@@ -135,10 +156,19 @@ function PrePostTestPageContent() {
                 const data = await guruPosttestApi.getDetail(posttestId);
                 const s = data.posttestSettings?.[0];
                 setPosttestDuration(s?.duration ?? 90);
-                setPosttestCountShown(s?.countShownQuestions ?? 30);
+                const stored = s?.countShownQuestions;
+                setPosttestCountShown(
+                    snapToMultipleOf4(
+                        stored && stored > 0
+                            ? stored
+                            : totalPretestQuestions,
+                    ),
+                );
             } catch {
                 setPosttestDuration(90);
-                setPosttestCountShown(30);
+                setPosttestCountShown(
+                    snapToMultipleOf4(totalPretestQuestions),
+                );
             }
         }
     };
@@ -329,8 +359,6 @@ function PrePostTestPageContent() {
         })();
     }, [modulId]);
 
-
-
     const handleDeleteBank = useCallback(async () => {
         if (!bank?.apiId) {
             setBank(null);
@@ -386,35 +414,35 @@ function PrePostTestPageContent() {
             setBank((prev) =>
                 prev
                     ? {
-                        ...prev,
-                        questions: [
-                            ...prev.questions,
-                            {
-                                id: nid,
-                                apiSoalId: null,
-                                pertanyaan: "",
-                                isExpanded: true,
-                                skor: 10,
-                                answers: [
-                                    {
-                                        id: nid + 10,
-                                        text: "",
-                                        isCorrect: false,
-                                    },
-                                    {
-                                        id: nid + 11,
-                                        text: "",
-                                        isCorrect: false,
-                                    },
-                                    {
-                                        id: nid + 12,
-                                        text: "",
-                                        isCorrect: false,
-                                    },
-                                ],
-                            },
-                        ],
-                    }
+                          ...prev,
+                          questions: [
+                              ...prev.questions,
+                              {
+                                  id: nid,
+                                  apiSoalId: null,
+                                  pertanyaan: "",
+                                  isExpanded: true,
+                                  skor: 10,
+                                  answers: [
+                                      {
+                                          id: nid + 10,
+                                          text: "",
+                                          isCorrect: false,
+                                      },
+                                      {
+                                          id: nid + 11,
+                                          text: "",
+                                          isCorrect: false,
+                                      },
+                                      {
+                                          id: nid + 12,
+                                          text: "",
+                                          isCorrect: false,
+                                      },
+                                  ],
+                              },
+                          ],
+                      }
                     : prev,
             );
         }
@@ -449,9 +477,9 @@ function PrePostTestPageContent() {
             setBank((prev) =>
                 prev
                     ? {
-                        ...prev,
-                        questions: prev.questions.filter((q) => q.id !== qId),
-                    }
+                          ...prev,
+                          questions: prev.questions.filter((q) => q.id !== qId),
+                      }
                     : prev,
             );
         },
@@ -497,11 +525,11 @@ function PrePostTestPageContent() {
             setBank((prev) =>
                 prev
                     ? {
-                        ...prev,
-                        ctStories: prev.ctStories.filter(
-                            (s) => s.id !== storyId,
-                        ),
-                    }
+                          ...prev,
+                          ctStories: prev.ctStories.filter(
+                              (s) => s.id !== storyId,
+                          ),
+                      }
                     : prev,
             );
         },
@@ -512,19 +540,19 @@ function PrePostTestPageContent() {
         setBank((prev) =>
             prev
                 ? {
-                    ...prev,
-                    questions: prev.questions.map((q) =>
-                        q.id !== qId
-                            ? q
-                            : {
-                                ...q,
-                                answers: q.answers.map((a) => ({
-                                    ...a,
-                                    isCorrect: a.id === aId,
-                                })),
-                            },
-                    ),
-                }
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id !== qId
+                              ? q
+                              : {
+                                    ...q,
+                                    answers: q.answers.map((a) => ({
+                                        ...a,
+                                        isCorrect: a.id === aId,
+                                    })),
+                                },
+                      ),
+                  }
                 : prev,
         );
     };
@@ -533,18 +561,18 @@ function PrePostTestPageContent() {
         setBank((prev) =>
             prev
                 ? {
-                    ...prev,
-                    questions: prev.questions.map((q) =>
-                        q.id !== qId
-                            ? q
-                            : {
-                                ...q,
-                                answers: q.answers.filter(
-                                    (a) => a.id !== aId,
-                                ),
-                            },
-                    ),
-                }
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id !== qId
+                              ? q
+                              : {
+                                    ...q,
+                                    answers: q.answers.filter(
+                                        (a) => a.id !== aId,
+                                    ),
+                                },
+                      ),
+                  }
                 : prev,
         );
     };
@@ -553,23 +581,23 @@ function PrePostTestPageContent() {
         setBank((prev) =>
             prev
                 ? {
-                    ...prev,
-                    questions: prev.questions.map((q) =>
-                        q.id !== qId
-                            ? q
-                            : {
-                                ...q,
-                                answers: [
-                                    ...q.answers,
-                                    {
-                                        id: Date.now(),
-                                        text: "",
-                                        isCorrect: false,
-                                    },
-                                ],
-                            },
-                    ),
-                }
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id !== qId
+                              ? q
+                              : {
+                                    ...q,
+                                    answers: [
+                                        ...q.answers,
+                                        {
+                                            id: Date.now(),
+                                            text: "",
+                                            isCorrect: false,
+                                        },
+                                    ],
+                                },
+                      ),
+                  }
                 : prev,
         );
     };
@@ -578,11 +606,11 @@ function PrePostTestPageContent() {
         setBank((prev) =>
             prev
                 ? {
-                    ...prev,
-                    questions: prev.questions.map((q) =>
-                        q.id === qId ? { ...q, pertanyaan: text } : q,
-                    ),
-                }
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id === qId ? { ...q, pertanyaan: text } : q,
+                      ),
+                  }
                 : prev,
         );
     };
@@ -591,11 +619,11 @@ function PrePostTestPageContent() {
         setBank((prev) =>
             prev
                 ? {
-                    ...prev,
-                    questions: prev.questions.map((q) =>
-                        q.id === qId ? { ...q, skor } : q,
-                    ),
-                }
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id === qId ? { ...q, skor } : q,
+                      ),
+                  }
                 : prev,
         );
     };
@@ -604,18 +632,18 @@ function PrePostTestPageContent() {
         setBank((prev) =>
             prev
                 ? {
-                    ...prev,
-                    questions: prev.questions.map((q) =>
-                        q.id !== qId
-                            ? q
-                            : {
-                                ...q,
-                                answers: q.answers.map((a) =>
-                                    a.id === aId ? { ...a, text } : a,
-                                ),
-                            },
-                    ),
-                }
+                      ...prev,
+                      questions: prev.questions.map((q) =>
+                          q.id !== qId
+                              ? q
+                              : {
+                                    ...q,
+                                    answers: q.answers.map((a) =>
+                                        a.id === aId ? { ...a, text } : a,
+                                    ),
+                                },
+                      ),
+                  }
                 : prev,
         );
     };
@@ -666,13 +694,13 @@ function PrePostTestPageContent() {
                 setBank((prev) =>
                     prev
                         ? {
-                            ...prev,
-                            questions: prev.questions.map((q) =>
-                                q.id === question.id
-                                    ? { ...q, isExpanded: false }
-                                    : q,
-                            ),
-                        }
+                              ...prev,
+                              questions: prev.questions.map((q) =>
+                                  q.id === question.id
+                                      ? { ...q, isExpanded: false }
+                                      : q,
+                              ),
+                          }
                         : prev,
                 );
             } catch (err: unknown) {
@@ -755,27 +783,27 @@ function PrePostTestPageContent() {
                     setBank((prev) =>
                         prev
                             ? {
-                                ...prev,
-                                ctStories: prev.ctStories.map((s) =>
-                                    s.id !== story.id
-                                        ? s
-                                        : {
-                                            ...s,
-                                            subQuestions:
-                                                s.subQuestions.map((sq) =>
-                                                    updatedSubIds[sq.id]
-                                                        ? {
-                                                            ...sq,
-                                                            apiSoalId:
-                                                                updatedSubIds[
-                                                                sq.id
-                                                                ],
-                                                        }
-                                                        : sq,
-                                                ),
-                                        },
-                                ),
-                            }
+                                  ...prev,
+                                  ctStories: prev.ctStories.map((s) =>
+                                      s.id !== story.id
+                                          ? s
+                                          : {
+                                                ...s,
+                                                subQuestions:
+                                                    s.subQuestions.map((sq) =>
+                                                        updatedSubIds[sq.id]
+                                                            ? {
+                                                                  ...sq,
+                                                                  apiSoalId:
+                                                                      updatedSubIds[
+                                                                          sq.id
+                                                                      ],
+                                                              }
+                                                            : sq,
+                                                    ),
+                                            },
+                                  ),
+                              }
                             : prev,
                     );
                 }
@@ -783,13 +811,13 @@ function PrePostTestPageContent() {
                 setBank((prev) =>
                     prev
                         ? {
-                            ...prev,
-                            ctStories: prev.ctStories.map((s) =>
-                                s.id === story.id
-                                    ? { ...s, isExpanded: false }
-                                    : s,
-                            ),
-                        }
+                              ...prev,
+                              ctStories: prev.ctStories.map((s) =>
+                                  s.id === story.id
+                                      ? { ...s, isExpanded: false }
+                                      : s,
+                              ),
+                          }
                         : prev,
                 );
 
@@ -841,86 +869,97 @@ function PrePostTestPageContent() {
                     setBank((prev) =>
                         prev
                             ? {
-                                ...prev,
-                                questions: [],
-                                ctStories: [
-                                    {
-                                        id: nid,
-                                        groupId: `ct_${nid}`,
-                                        cerita: "",
-                                        isExpanded: true,
-                                        subQuestions: ctSubLabels.map(
-                                            (label, i) => ({
-                                                id: nid + i * 10 + 1,
-                                                apiSoalId: null,
-                                                label: "",
-                                                ctAspect:
-                                                    ctAspectKeys[i] || "",
-                                                answers: [
-                                                    {
-                                                        id:
-                                                            nid +
-                                                            i * 10 +
-                                                            100,
-                                                        text: "",
-                                                        isCorrect: false,
-                                                    },
-                                                    {
-                                                        id:
-                                                            nid +
-                                                            i * 10 +
-                                                            101,
-                                                        text: "",
-                                                        isCorrect: false,
-                                                    },
-                                                ],
-                                                skor: 10,
-                                            }),
-                                        ),
-                                    },
-                                ],
-                            }
+                                  ...prev,
+                                  questions: [],
+                                  ctStories: [
+                                      {
+                                          id: nid,
+                                          groupId: `ct_${nid}`,
+                                          cerita: "",
+                                          isExpanded: true,
+                                          subQuestions: ctSubLabels.map(
+                                              (label, i) => ({
+                                                  id: nid + i * 10 + 1,
+                                                  apiSoalId: null,
+                                                  label: "",
+                                                  ctAspect:
+                                                      ctAspectKeys[i] || "",
+                                                  answers: [
+                                                      {
+                                                          id:
+                                                              nid +
+                                                              i * 10 +
+                                                              100,
+                                                          text: "",
+                                                          isCorrect: false,
+                                                      },
+                                                      {
+                                                          id:
+                                                              nid +
+                                                              i * 10 +
+                                                              101,
+                                                          text: "",
+                                                          isCorrect: false,
+                                                      },
+                                                  ],
+                                                  skor: 10,
+                                              }),
+                                          ),
+                                      },
+                                  ],
+                              }
                             : prev,
                     );
                 } else {
                     setBank((prev) =>
                         prev
                             ? {
-                                ...prev,
-                                ctStories: [],
-                                questions: [
-                                    {
-                                        id: Date.now(),
-                                        apiSoalId: null,
-                                        pertanyaan: "",
-                                        isExpanded: true,
-                                        skor: 10,
-                                        answers: [
-                                            {
-                                                id: Date.now() + 10,
-                                                text: "",
-                                                isCorrect: false,
-                                            },
-                                            {
-                                                id: Date.now() + 11,
-                                                text: "",
-                                                isCorrect: false,
-                                            },
-                                            {
-                                                id: Date.now() + 12,
-                                                text: "",
-                                                isCorrect: false,
-                                            },
-                                        ],
-                                    },
-                                ],
-                            }
+                                  ...prev,
+                                  ctStories: [],
+                                  questions: [
+                                      {
+                                          id: Date.now(),
+                                          apiSoalId: null,
+                                          pertanyaan: "",
+                                          isExpanded: true,
+                                          skor: 10,
+                                          answers: [
+                                              {
+                                                  id: Date.now() + 10,
+                                                  text: "",
+                                                  isCorrect: false,
+                                              },
+                                              {
+                                                  id: Date.now() + 11,
+                                                  text: "",
+                                                  isCorrect: false,
+                                              },
+                                              {
+                                                  id: Date.now() + 12,
+                                                  text: "",
+                                                  isCorrect: false,
+                                              },
+                                          ],
+                                      },
+                                  ],
+                              }
                             : prev,
                     );
                 }
                 setInitialCTMode(isTestComputationalThinking);
                 hideLoading();
             }
+        }
+
+        if (
+            isTestComputationalThinking &&
+            (settingsSoalTampil % 4 !== 0 || posttestCountShown % 4 !== 0)
+        ) {
+            toast(
+                "Jumlah soal tampil harus kelipatan 4 untuk mode Computational Thinking.",
+                "warning",
+            );
+            return;
         }
 
         setIsSaving(true);
@@ -1135,8 +1174,9 @@ function PrePostTestPageContent() {
 
                     {/* Mobile drawer */}
                     <div
-                        className={`fixed top-0 left-0 z-50 h-full w-[260px] border-r border-[#e5e3ee] bg-white px-5 py-6 shadow-lg transition-transform duration-300 lg:hidden ${isDrawerOpen ? "translate-x-0" : "-translate-x-full"
-                            }`}
+                        className={`fixed top-0 left-0 z-50 h-full w-[260px] border-r border-[#e5e3ee] bg-white px-5 py-6 shadow-lg transition-transform duration-300 lg:hidden ${
+                            isDrawerOpen ? "translate-x-0" : "-translate-x-full"
+                        }`}
                     >
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-[13px] font-semibold text-[#232530]">
@@ -1271,7 +1311,7 @@ function PrePostTestPageContent() {
                                                             Soal {idx + 1}:
                                                         </span>
                                                         {editingSoalId ===
-                                                            question.id ? (
+                                                        question.id ? (
                                                             <>
                                                                 <input
                                                                     type="text"
@@ -1371,22 +1411,22 @@ function PrePostTestPageContent() {
                                                             setBank((prev) =>
                                                                 prev
                                                                     ? {
-                                                                        ...prev,
-                                                                        questions:
-                                                                            prev.questions.map(
-                                                                                (
-                                                                                    q,
-                                                                                ) =>
-                                                                                    q.id ===
-                                                                                        question.id
-                                                                                        ? {
-                                                                                            ...q,
-                                                                                            isExpanded:
-                                                                                                !q.isExpanded,
-                                                                                        }
-                                                                                        : q,
-                                                                            ),
-                                                                    }
+                                                                          ...prev,
+                                                                          questions:
+                                                                              prev.questions.map(
+                                                                                  (
+                                                                                      q,
+                                                                                  ) =>
+                                                                                      q.id ===
+                                                                                      question.id
+                                                                                          ? {
+                                                                                                ...q,
+                                                                                                isExpanded:
+                                                                                                    !q.isExpanded,
+                                                                                            }
+                                                                                          : q,
+                                                                              ),
+                                                                      }
                                                                     : prev,
                                                             )
                                                         }
@@ -1607,22 +1647,22 @@ function PrePostTestPageContent() {
                                                         setBank((prev) =>
                                                             prev
                                                                 ? {
-                                                                    ...prev,
-                                                                    ctStories:
-                                                                        prev.ctStories.map(
-                                                                            (
-                                                                                s,
-                                                                            ) =>
-                                                                                s.id ===
-                                                                                    story.id
-                                                                                    ? {
-                                                                                        ...s,
-                                                                                        isExpanded:
-                                                                                            !s.isExpanded,
-                                                                                    }
-                                                                                    : s,
-                                                                        ),
-                                                                }
+                                                                      ...prev,
+                                                                      ctStories:
+                                                                          prev.ctStories.map(
+                                                                              (
+                                                                                  s,
+                                                                              ) =>
+                                                                                  s.id ===
+                                                                                  story.id
+                                                                                      ? {
+                                                                                            ...s,
+                                                                                            isExpanded:
+                                                                                                !s.isExpanded,
+                                                                                        }
+                                                                                      : s,
+                                                                          ),
+                                                                  }
                                                                 : prev,
                                                         )
                                                     }
@@ -1652,21 +1692,21 @@ function PrePostTestPageContent() {
                                                             setBank((prev) =>
                                                                 prev
                                                                     ? {
-                                                                        ...prev,
-                                                                        ctStories:
-                                                                            prev.ctStories.map(
-                                                                                (
-                                                                                    s,
-                                                                                ) =>
-                                                                                    s.id ===
-                                                                                        story.id
-                                                                                        ? {
-                                                                                            ...s,
-                                                                                            cerita: html,
-                                                                                        }
-                                                                                        : s,
-                                                                            ),
-                                                                    }
+                                                                          ...prev,
+                                                                          ctStories:
+                                                                              prev.ctStories.map(
+                                                                                  (
+                                                                                      s,
+                                                                                  ) =>
+                                                                                      s.id ===
+                                                                                      story.id
+                                                                                          ? {
+                                                                                                ...s,
+                                                                                                cerita: html,
+                                                                                            }
+                                                                                          : s,
+                                                                              ),
+                                                                      }
                                                                     : prev,
                                                             )
                                                         }
@@ -1681,9 +1721,18 @@ function PrePostTestPageContent() {
                                                             className="rounded-xl border border-[#e5e3ee] bg-[#fbfaff] px-4 py-3"
                                                         >
                                                             <p className="mb-2 text-[12px] font-semibold text-[#7054dc]">
-                                                                Soal {sqIdx + 1}:{" "}
-                                                                {ctAspectDisplayName(sq.ctAspect)}
-                                                                {sq.label && sq.label.replace(/<[^>]*>?/gm, "").trim()
+                                                                Soal {sqIdx + 1}
+                                                                :{" "}
+                                                                {ctAspectDisplayName(
+                                                                    sq.ctAspect,
+                                                                )}
+                                                                {sq.label &&
+                                                                sq.label
+                                                                    .replace(
+                                                                        /<[^>]*>?/gm,
+                                                                        "",
+                                                                    )
+                                                                    .trim()
                                                                     ? ` : ${sq.label.replace(/<[^>]*>?/gm, "").trim()}`
                                                                     : ""}
                                                             </p>
@@ -1704,33 +1753,33 @@ function PrePostTestPageContent() {
                                                                             ) =>
                                                                                 prev
                                                                                     ? {
-                                                                                        ...prev,
-                                                                                        ctStories:
-                                                                                            prev.ctStories.map(
-                                                                                                (
-                                                                                                    s,
-                                                                                                ) =>
-                                                                                                    s.id !==
-                                                                                                        story.id
-                                                                                                        ? s
-                                                                                                        : {
-                                                                                                            ...s,
-                                                                                                            subQuestions:
-                                                                                                                s.subQuestions.map(
-                                                                                                                    (
-                                                                                                                        sq2,
-                                                                                                                    ) =>
-                                                                                                                        sq2.id !==
+                                                                                          ...prev,
+                                                                                          ctStories:
+                                                                                              prev.ctStories.map(
+                                                                                                  (
+                                                                                                      s,
+                                                                                                  ) =>
+                                                                                                      s.id !==
+                                                                                                      story.id
+                                                                                                          ? s
+                                                                                                          : {
+                                                                                                                ...s,
+                                                                                                                subQuestions:
+                                                                                                                    s.subQuestions.map(
+                                                                                                                        (
+                                                                                                                            sq2,
+                                                                                                                        ) =>
+                                                                                                                            sq2.id !==
                                                                                                                             sq.id
-                                                                                                                            ? sq2
-                                                                                                                            : {
-                                                                                                                                ...sq2,
-                                                                                                                                label: html,
-                                                                                                                            },
-                                                                                                                ),
-                                                                                                        },
-                                                                                            ),
-                                                                                    }
+                                                                                                                                ? sq2
+                                                                                                                                : {
+                                                                                                                                      ...sq2,
+                                                                                                                                      label: html,
+                                                                                                                                  },
+                                                                                                                    ),
+                                                                                                            },
+                                                                                              ),
+                                                                                      }
                                                                                     : prev,
                                                                         )
                                                                     }
@@ -1762,33 +1811,33 @@ function PrePostTestPageContent() {
                                                                             ) =>
                                                                                 prev
                                                                                     ? {
-                                                                                        ...prev,
-                                                                                        ctStories:
-                                                                                            prev.ctStories.map(
-                                                                                                (
-                                                                                                    s,
-                                                                                                ) =>
-                                                                                                    s.id ===
-                                                                                                        story.id
-                                                                                                        ? {
-                                                                                                            ...s,
-                                                                                                            subQuestions:
-                                                                                                                s.subQuestions.map(
-                                                                                                                    (
-                                                                                                                        sq2,
-                                                                                                                    ) =>
-                                                                                                                        sq2.id ===
+                                                                                          ...prev,
+                                                                                          ctStories:
+                                                                                              prev.ctStories.map(
+                                                                                                  (
+                                                                                                      s,
+                                                                                                  ) =>
+                                                                                                      s.id ===
+                                                                                                      story.id
+                                                                                                          ? {
+                                                                                                                ...s,
+                                                                                                                subQuestions:
+                                                                                                                    s.subQuestions.map(
+                                                                                                                        (
+                                                                                                                            sq2,
+                                                                                                                        ) =>
+                                                                                                                            sq2.id ===
                                                                                                                             sq.id
-                                                                                                                            ? {
-                                                                                                                                ...sq2,
-                                                                                                                                skor: v,
-                                                                                                                            }
-                                                                                                                            : sq2,
-                                                                                                                ),
-                                                                                                        }
-                                                                                                        : s,
-                                                                                            ),
-                                                                                    }
+                                                                                                                                ? {
+                                                                                                                                      ...sq2,
+                                                                                                                                      skor: v,
+                                                                                                                                  }
+                                                                                                                                : sq2,
+                                                                                                                    ),
+                                                                                                            }
+                                                                                                          : s,
+                                                                                              ),
+                                                                                      }
                                                                                     : prev,
                                                                         );
                                                                     }}
@@ -1814,43 +1863,43 @@ function PrePostTestPageContent() {
                                                                                         ) =>
                                                                                             prev
                                                                                                 ? {
-                                                                                                    ...prev,
-                                                                                                    ctStories:
-                                                                                                        prev.ctStories.map(
-                                                                                                            (
-                                                                                                                s,
-                                                                                                            ) =>
-                                                                                                                s.id ===
-                                                                                                                    story.id
-                                                                                                                    ? {
-                                                                                                                        ...s,
-                                                                                                                        subQuestions:
-                                                                                                                            s.subQuestions.map(
-                                                                                                                                (
-                                                                                                                                    sq3,
-                                                                                                                                ) =>
-                                                                                                                                    sq3.id ===
+                                                                                                      ...prev,
+                                                                                                      ctStories:
+                                                                                                          prev.ctStories.map(
+                                                                                                              (
+                                                                                                                  s,
+                                                                                                              ) =>
+                                                                                                                  s.id ===
+                                                                                                                  story.id
+                                                                                                                      ? {
+                                                                                                                            ...s,
+                                                                                                                            subQuestions:
+                                                                                                                                s.subQuestions.map(
+                                                                                                                                    (
+                                                                                                                                        sq3,
+                                                                                                                                    ) =>
+                                                                                                                                        sq3.id ===
                                                                                                                                         sq.id
-                                                                                                                                        ? {
-                                                                                                                                            ...sq3,
-                                                                                                                                            answers:
-                                                                                                                                                sq3.answers.map(
-                                                                                                                                                    (
-                                                                                                                                                        a,
-                                                                                                                                                    ) => ({
-                                                                                                                                                        ...a,
-                                                                                                                                                        isCorrect:
-                                                                                                                                                            a.id ===
-                                                                                                                                                            ans.id,
-                                                                                                                                                    }),
-                                                                                                                                                ),
-                                                                                                                                        }
-                                                                                                                                        : sq3,
-                                                                                                                            ),
-                                                                                                                    }
-                                                                                                                    : s,
-                                                                                                        ),
-                                                                                                }
+                                                                                                                                            ? {
+                                                                                                                                                  ...sq3,
+                                                                                                                                                  answers:
+                                                                                                                                                      sq3.answers.map(
+                                                                                                                                                          (
+                                                                                                                                                              a,
+                                                                                                                                                          ) => ({
+                                                                                                                                                              ...a,
+                                                                                                                                                              isCorrect:
+                                                                                                                                                                  a.id ===
+                                                                                                                                                                  ans.id,
+                                                                                                                                                          }),
+                                                                                                                                                      ),
+                                                                                                                                              }
+                                                                                                                                            : sq3,
+                                                                                                                                ),
+                                                                                                                        }
+                                                                                                                      : s,
+                                                                                                          ),
+                                                                                                  }
                                                                                                 : prev,
                                                                                     )
                                                                                 }
@@ -1874,47 +1923,47 @@ function PrePostTestPageContent() {
                                                                                         ) =>
                                                                                             prev
                                                                                                 ? {
-                                                                                                    ...prev,
-                                                                                                    ctStories:
-                                                                                                        prev.ctStories.map(
-                                                                                                            (
-                                                                                                                s,
-                                                                                                            ) =>
-                                                                                                                s.id ===
-                                                                                                                    story.id
-                                                                                                                    ? {
-                                                                                                                        ...s,
-                                                                                                                        subQuestions:
-                                                                                                                            s.subQuestions.map(
-                                                                                                                                (
-                                                                                                                                    sq3,
-                                                                                                                                ) =>
-                                                                                                                                    sq3.id ===
+                                                                                                      ...prev,
+                                                                                                      ctStories:
+                                                                                                          prev.ctStories.map(
+                                                                                                              (
+                                                                                                                  s,
+                                                                                                              ) =>
+                                                                                                                  s.id ===
+                                                                                                                  story.id
+                                                                                                                      ? {
+                                                                                                                            ...s,
+                                                                                                                            subQuestions:
+                                                                                                                                s.subQuestions.map(
+                                                                                                                                    (
+                                                                                                                                        sq3,
+                                                                                                                                    ) =>
+                                                                                                                                        sq3.id ===
                                                                                                                                         sq.id
-                                                                                                                                        ? {
-                                                                                                                                            ...sq3,
-                                                                                                                                            answers:
-                                                                                                                                                sq3.answers.map(
-                                                                                                                                                    (
-                                                                                                                                                        a,
-                                                                                                                                                    ) =>
-                                                                                                                                                        a.id ===
-                                                                                                                                                            ans.id
-                                                                                                                                                            ? {
-                                                                                                                                                                ...a,
-                                                                                                                                                                text: e
-                                                                                                                                                                    .target
-                                                                                                                                                                    .value,
-                                                                                                                                                            }
-                                                                                                                                                            : a,
-                                                                                                                                                ),
-                                                                                                                                        }
-                                                                                                                                        : sq3,
-                                                                                                                            ),
-                                                                                                                    }
-                                                                                                                    : s,
-                                                                                                        ),
-                                                                                                }
+                                                                                                                                            ? {
+                                                                                                                                                  ...sq3,
+                                                                                                                                                  answers:
+                                                                                                                                                      sq3.answers.map(
+                                                                                                                                                          (
+                                                                                                                                                              a,
+                                                                                                                                                          ) =>
+                                                                                                                                                              a.id ===
+                                                                                                                                                              ans.id
+                                                                                                                                                                  ? {
+                                                                                                                                                                        ...a,
+                                                                                                                                                                        text: e
+                                                                                                                                                                            .target
+                                                                                                                                                                            .value,
+                                                                                                                                                                    }
+                                                                                                                                                                  : a,
+                                                                                                                                                      ),
+                                                                                                                                              }
+                                                                                                                                            : sq3,
+                                                                                                                                ),
+                                                                                                                        }
+                                                                                                                      : s,
+                                                                                                          ),
+                                                                                                  }
                                                                                                 : prev,
                                                                                     )
                                                                                 }
@@ -1930,40 +1979,40 @@ function PrePostTestPageContent() {
                                                                                         ) =>
                                                                                             prev
                                                                                                 ? {
-                                                                                                    ...prev,
-                                                                                                    ctStories:
-                                                                                                        prev.ctStories.map(
-                                                                                                            (
-                                                                                                                s,
-                                                                                                            ) =>
-                                                                                                                s.id ===
-                                                                                                                    story.id
-                                                                                                                    ? {
-                                                                                                                        ...s,
-                                                                                                                        subQuestions:
-                                                                                                                            s.subQuestions.map(
-                                                                                                                                (
-                                                                                                                                    sq3,
-                                                                                                                                ) =>
-                                                                                                                                    sq3.id ===
+                                                                                                      ...prev,
+                                                                                                      ctStories:
+                                                                                                          prev.ctStories.map(
+                                                                                                              (
+                                                                                                                  s,
+                                                                                                              ) =>
+                                                                                                                  s.id ===
+                                                                                                                  story.id
+                                                                                                                      ? {
+                                                                                                                            ...s,
+                                                                                                                            subQuestions:
+                                                                                                                                s.subQuestions.map(
+                                                                                                                                    (
+                                                                                                                                        sq3,
+                                                                                                                                    ) =>
+                                                                                                                                        sq3.id ===
                                                                                                                                         sq.id
-                                                                                                                                        ? {
-                                                                                                                                            ...sq3,
-                                                                                                                                            answers:
-                                                                                                                                                sq3.answers.filter(
-                                                                                                                                                    (
-                                                                                                                                                        a,
-                                                                                                                                                    ) =>
-                                                                                                                                                        a.id !==
-                                                                                                                                                        ans.id,
-                                                                                                                                                ),
-                                                                                                                                        }
-                                                                                                                                        : sq3,
-                                                                                                                            ),
-                                                                                                                    }
-                                                                                                                    : s,
-                                                                                                        ),
-                                                                                                }
+                                                                                                                                            ? {
+                                                                                                                                                  ...sq3,
+                                                                                                                                                  answers:
+                                                                                                                                                      sq3.answers.filter(
+                                                                                                                                                          (
+                                                                                                                                                              a,
+                                                                                                                                                          ) =>
+                                                                                                                                                              a.id !==
+                                                                                                                                                              ans.id,
+                                                                                                                                                      ),
+                                                                                                                                              }
+                                                                                                                                            : sq3,
+                                                                                                                                ),
+                                                                                                                        }
+                                                                                                                      : s,
+                                                                                                          ),
+                                                                                                  }
                                                                                                 : prev,
                                                                                     )
                                                                                 }
@@ -1988,41 +2037,41 @@ function PrePostTestPageContent() {
                                                                         ) =>
                                                                             prev
                                                                                 ? {
-                                                                                    ...prev,
-                                                                                    ctStories:
-                                                                                        prev.ctStories.map(
-                                                                                            (
-                                                                                                s,
-                                                                                            ) =>
-                                                                                                s.id ===
-                                                                                                    story.id
-                                                                                                    ? {
-                                                                                                        ...s,
-                                                                                                        subQuestions:
-                                                                                                            s.subQuestions.map(
-                                                                                                                (
-                                                                                                                    sq3,
-                                                                                                                ) =>
-                                                                                                                    sq3.id ===
+                                                                                      ...prev,
+                                                                                      ctStories:
+                                                                                          prev.ctStories.map(
+                                                                                              (
+                                                                                                  s,
+                                                                                              ) =>
+                                                                                                  s.id ===
+                                                                                                  story.id
+                                                                                                      ? {
+                                                                                                            ...s,
+                                                                                                            subQuestions:
+                                                                                                                s.subQuestions.map(
+                                                                                                                    (
+                                                                                                                        sq3,
+                                                                                                                    ) =>
+                                                                                                                        sq3.id ===
                                                                                                                         sq.id
-                                                                                                                        ? {
-                                                                                                                            ...sq3,
-                                                                                                                            answers:
-                                                                                                                                [
-                                                                                                                                    ...sq3.answers,
-                                                                                                                                    {
-                                                                                                                                        id: Date.now(),
-                                                                                                                                        text: "",
-                                                                                                                                        isCorrect: false,
-                                                                                                                                    },
-                                                                                                                                ],
-                                                                                                                        }
-                                                                                                                        : sq3,
-                                                                                                            ),
-                                                                                                    }
-                                                                                                    : s,
-                                                                                        ),
-                                                                                }
+                                                                                                                            ? {
+                                                                                                                                  ...sq3,
+                                                                                                                                  answers:
+                                                                                                                                      [
+                                                                                                                                          ...sq3.answers,
+                                                                                                                                          {
+                                                                                                                                              id: Date.now(),
+                                                                                                                                              text: "",
+                                                                                                                                              isCorrect: false,
+                                                                                                                                          },
+                                                                                                                                      ],
+                                                                                                                              }
+                                                                                                                            : sq3,
+                                                                                                                ),
+                                                                                                        }
+                                                                                                      : s,
+                                                                                          ),
+                                                                                  }
                                                                                 : prev,
                                                                     )
                                                                 }
@@ -2098,194 +2147,352 @@ function PrePostTestPageContent() {
                                             </button>
                                         </div>
 
-                                        <div className="mt-5 flex items-center justify-between border-b border-[#f0eff5] pb-4">
-                                            <div>
-                                                <p className="text-[13px] font-semibold text-[#232530]">
-                                                    Durasi Pengerjaan (Menit)
-                                                </p>
-                                                <p className="mt-1 text-[11px] text-[#7a7e8a]">
-                                                    Batas waktu siswa untuk
-                                                    menyelesaikan kuis
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="number"
-                                                    value={settingsDuration}
-                                                    onChange={(e) =>
-                                                        setSettingsDuration(
-                                                            parseInt(
-                                                                e.target.value,
-                                                            ) || 0,
-                                                        )
-                                                    }
-                                                    className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
-                                                />
-                                                <span className="text-[12px] text-[#7a7e8a]">
-                                                    Menit
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
-                                            <div>
-                                                <p className="text-[13px] font-semibold text-[#232530]">
-                                                    Jumlah Soal Tampil
-                                                </p>
-                                                <p className="mt-1 text-[11px] text-[#7a7e8a]">
-                                                    Jumlah soal yang akan muncul
-                                                    secara acak dari bank soal
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="number"
-                                                    value={settingsSoalTampil}
-                                                    onChange={(e) =>
-                                                        setSettingsSoalTampil(
-                                                            parseInt(
-                                                                e.target.value,
-                                                            ) || 0,
-                                                        )
-                                                    }
-                                                    className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
-                                                />
-                                                <span className="text-[12px] text-[#7a7e8a]">
-                                                    /{" "}
-                                                    {bank
-                                                        ? bank
-                                                            .questions
-                                                            .length +
-                                                        bank
-                                                            .ctStories.length
-                                                        : 0}{" "}
-                                                    Soal
-                                                </span>
-                                            </div>
-                                        </div>
                                         {bank && (
-                                            <div className="mt-4">
-                                                <p className="text-[13px] font-semibold text-[#232530]">
-                                                    Atur Akses Materi Otomatis
-                                                </p>
-                                                <div className="mt-3 rounded-xl border border-dashed border-[#8e7bff] bg-[#fbfaff] px-4 py-4">
-                                                    {aksesRules.map((rule) => (
-                                                        <div
-                                                            key={rule.id}
-                                                            className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-[#d9d7df] bg-white px-3 py-2.5 last:mb-0"
+                                            <>
+                                                <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+                                                    <div>
+                                                        <p className="text-[13px] font-semibold text-[#232530]">
+                                                            Durasi Pengerjaan
+                                                            (Menit) - Pre Test
+                                                        </p>
+                                                        <p className="mt-1 text-[11px] text-[#7a7e8a]">
+                                                            Batas waktu siswa
+                                                            untuk menyelesaikan
+                                                            pre test
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="number"
+                                                            value={
+                                                                settingsDuration
+                                                            }
+                                                            onChange={(e) =>
+                                                                setSettingsDuration(
+                                                                    parseInt(
+                                                                        e.target
+                                                                            .value,
+                                                                    ) || 0,
+                                                                )
+                                                            }
+                                                            className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
+                                                        />
+                                                        <span className="text-[12px] text-[#7a7e8a]">
+                                                            Menit
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+                                                    <div>
+                                                        <p className="text-[13px] font-semibold text-[#232530]">
+                                                            Jumlah Soal Tampil -
+                                                            Pre Test
+                                                        </p>
+                                                        <p className="mt-1 text-[11px] text-[#7a7e8a]">
+                                                            Jumlah soal yang
+                                                            akan muncul secara
+                                                            acak dari bank soal
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="number"
+                                                            value={
+                                                                settingsSoalTampil
+                                                            }
+                                                            onChange={(e) =>
+                                                                setSettingsSoalTampil(
+                                                                    snapToMultipleOf4(
+                                                                        Math.min(
+                                                                            parseInt(
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                            ) || 0,
+                                                                            bank
+                                                                                ? bank
+                                                                                      .questions
+                                                                                      .length +
+                                                                                  bank.ctStories.reduce(
+                                                                                      (
+                                                                                          sum,
+                                                                                          s,
+                                                                                      ) =>
+                                                                                          sum +
+                                                                                          s
+                                                                                              .subQuestions
+                                                                                              .length,
+                                                                                      0,
+                                                                                  )
+                                                                                : 0,
+                                                                        ),
+                                                                    ),
+                                                                )
+                                                            }
+                                                            max={
+                                                                bank
+                                                                    ? bank
+                                                                          .questions
+                                                                          .length +
+                                                                      bank.ctStories.reduce(
+                                                                          (
+                                                                              sum,
+                                                                              s,
+                                                                          ) =>
+                                                                              sum +
+                                                                              s
+                                                                                  .subQuestions
+                                                                                  .length,
+                                                                          0,
+                                                                      )
+                                                                    : 0
+                                                            }
+                                                            step={
+                                                                isTestComputationalThinking
+                                                                    ? 4
+                                                                    : 1
+                                                            }
+                                                            className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
+                                                        />
+                                                        <span className="text-[12px] text-[#7a7e8a]">
+                                                            /{" "}
+                                                            {bank
+                                                                ? bank.questions
+                                                                      .length +
+                                                                  bank.ctStories.reduce(
+                                                                      (
+                                                                          sum,
+                                                                          s,
+                                                                      ) =>
+                                                                          sum +
+                                                                          s
+                                                                              .subQuestions
+                                                                              .length,
+                                                                      0,
+                                                                  )
+                                                                : 0}{" "}
+                                                            Soal
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-4">
+                                                    <p className="text-[13px] font-semibold text-[#232530]">
+                                                        Atur Akses Materi
+                                                        Otomatis
+                                                    </p>
+                                                    <div className="mt-3 rounded-xl border border-dashed border-[#8e7bff] bg-[#fbfaff] px-4 py-4">
+                                                        {aksesRules.map(
+                                                            (rule) => (
+                                                                <div
+                                                                    key={
+                                                                        rule.id
+                                                                    }
+                                                                    className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-[#d9d7df] bg-white px-3 py-2.5 last:mb-0"
+                                                                >
+                                                                    <span className="text-[12px] text-[#232530]">
+                                                                        Jika
+                                                                        nilai
+                                                                        minimal
+                                                                    </span>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={
+                                                                            rule.minScore
+                                                                        }
+                                                                        onChange={(
+                                                                            e,
+                                                                        ) => {
+                                                                            const v =
+                                                                                parseInt(
+                                                                                    e
+                                                                                        .target
+                                                                                        .value,
+                                                                                ) ||
+                                                                                0;
+                                                                            setAksesRules(
+                                                                                (
+                                                                                    p,
+                                                                                ) =>
+                                                                                    p.map(
+                                                                                        (
+                                                                                            r,
+                                                                                        ) =>
+                                                                                            r.id ===
+                                                                                            rule.id
+                                                                                                ? {
+                                                                                                      ...r,
+                                                                                                      minScore:
+                                                                                                          v,
+                                                                                                  }
+                                                                                                : r,
+                                                                                    ),
+                                                                            );
+                                                                        }}
+                                                                        className="h-[30px] w-[50px] rounded-lg border border-[#d9d7df] bg-white px-1 text-center text-[12px] text-[#232530] outline-none"
+                                                                    />
+                                                                    <span className="text-[12px] text-[#232530]">
+                                                                        Buka
+                                                                        akses
+                                                                    </span>
+                                                                    <select
+                                                                        value={
+                                                                            rule.topikId
+                                                                        }
+                                                                        onChange={(
+                                                                            e,
+                                                                        ) => {
+                                                                            const v =
+                                                                                e
+                                                                                    .target
+                                                                                    .value;
+                                                                            setAksesRules(
+                                                                                (
+                                                                                    p,
+                                                                                ) =>
+                                                                                    p.map(
+                                                                                        (
+                                                                                            r,
+                                                                                        ) =>
+                                                                                            r.id ===
+                                                                                            rule.id
+                                                                                                ? {
+                                                                                                      ...r,
+                                                                                                      topikId:
+                                                                                                          v,
+                                                                                                  }
+                                                                                                : r,
+                                                                                    ),
+                                                                            );
+                                                                        }}
+                                                                        className="h-[30px] rounded-lg border border-[#d9d7df] bg-white px-2 text-[12px] text-[#7a7e8a] outline-none"
+                                                                    >
+                                                                        <option value="">
+                                                                            Pilih
+                                                                            Topik
+                                                                        </option>
+                                                                        {topikOptions.map(
+                                                                            (
+                                                                                t,
+                                                                            ) => (
+                                                                                <option
+                                                                                    key={
+                                                                                        t.id
+                                                                                    }
+                                                                                    value={
+                                                                                        t.id
+                                                                                    }
+                                                                                >
+                                                                                    {
+                                                                                        t.nama
+                                                                                    }
+                                                                                </option>
+                                                                            ),
+                                                                        )}
+                                                                    </select>
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setAksesRules(
+                                                                    (p) => [
+                                                                        ...p,
+                                                                        {
+                                                                            id: Date.now(),
+                                                                            minScore: 30,
+                                                                            topikId:
+                                                                                "",
+                                                                        },
+                                                                    ],
+                                                                )
+                                                            }
+                                                            className="mt-2 text-[12px] font-semibold text-[#7054dc]"
                                                         >
-                                                            <span className="text-[12px] text-[#232530]">
-                                                                Jika nilai
-                                                                minimal
-                                                            </span>
-                                                            <input
-                                                                type="number"
-                                                                value={
-                                                                    rule.minScore
-                                                                }
-                                                                onChange={(
-                                                                    e,
-                                                                ) => {
-                                                                    const v =
+                                                            Tambahkan aturan
+                                                            lain &nbsp;+
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                        {posttestId && (
+                                            <>
+                                                <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+                                                    <div>
+                                                        <p className="text-[13px] font-semibold text-[#232530]">
+                                                            Durasi Pengerjaan
+                                                            (Menit) - Post Test
+                                                        </p>
+                                                        <p className="mt-1 text-[11px] text-[#7a7e8a]">
+                                                            Batas waktu siswa
+                                                            untuk menyelesaikan
+                                                            post test
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="number"
+                                                            value={
+                                                                posttestDuration
+                                                            }
+                                                            onChange={(e) =>
+                                                                setPosttestDuration(
+                                                                    parseInt(
+                                                                        e.target
+                                                                            .value,
+                                                                    ) || 0,
+                                                                )
+                                                            }
+                                                            className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
+                                                        />
+                                                        <span className="text-[12px] text-[#7a7e8a]">
+                                                            Menit
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
+                                                    <div>
+                                                        <p className="text-[13px] font-semibold text-[#232530]">
+                                                            Jumlah Soal Tampil -
+                                                            Post Test
+                                                        </p>
+                                                        <p className="mt-1 text-[11px] text-[#7a7e8a]">
+                                                            Jumlah soal yang
+                                                            akan muncul secara
+                                                            acak dari bank soal
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="number"
+                                                            value={
+                                                                posttestCountShown
+                                                            }
+                                                            onChange={(e) =>
+                                                                setPosttestCountShown(
+                                                                    snapToMultipleOf4(
                                                                         parseInt(
                                                                             e
                                                                                 .target
                                                                                 .value,
-                                                                        ) || 0;
-                                                                    setAksesRules(
-                                                                        (p) =>
-                                                                            p.map(
-                                                                                (
-                                                                                    r,
-                                                                                ) =>
-                                                                                    r.id ===
-                                                                                        rule.id
-                                                                                        ? {
-                                                                                            ...r,
-                                                                                            minScore:
-                                                                                                v,
-                                                                                        }
-                                                                                        : r,
-                                                                            ),
-                                                                    );
-                                                                }}
-                                                                className="h-[30px] w-[50px] rounded-lg border border-[#d9d7df] bg-white px-1 text-center text-[12px] text-[#232530] outline-none"
-                                                            />
-                                                            <span className="text-[12px] text-[#232530]">
-                                                                Buka akses
-                                                            </span>
-                                                            <select
-                                                                value={
-                                                                    rule.topikId
-                                                                }
-                                                                onChange={(
-                                                                    e,
-                                                                ) => {
-                                                                    const v =
-                                                                        e.target
-                                                                            .value;
-                                                                    setAksesRules(
-                                                                        (p) =>
-                                                                            p.map(
-                                                                                (
-                                                                                    r,
-                                                                                ) =>
-                                                                                    r.id ===
-                                                                                        rule.id
-                                                                                        ? {
-                                                                                            ...r,
-                                                                                            topikId:
-                                                                                                v,
-                                                                                        }
-                                                                                        : r,
-                                                                            ),
-                                                                    );
-                                                                }}
-                                                                className="h-[30px] rounded-lg border border-[#d9d7df] bg-white px-2 text-[12px] text-[#7a7e8a] outline-none"
-                                                            >
-                                                                <option value="">
-                                                                    Pilih Topik
-                                                                </option>
-                                                                {topikOptions.map(
-                                                                    (t) => (
-                                                                        <option
-                                                                            key={
-                                                                                t.id
-                                                                            }
-                                                                            value={
-                                                                                t.id
-                                                                            }
-                                                                        >
-                                                                            {
-                                                                                t.nama
-                                                                            }
-                                                                        </option>
+                                                                        ) || 0,
                                                                     ),
-                                                                )}
-                                                            </select>
-                                                        </div>
-                                                    ))}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setAksesRules(
-                                                                (p) => [
-                                                                    ...p,
-                                                                    {
-                                                                        id: Date.now(),
-                                                                        minScore: 30,
-                                                                        topikId:
-                                                                            "",
-                                                                    },
-                                                                ],
-                                                            )
-                                                        }
-                                                        className="mt-2 text-[12px] font-semibold text-[#7054dc]"
-                                                    >
-                                                        Tambahkan aturan lain
-                                                        &nbsp;+
-                                                    </button>
+                                                                )
+                                                            }
+                                                            step={
+                                                                isTestComputationalThinking
+                                                                    ? 4
+                                                                    : 1
+                                                            }
+                                                            className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
+                                                        />
+                                                        <span className="text-[12px] text-[#7a7e8a]">
+                                                            Soal
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            </>
                                         )}
                                         <div className="mt-5 flex items-center justify-end gap-3">
                                             <button
@@ -2347,8 +2554,9 @@ function PrePostTestPageContent() {
 
                 {/* Mobile drawer */}
                 <div
-                    className={`fixed top-0 left-0 z-50 h-full w-[260px] border-r border-[#e5e3ee] bg-white px-5 py-6 shadow-lg transition-transform duration-300 lg:hidden ${isDrawerOpen ? "translate-x-0" : "-translate-x-full"
-                        }`}
+                    className={`fixed top-0 left-0 z-50 h-full w-[260px] border-r border-[#e5e3ee] bg-white px-5 py-6 shadow-lg transition-transform duration-300 lg:hidden ${
+                        isDrawerOpen ? "translate-x-0" : "-translate-x-full"
+                    }`}
                 >
                     <div className="flex items-center justify-between mb-4">
                         <p className="text-[13px] font-semibold text-[#232530]">
@@ -2574,15 +2782,71 @@ function PrePostTestPageContent() {
                                                         }
                                                         onChange={(e) =>
                                                             setSettingsSoalTampil(
-                                                                parseInt(
-                                                                    e.target
-                                                                        .value,
-                                                                ) || 0,
+                                                                snapToMultipleOf4(
+                                                                    Math.min(
+                                                                        parseInt(
+                                                                            e
+                                                                                .target
+                                                                                .value,
+                                                                        ) || 0,
+                                                                        bank
+                                                                            ? bank
+                                                                                  .questions
+                                                                                  .length +
+                                                                              bank.ctStories.reduce(
+                                                                                  (
+                                                                                      sum,
+                                                                                      s,
+                                                                                  ) =>
+                                                                                      sum +
+                                                                                      s
+                                                                                          .subQuestions
+                                                                                          .length,
+                                                                                  0,
+                                                                              )
+                                                                            : 0,
+                                                                    ),
+                                                                ),
                                                             )
+                                                        }
+                                                        max={
+                                                            bank
+                                                                ? bank.questions
+                                                                      .length +
+                                                                  bank.ctStories.reduce(
+                                                                      (
+                                                                          sum,
+                                                                          s,
+                                                                      ) =>
+                                                                          sum +
+                                                                          s
+                                                                              .subQuestions
+                                                                              .length,
+                                                                      0,
+                                                                  )
+                                                                : 0
+                                                        }
+                                                        step={
+                                                            isTestComputationalThinking
+                                                                ? 4
+                                                                : 1
                                                         }
                                                         className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
                                                     />
                                                     <span className="text-[12px] text-[#7a7e8a]">
+                                                        /{" "}
+                                                        {bank
+                                                            ? bank.questions
+                                                                  .length +
+                                                              bank.ctStories.reduce(
+                                                                  (sum, s) =>
+                                                                      sum +
+                                                                      s
+                                                                          .subQuestions
+                                                                          .length,
+                                                                  0,
+                                                              )
+                                                            : 0}{" "}
                                                         Soal
                                                     </span>
                                                 </div>
@@ -2622,12 +2886,12 @@ function PrePostTestPageContent() {
                                                                                     r,
                                                                                 ) =>
                                                                                     r.id ===
-                                                                                        rule.id
+                                                                                    rule.id
                                                                                         ? {
-                                                                                            ...r,
-                                                                                            minScore:
-                                                                                                v,
-                                                                                        }
+                                                                                              ...r,
+                                                                                              minScore:
+                                                                                                  v,
+                                                                                          }
                                                                                         : r,
                                                                             ),
                                                                     );
@@ -2654,12 +2918,12 @@ function PrePostTestPageContent() {
                                                                                     r,
                                                                                 ) =>
                                                                                     r.id ===
-                                                                                        rule.id
+                                                                                    rule.id
                                                                                         ? {
-                                                                                            ...r,
-                                                                                            topikId:
-                                                                                                v,
-                                                                                        }
+                                                                                              ...r,
+                                                                                              topikId:
+                                                                                                  v,
+                                                                                          }
                                                                                         : r,
                                                                             ),
                                                                     );
@@ -2764,11 +3028,18 @@ function PrePostTestPageContent() {
                                                         }
                                                         onChange={(e) =>
                                                             setPosttestCountShown(
-                                                                parseInt(
-                                                                    e.target
-                                                                        .value,
-                                                                ) || 0,
+                                                                snapToMultipleOf4(
+                                                                    parseInt(
+                                                                        e.target
+                                                                            .value,
+                                                                    ) || 0,
+                                                                ),
                                                             )
+                                                        }
+                                                        step={
+                                                            isTestComputationalThinking
+                                                                ? 4
+                                                                : 1
                                                         }
                                                         className="h-[32px] w-[60px] rounded-lg border border-[#d9d7df] bg-white px-2 text-center text-[12px] text-[#232530] outline-none"
                                                     />

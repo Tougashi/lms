@@ -191,8 +191,8 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                 item.itemType === "QUIZ" ||
                 (item.itemType as string)?.toUpperCase() === "KUIS"
             ) {
-                // Priority 1: Group by quizGroupId (REGULER and CT)
-                if (item.quizGroupId) {
+                // Priority 1: Group by quizGroupId (REGULER only — CT falls through to Priority 2)
+                if (item.quizGroupId && !(item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId)) {
                     const group = quizGroupMap.get(item.quizGroupId);
                     if (group && group[0]?.id === item.id) {
                         flushJudulMap();
@@ -348,8 +348,8 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                 item.itemType === "QUIZ" ||
                 (item.itemType as string)?.toUpperCase() === "KUIS"
             ) {
-                // Priority 1: Group by quizGroupId (REGULER and CT)
-                if (item.quizGroupId) {
+                // Priority 1: Group by quizGroupId (REGULER only — CT falls through to Priority 2)
+                if (item.quizGroupId && !(item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId)) {
                     const group = buildTreeQuizGroupMap.get(item.quizGroupId);
                     if (group && group[0]?.id === item.id) {
                         flushJudulMap();
@@ -919,6 +919,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         pilihan_d: it.quizAnswerOptions?.[3]?.option || "D",
                         kunci_jawaban: it.correctAnswer,
                         gambar_url: it.quizImgQuestionUrl || null,
+                        ceritaCT: it.ctStory ?? null,
+                        ctAspect: it.ctAspect ?? null,
                     });
                 }
             }
@@ -944,24 +946,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         pilihan_d: item.quizAnswerOptions?.[3]?.option || "D",
                         kunci_jawaban: item.correctAnswer,
                         gambar_url: item.quizImgQuestionUrl || null,
+                        ceritaCT: item.ctStory ?? null,
+                        ctAspect: item.ctAspect ?? null,
                     },
                 ] as SoalItem[];
             }
         }
         return [];
-    }, [assessmentType, activeQuizItemId, activeCtSubIds, modulDetail]);
-
-    const currentCtStory = useMemo(() => {
-        if (assessmentType !== "kuis" || !modulDetail) return null;
-        const ids = activeCtSubIds.length > 0 ? activeCtSubIds : (activeQuizItemId ? [activeQuizItemId] : []);
-        for (const topik of modulDetail.curriculum.topiks) {
-            for (const item of topik.items) {
-                if (ids.includes(item.id) && item.ctStory) {
-                    return item.ctStory;
-                }
-            }
-        }
-        return null;
     }, [assessmentType, activeQuizItemId, activeCtSubIds, modulDetail]);
 
     const currentSoal =
@@ -2293,14 +2284,22 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                         </div>
 
                                         <div className="rounded-2xl border border-[#e6e4ed] bg-white px-4 sm:px-6 py-8">
-                                            {assessmentType === "kuis" && currentCtStory && (
-                                                <div className="mb-5 rounded-xl border border-[#e6e4ed] bg-[#faf9ff] p-4 text-left text-sm leading-relaxed text-[#202126]">
-                                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7054dc]">
-                                                        Cerita CT
-                                                    </p>
-                                                    <p>{currentCtStory}</p>
-                                                </div>
-                                            )}
+                                            {(() => {
+                                                const story = activeQuestion?.ceritaCT ?? null;
+                                                return story ? (
+                                                    <div className="mb-5 rounded-xl border border-[#e6e4ed] bg-[#faf9ff] p-4 text-left text-sm leading-relaxed text-[#202126]">
+                                                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7054dc]">
+                                                            Cerita CT
+                                                        </p>
+                                                        <div
+                                                            className="text-sm leading-relaxed text-[#202126] prose prose-sm max-w-none"
+                                                            dangerouslySetInnerHTML={{
+                                                                __html: story,
+                                                            }}
+                                                        />
+                                                    </div>
+                                                ) : null;
+                                            })()}
                                             {activeQuestion.gambar_url && (
                                                 <div className="mb-6 overflow-hidden rounded-xl">
                                                     <Image
@@ -2315,6 +2314,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 </div>
                                             )}
 
+                                            {activeQuestion.ctAspect && (
+                                                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#7054dc]">
+                                                    {activeQuestion.ctAspect}
+                                                </p>
+                                            )}
                                             <div
                                                 className="text-base font-semibold text-[#202126] prose prose-sm max-w-none"
                                                 dangerouslySetInnerHTML={{
@@ -2930,8 +2934,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     </div>
 
                     {/* Footer navigation */}
-                    {(currentView === "materi" ||
-                        currentView === "pretest-quiz") && (
+                    {currentView === "materi" && (
                         <div className="border-t border-[#e1e0e7] bg-white px-4 sm:px-6 py-4">
                             <div className="flex items-center justify-between">
                                 <button
