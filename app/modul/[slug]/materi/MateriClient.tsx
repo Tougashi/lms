@@ -2484,10 +2484,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             </p>
                                             <p className="mt-2 text-2xl font-bold text-[#202126]">
                                                 {testResult?.totalBenar ??
-                                                    (assessmentType ===
-                                                    "posttest"
-                                                        ? progress?.posttestCorrectCount
-                                                        : progress?.pretestCorrectCount) ??
+                                                    (assessmentType === "posttest"
+                                                        ? (progress?.posttestCorrectCount ?? (progress as any)?.post_test_correct_count ?? (progress as any)?.postTestCorrectCount)
+                                                        : (progress?.pretestCorrectCount ?? (progress as any)?.pre_test_correct_count ?? (progress as any)?.preTestCorrectCount)) ??
+                                                    ((assessmentType === "posttest" ? (progress?.posttestScore ?? (progress as any)?.post_test_score ?? (progress as any)?.postTestScore ?? (progress as any)?.finalScore) : (progress?.pretestScore ?? (progress as any)?.pre_test_score)) != null && (assessmentType === "posttest" ? posttestSoal.length : pretestSoal.length) > 0
+                                                        ? Math.round((((assessmentType === "posttest" ? (progress?.posttestScore ?? (progress as any)?.post_test_score ?? (progress as any)?.postTestScore ?? (progress as any)?.finalScore) : (progress?.pretestScore ?? (progress as any)?.pre_test_score)) as number) <= (assessmentType === "posttest" ? posttestSoal.length : pretestSoal.length)
+                                                            ? ((assessmentType === "posttest" ? (progress?.posttestScore ?? (progress as any)?.post_test_score ?? (progress as any)?.postTestScore ?? (progress as any)?.finalScore) : (progress?.pretestScore ?? (progress as any)?.pre_test_score)) as number)
+                                                            : (((assessmentType === "posttest" ? (progress?.posttestScore ?? (progress as any)?.post_test_score ?? (progress as any)?.postTestScore ?? (progress as any)?.finalScore) : (progress?.pretestScore ?? (progress as any)?.pre_test_score)) as number) / 100) * (assessmentType === "posttest" ? posttestSoal.length : pretestSoal.length)))
+                                                        : null) ??
                                                     "-"}
                                             </p>
                                         </div>
@@ -2500,11 +2504,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             </p>
                                             <p className="mt-2 text-2xl font-bold text-[#202126]">
                                                 {testResult?.totalSalah ??
-                                                    (assessmentType ===
-                                                    "posttest"
-                                                        ? progress?.posttestWrongCount
-                                                        : progress?.pretestWrongCount) ??
-                                                    "-"}
+                                                    (assessmentType === "posttest"
+                                                        ? (progress?.posttestWrongCount ?? (progress as any)?.post_test_wrong_count ?? (progress as any)?.postTestWrongCount)
+                                                        : (progress?.pretestWrongCount ?? (progress as any)?.pre_test_wrong_count ?? (progress as any)?.preTestWrongCount)) ??
+                                                    ((assessmentType === "posttest" ? posttestSoal.length : pretestSoal.length) > 0 && (assessmentType === "posttest" ? (progress?.posttestCorrectCount ?? (progress as any)?.post_test_correct_count ?? (progress as any)?.postTestCorrectCount) : (progress?.pretestCorrectCount ?? (progress as any)?.pre_test_correct_count ?? (progress as any)?.preTestCorrectCount)) != null
+                                                        ? (assessmentType === "posttest" ? posttestSoal.length : pretestSoal.length) - (assessmentType === "posttest" ? (progress?.posttestCorrectCount ?? (progress as any)?.post_test_correct_count ?? (progress as any)?.postTestCorrectCount) : (progress?.pretestCorrectCount ?? (progress as any)?.pre_test_correct_count ?? (progress as any)?.preTestCorrectCount))
+                                                        : "-")}
                                             </p>
                                         </div>
                                         <div>
@@ -2515,19 +2520,20 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 </span>
                                             </p>
                                             <p className="mt-2 text-2xl font-bold text-[#202126]">
-                                                {testResult
-                                                    ? formatRemainingTime(
-                                                          displayedElapsedSeconds,
-                                                      )
-                                                    : formatRemainingTime(
-                                                          assessmentType ===
-                                                              "posttest"
-                                                              ? (progress?.posttestTimeSpent ??
-                                                                    0)
-                                                              : (progress?.pretestTimeSpent ??
-                                                                    0),
-                                                      )}
-                                            </p>
+                                                 {(testResult as any)?.timeSpent
+                                                     ? formatRemainingTime((testResult as any).timeSpent)
+                                                     : (assessmentType === "posttest"
+                                                           ? (progress?.posttestTimeSpent ?? (progress as any)?.post_test_time_spent ?? (progress as any)?.postTestTimeSpent)
+                                                           : (progress?.pretestTimeSpent ?? (progress as any)?.pre_test_time_spent ?? (progress as any)?.preTestTimeSpent))
+                                                       ? formatRemainingTime(
+                                                             (assessmentType === "posttest"
+                                                                 ? (progress?.posttestTimeSpent ?? (progress as any)?.post_test_time_spent ?? (progress as any)?.postTestTimeSpent)
+                                                                 : (progress?.pretestTimeSpent ?? (progress as any)?.pre_test_time_spent ?? (progress as any)?.preTestTimeSpent)) as number
+                                                         )
+                                                       : (finishedElapsedSeconds
+                                                             ? formatRemainingTime(finishedElapsedSeconds)
+                                                             : "—")}
+                                             </p>
                                         </div>
                                         <div>
                                             <p className="inline-flex items-center gap-1 text-lg text-[#4f5565]">

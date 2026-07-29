@@ -87,6 +87,7 @@ export interface TestSubmitResult {
   total_submodules?: number;
   totalBenar?: number;
   totalSalah?: number;
+  timeSpent?: number | null;
   message?: string;
   isGraduated?: boolean;
   certificate?: CertificateItem | null;
