@@ -2948,10 +2948,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                     onClick={handleFooterPrevious}
                                     disabled={
                                         isNavigating ||
-                                        (currentView === "materi" &&
-                                            isFirstItem) ||
-                                        (currentView === "pretest-quiz" &&
-                                            activeQuestionIndex === 0)
+                                        isFirstItem
                                     }
                                     className="inline-flex items-center gap-2 rounded-lg border border-[#e0dfe6] px-4 py-2 text-sm font-medium text-[#202126] hover:bg-[#f7f6ff] disabled:opacity-40"
                                 >

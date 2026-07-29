@@ -2147,7 +2147,7 @@ function PrePostTestPageContent() {
                                             </button>
                                         </div>
 
-                                        {bank && (
+                                    {(bank as unknown as BankSoal | null) && (
                                             <>
                                                 <div className="mt-4 flex items-center justify-between border-b border-[#f0eff5] pb-4">
                                                     <div>
@@ -2789,42 +2789,41 @@ function PrePostTestPageContent() {
                                                                                 .target
                                                                                 .value,
                                                                         ) || 0,
-                                                                        bank
-                                                                            ? bank
-                                                                                  .questions
-                                                                                  .length +
-                                                                              bank.ctStories.reduce(
-                                                                                  (
-                                                                                      sum,
-                                                                                      s,
-                                                                                  ) =>
-                                                                                      sum +
-                                                                                      s
-                                                                                          .subQuestions
-                                                                                          .length,
-                                                                                  0,
-                                                                              )
-                                                                            : 0,
+                                                                        (bank as unknown as BankSoal)
+                                                                            .questions
+                                                                            .length +
+                                                                        (bank as unknown as BankSoal)
+                                                                            .ctStories.reduce(
+                                                                            (
+                                                                                sum,
+                                                                                s,
+                                                                            ) =>
+                                                                                sum +
+                                                                                s
+                                                                                    .subQuestions
+                                                                                    .length,
+                                                                            0,
+                                                                        ),
                                                                     ),
                                                                 ),
                                                             )
                                                         }
                                                         max={
-                                                            bank
-                                                                ? bank.questions
-                                                                      .length +
-                                                                  bank.ctStories.reduce(
-                                                                      (
-                                                                          sum,
-                                                                          s,
-                                                                      ) =>
-                                                                          sum +
-                                                                          s
-                                                                              .subQuestions
-                                                                              .length,
-                                                                      0,
-                                                                  )
-                                                                : 0
+                                                            (bank as unknown as BankSoal)
+                                                                .questions
+                                                                .length +
+                                                            (bank as unknown as BankSoal)
+                                                                .ctStories.reduce(
+                                                                (
+                                                                    sum,
+                                                                    s,
+                                                                ) =>
+                                                                    sum +
+                                                                    s
+                                                                        .subQuestions
+                                                                        .length,
+                                                                0,
+                                                            )
                                                         }
                                                         step={
                                                             isTestComputationalThinking
@@ -2835,18 +2834,18 @@ function PrePostTestPageContent() {
                                                     />
                                                     <span className="text-[12px] text-[#7a7e8a]">
                                                         /{" "}
-                                                        {bank
-                                                            ? bank.questions
-                                                                  .length +
-                                                              bank.ctStories.reduce(
-                                                                  (sum, s) =>
-                                                                      sum +
-                                                                      s
-                                                                          .subQuestions
-                                                                          .length,
-                                                                  0,
-                                                              )
-                                                            : 0}{" "}
+                                                        {(bank as unknown as BankSoal)
+                                                            .questions
+                                                            .length +
+                                                        (bank as unknown as BankSoal)
+                                                            .ctStories.reduce(
+                                                            (sum, s) =>
+                                                                sum +
+                                                                s
+                                                                    .subQuestions
+                                                                    .length,
+                                                            0,
+                                                        )}{" "}
                                                         Soal
                                                     </span>
                                                 </div>
