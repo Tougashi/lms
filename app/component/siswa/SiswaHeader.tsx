@@ -39,7 +39,15 @@ function extractNotifications(res: unknown): NotificationItem[] {
     return [];
 }
 
-export default function SiswaHeader() {
+interface SiswaHeaderProps {
+    isTestActive?: boolean;
+    onBlockedClick?: () => void;
+}
+
+export default function SiswaHeader({
+    isTestActive = false,
+    onBlockedClick,
+}: SiswaHeaderProps = {}) {
     const { user, logout } = useAuth();
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -132,11 +140,24 @@ export default function SiswaHeader() {
     const isModuleMateri =
         pathname.startsWith("/modul/") && pathname.endsWith("/materi");
 
+    const handleNavClick = (e: React.MouseEvent, action?: () => void) => {
+        if (isTestActive) {
+            e.preventDefault();
+            e.stopPropagation();
+            onBlockedClick?.();
+            return;
+        }
+        if (action) {
+            action();
+        }
+    };
+
     return (
         <header className="sticky top-0 z-50 border-b border-[#eceaf4] bg-white shadow-sm">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
                 <Link
-                    href="/beranda-siswa"
+                    href={isTestActive ? "#" : "/beranda-siswa"}
+                    onClick={(e) => handleNavClick(e)}
                     className="text-xl font-bold text-[#21212b]"
                 >
                     DigiClass
@@ -144,19 +165,22 @@ export default function SiswaHeader() {
 
                 <nav className="hidden flex-1 justify-center gap-16 sm:flex">
                     <Link
-                        href="/beranda-siswa"
+                        href={isTestActive ? "#" : "/beranda-siswa"}
+                        onClick={(e) => handleNavClick(e)}
                         className={`text-sm hover:text-[#7054dc] ${isBerandaActive ? "font-medium text-[#7054dc]" : "text-[#21212b]"}`}
                     >
                         Beranda
                     </Link>
                     <Link
-                        href="/eksplor-modul"
+                        href={isTestActive ? "#" : "/eksplor-modul"}
+                        onClick={(e) => handleNavClick(e)}
                         className={`text-sm hover:text-[#7054dc] ${isEksplorActive ? "font-medium text-[#7054dc]" : "text-[#21212b]"}`}
                     >
                         Eksplor Modul
                     </Link>
                     <Link
-                        href="/tentang-kami"
+                        href={isTestActive ? "#" : "/tentang-kami"}
+                        onClick={(e) => handleNavClick(e)}
                         className="text-sm text-[#21212b] hover:text-[#7054dc]"
                     >
                         Tentang Kami
@@ -166,7 +190,7 @@ export default function SiswaHeader() {
                 <button
                     type="button"
                     aria-label="Buka menu navigasi"
-                    onClick={() => setIsMobileNavOpen((prev) => !prev)}
+                    onClick={(e) => handleNavClick(e, () => setIsMobileNavOpen((prev) => !prev))}
                     className="rounded-full p-2 hover:bg-[#f7f6ff] sm:hidden"
                 >
                     {isMobileNavOpen ? (
@@ -181,9 +205,11 @@ export default function SiswaHeader() {
                         <button
                             type="button"
                             aria-label="Buka sidebar Konten Kelas"
-                            onClick={() =>
-                                window.dispatchEvent(
-                                    new Event("toggle-module-sidebar"),
+                            onClick={(e) =>
+                                handleNavClick(e, () =>
+                                    window.dispatchEvent(
+                                        new Event("toggle-module-sidebar"),
+                                    ),
                                 )
                             }
                             className="inline-flex rounded-full p-2 hover:bg-[#f7f6ff] lg:hidden"
@@ -194,8 +220,10 @@ export default function SiswaHeader() {
                     <div className="relative" ref={notificationMenuRef}>
                         <button
                             type="button"
-                            onClick={() =>
-                                setIsNotificationMenuOpen((prev) => !prev)
+                            onClick={(e) =>
+                                handleNavClick(e, () =>
+                                    setIsNotificationMenuOpen((prev) => !prev),
+                                )
                             }
                             className="relative rounded-full p-2 hover:bg-[#f7f6ff]"
                         >
@@ -274,6 +302,7 @@ export default function SiswaHeader() {
                     <button
                         type="button"
                         aria-label="Customer Service"
+                        onClick={(e) => handleNavClick(e)}
                         className="rounded-full p-2 hover:bg-[#f7f6ff]"
                     >
                         <RiCustomerService2Line
@@ -285,8 +314,10 @@ export default function SiswaHeader() {
                     <div className="relative" ref={profileMenuRef}>
                         <button
                             type="button"
-                            onClick={() =>
-                                setIsProfileMenuOpen((prev) => !prev)
+                            onClick={(e) =>
+                                handleNavClick(e, () =>
+                                    setIsProfileMenuOpen((prev) => !prev),
+                                )
                             }
                             className="flex items-center gap-1 rounded-full border border-[#eceaf4] bg-white px-1.5 py-1 shadow-sm transition-colors hover:bg-[#f7f6ff]"
                         >
@@ -322,9 +353,11 @@ export default function SiswaHeader() {
 
                                 <div className="border-t border-[#d7d9df] bg-white px-2 py-2">
                                     <Link
-                                        href="/profil"
-                                        onClick={() =>
-                                            setIsProfileMenuOpen(false)
+                                        href={isTestActive ? "#" : "/profil"}
+                                        onClick={(e) =>
+                                            handleNavClick(e, () =>
+                                                setIsProfileMenuOpen(false),
+                                            )
                                         }
                                         className="flex w-full items-center justify-between rounded-lg px-1.5 py-1.5 text-[#7b7f8b] transition-colors hover:bg-[#f7f6ff]"
                                     >
@@ -358,10 +391,12 @@ export default function SiswaHeader() {
 
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setIsProfileMenuOpen(false);
-                                            logout();
-                                        }}
+                                        onClick={(e) =>
+                                            handleNavClick(e, () => {
+                                                setIsProfileMenuOpen(false);
+                                                logout();
+                                            })
+                                        }
                                         className="mt-1 flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[#ff7268] transition-colors hover:bg-[#fff6f5]"
                                     >
                                         <span className="flex h-5 w-5 items-center justify-center text-[#ff7268]">

@@ -100,6 +100,7 @@ type SequenceItem = {
     konten?: string;
     duration?: string;
     ctSubIds?: string[];
+    allowMultipleAttempts?: boolean;
 };
 
 type ContentSection = {
@@ -698,6 +699,42 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         return () => {
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("blur", handleWindowBlur);
+        };
+    }, [currentView]);
+
+    useEffect(() => {
+        if (currentView !== "pretest-quiz") return;
+
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = "";
+            return "";
+        };
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (
+                e.key === "F5" ||
+                ((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R"))
+            ) {
+                e.preventDefault();
+                setToastMsg("Dilarang merefresh halaman saat tes berlangsung!");
+            }
+        };
+
+        window.history.pushState(null, "", window.location.href);
+        const handlePopState = () => {
+            window.history.pushState(null, "", window.location.href);
+            setToastMsg("Tidak dapat keluar halaman saat tes sedang berlangsung!");
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        window.addEventListener("keydown", handleKeyDown);
+        window.addEventListener("popstate", handlePopState);
+
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+            window.removeEventListener("keydown", handleKeyDown);
+            window.removeEventListener("popstate", handlePopState);
         };
     }, [currentView]);
 
@@ -1526,7 +1563,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-[#f6f6f8]">
-            <SiswaHeader />
+            <SiswaHeader
+                isTestActive={currentView === "pretest-quiz"}
+                onBlockedClick={() =>
+                    setToastMsg(
+                        "Tidak dapat berpindah halaman saat tes sedang berlangsung!",
+                    )
+                }
+            />
 
             {isModuleSidebarOpen && (
                 <div
@@ -1542,7 +1586,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         isModuleSidebarOpen
                             ? "fixed left-0 top-[76px] bottom-0 z-50 flex w-[320px]"
                             : "hidden"
-                    } relative h-full flex-col overflow-hidden border-r border-[#e1e0e7] bg-white px-5 py-6 lg:static lg:flex lg:w-auto`}
+                    } relative h-full flex-col overflow-hidden border-r border-[#e1e0e7] bg-white px-5 py-6 lg:relative lg:flex lg:w-auto`}
                 >
                     <h1 className="text-2xl font-bold text-[#202126]">
                         Konten Kelas
@@ -2247,8 +2291,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     </div>
                     {currentView === "pretest-quiz" && (
                         <div
-                            className="absolute inset-0 z-[100] cursor-not-allowed"
-                            onClick={() => setToastMsg("Jangan alihkan fokus kamu!")}
+                            className="absolute inset-0 z-[100] cursor-not-allowed bg-transparent"
+                            onClick={() =>
+                                setToastMsg(
+                                    "Tidak dapat berpindah halaman saat tes sedang berlangsung!",
+                                )
+                            }
                         />
                     )}
                 </aside>
