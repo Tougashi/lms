@@ -354,6 +354,7 @@ export interface StudyRoomItem {
   ctGroupId?: string | null;
   ctStory?: string | null;
   ctAspect?: string | null;
+  ctSubIds?: string[];
   judul: string;
   isVideo?: boolean;
   videoUrl?: string | null;
@@ -364,6 +365,7 @@ export interface StudyRoomItem {
   quizImgQuestionUrl?: string | null;
   quizAnswerOptions?: { id: string; option: string }[];
   timeLimit?: number | null;
+  allowMultipleAttempts?: boolean | null;
   quizGroupId?: string | null;
 }
 

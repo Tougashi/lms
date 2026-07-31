@@ -2987,13 +2987,15 @@ function TambahModulKontenPageContent() {
                             >
                               <FiSettings size={14} />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleSubmitQuiz(quiz.id)}
-                              className="inline-flex h-[26px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-3 text-[11px] font-semibold text-white hover:bg-[#5f46cc]"
-                            >
-                              Simpan
-                            </button>
+                            {quiz.isExpanded && (
+                              <button
+                                type="button"
+                                onClick={() => handleSubmitQuiz(quiz.id)}
+                                className="inline-flex h-[26px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-3 text-[11px] font-semibold text-white hover:bg-[#5f46cc]"
+                              >
+                                Simpan
+                              </button>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             <button

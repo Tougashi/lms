@@ -158,6 +158,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
 
     for (const topik of modul.curriculum.topiks) {
         const ctJudulMap = new Map<string, typeof topik.items>();
+        const handledCtIds = new Set<string>();
 
         const flushJudulMap = () => {
             if (ctJudulMap.size === 0) return;
@@ -191,8 +192,35 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                 item.itemType === "QUIZ" ||
                 (item.itemType as string)?.toUpperCase() === "KUIS"
             ) {
+                // Priority 0: Backend-grouped CT item (has ctSubIds array)
+                if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctSubIds && item.ctSubIds.length > 0) {
+                    flushJudulMap();
+                    seq.push({
+                        id: item.id,
+                        title: item.judul || "Kuis CT",
+                        type: "quiz-ct",
+                        topikId: topik.id,
+                        topikName: topik.nama,
+                        ctSubIds: item.ctSubIds,
+                    });
+                    for (const subId of item.ctSubIds) handledCtIds.add(subId);
+                // Priority 0b: Backend-grouped REGULER item (has ctSubIds array)
+                } else if (item.quizType === "REGULER" && item.ctSubIds && item.ctSubIds.length > 0) {
+                    flushJudulMap();
+                    seq.push({
+                        id: item.id,
+                        title: item.judul ? item.judul.replace(/<[^>]*>?/gm, "") : "Kuis",
+                        type: "quiz",
+                        topikId: topik.id,
+                        topikName: topik.nama,
+                        ctSubIds: item.ctSubIds,
+                    });
+                    for (const subId of item.ctSubIds) handledCtIds.add(subId);
+                // Individual item already covered by a group — skip rendering but keep in topik.items for question lookup
+                } else if (handledCtIds.has(item.id)) {
+                    // intentionally skipped
                 // Priority 1: Group by quizGroupId (REGULER only — CT falls through to Priority 2)
-                if (item.quizGroupId && !(item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId)) {
+                } else if (item.quizGroupId && !(item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId)) {
                     const group = quizGroupMap.get(item.quizGroupId);
                     if (group && group[0]?.id === item.id) {
                         flushJudulMap();
@@ -315,6 +343,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
     for (const topik of modul.curriculum.topiks) {
         const items: SequenceItem[] = [];
         const ctJudulMap = new Map<string, typeof topik.items>();
+        const handledCtIds = new Set<string>();
 
         const flushJudulMap = () => {
             if (ctJudulMap.size === 0) return;
@@ -348,8 +377,35 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                 item.itemType === "QUIZ" ||
                 (item.itemType as string)?.toUpperCase() === "KUIS"
             ) {
+                // Priority 0: Backend-grouped CT item (has ctSubIds array)
+                if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctSubIds && item.ctSubIds.length > 0) {
+                    flushJudulMap();
+                    items.push({
+                        id: item.id,
+                        title: item.judul || "Kuis CT",
+                        type: "quiz-ct",
+                        topikId: topik.id,
+                        topikName: topik.nama,
+                        ctSubIds: item.ctSubIds,
+                    });
+                    for (const subId of item.ctSubIds) handledCtIds.add(subId);
+                // Priority 0b: Backend-grouped REGULER item (has ctSubIds array)
+                } else if (item.quizType === "REGULER" && item.ctSubIds && item.ctSubIds.length > 0) {
+                    flushJudulMap();
+                    items.push({
+                        id: item.id,
+                        title: item.judul ? item.judul.replace(/<[^>]*>?/gm, "") : "Kuis",
+                        type: "quiz",
+                        topikId: topik.id,
+                        topikName: topik.nama,
+                        ctSubIds: item.ctSubIds,
+                    });
+                    for (const subId of item.ctSubIds) handledCtIds.add(subId);
+                // Individual item already covered by a group — skip rendering but keep in topik.items for question lookup
+                } else if (handledCtIds.has(item.id)) {
+                    // intentionally skipped
                 // Priority 1: Group by quizGroupId (REGULER only — CT falls through to Priority 2)
-                if (item.quizGroupId && !(item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId)) {
+                } else if (item.quizGroupId && !(item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId)) {
                     const group = buildTreeQuizGroupMap.get(item.quizGroupId);
                     if (group && group[0]?.id === item.id) {
                         flushJudulMap();
@@ -580,6 +636,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         null,
     );
     const [activeCtSubIds, setActiveCtSubIds] = useState<string[]>([]);
+    const [activeQuizAllowMultipleAttempts, setActiveQuizAllowMultipleAttempts] = useState<boolean>(false);
     const [currentView, setCurrentView] = useState<
         | "pretest-intro"
         | "pretest-quiz"
@@ -629,6 +686,20 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         const t = setTimeout(() => setToastMsg(""), 3000);
         return () => clearTimeout(t);
     }, [toastMsg]);
+
+    useEffect(() => {
+        if (currentView !== "pretest-quiz") return;
+        const handleVisibilityChange = () => {
+            if (document.hidden) setToastMsg("Jangan alihkan fokus kamu!");
+        };
+        const handleWindowBlur = () => setToastMsg("Jangan alihkan fokus kamu!");
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("blur", handleWindowBlur);
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("blur", handleWindowBlur);
+        };
+    }, [currentView]);
 
     useEffect(() => {
         if (modulId && progress?.siswaId) {
@@ -954,6 +1025,17 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         }
         return [];
     }, [assessmentType, activeQuizItemId, activeCtSubIds, modulDetail]);
+
+    const ctStoryGroups = useMemo(() => {
+        if (!activeCtSubIds.length) return [];
+        const seen = new Set<string>();
+        const order: string[] = [];
+        for (const s of kuisSoal) {
+            const key = s.ceritaCT ?? '';
+            if (!seen.has(key)) { seen.add(key); order.push(key); }
+        }
+        return order;
+    }, [kuisSoal, activeCtSubIds.length]);
 
     const currentSoal =
         assessmentType === "posttest"
@@ -1460,7 +1542,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         isModuleSidebarOpen
                             ? "fixed left-0 top-[76px] bottom-0 z-50 flex w-[320px]"
                             : "hidden"
-                    } h-full flex-col overflow-hidden border-r border-[#e1e0e7] bg-white px-5 py-6 lg:static lg:flex lg:w-auto`}
+                    } relative h-full flex-col overflow-hidden border-r border-[#e1e0e7] bg-white px-5 py-6 lg:static lg:flex lg:w-auto`}
                 >
                     <h1 className="text-2xl font-bold text-[#202126]">
                         Konten Kelas
@@ -1648,6 +1730,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             );
                                                             setActiveCtSubIds(
                                                                 item.ctSubIds ?? [],
+                                                            );
+                                                            setActiveQuizAllowMultipleAttempts(
+                                                                item.allowMultipleAttempts ?? false,
                                                             );
                                                             setCurrentView(
                                                                 "pretest-intro",
@@ -2160,6 +2245,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                 );
                             })()}
                     </div>
+                    {currentView === "pretest-quiz" && (
+                        <div
+                            className="absolute inset-0 z-[100] cursor-not-allowed"
+                            onClick={() => setToastMsg("Jangan alihkan fokus kamu!")}
+                        />
+                    )}
                 </aside>
 
                 {/* ── Toast Notification ── */}
@@ -2183,7 +2274,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 {/* Hamburger toggle for mobile sidebar */}
                 <button
                     type="button"
-                    onClick={() => setIsModuleSidebarOpen(true)}
+                    onClick={() => {
+                        if (currentView === "pretest-quiz") {
+                            setToastMsg("Jangan alihkan fokus kamu!");
+                            return;
+                        }
+                        setIsModuleSidebarOpen(true);
+                    }}
                     className="fixed left-4 top-[88px] z-30 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white shadow-md border border-[#e1e0e7] text-[#202126] lg:hidden"
                     aria-label="Buka konten kelas"
                 >
@@ -2215,6 +2312,19 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                         <p className="mx-auto mt-6 text-sm text-[#8a8a96]">
                                             Soal belum tersedia saat ini.
                                         </p>
+                                    ) : assessmentType === "kuis" &&
+                                      activeQuizItemId &&
+                                      completedContentItemMap[activeQuizItemId] &&
+                                      !activeQuizAllowMultipleAttempts ? (
+                                        <div className="mx-auto mt-6 flex flex-col items-center gap-2">
+                                            <span className="inline-flex items-center gap-2 rounded-xl bg-[#efe9ff] px-5 py-3 text-sm font-semibold text-[#7054dc]">
+                                                <FaCheck size={14} />
+                                                Kuis sudah diselesaikan
+                                            </span>
+                                            <p className="text-xs text-[#8a8a96]">
+                                                Kuis ini hanya dapat dikerjakan satu kali.
+                                            </p>
+                                        </div>
                                     ) : (
                                         <button
                                             type="button"
@@ -2270,10 +2380,19 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                 activeQuestion && (
                                     <div className="m-auto w-full max-w-4xl">
                                         <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-2xl border border-[#e6e4ed] bg-white px-4 sm:px-6 py-4">
-                                            <span className="text-sm font-semibold text-[#202126]">
-                                                Soal {activeQuestionIndex + 1}{" "}
-                                                dari {currentSoal.length}
-                                            </span>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-sm font-semibold text-[#202126]">
+                                                    Soal {activeQuestionIndex + 1}{" "}
+                                                    dari {currentSoal.length}
+                                                </span>
+                                                {ctStoryGroups.length > 1 && (
+                                                    <span className="text-xs font-medium text-[#7054dc]">
+                                                        Soal CT ke{" "}
+                                                        {ctStoryGroups.indexOf(activeQuestion?.ceritaCT ?? '') + 1}{" "}
+                                                        dari {ctStoryGroups.length}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-2 text-sm font-semibold text-[#7054dc]">
                                                 <FaRegClock size={14} />
                                                 <span className="text-xs font-normal text-[#8f95a3]">Sisa Waktu</span>
