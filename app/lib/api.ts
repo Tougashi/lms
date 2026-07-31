@@ -1,4 +1,5 @@
 import axios, { type AxiosRequestConfig } from "axios";
+import NProgress from "nprogress";
 import { ApiError } from "./types/umum";
 import type { ModulContentType } from "./types/guru";
 
@@ -112,6 +113,16 @@ const API_BASE =
         ? "/api-backend"
         : process.env.NEXT_PUBLIC_API_URL || "";
 
+let _pendingReqs = 0;
+function npStart() {
+    if (typeof window === "undefined") return;
+    if (_pendingReqs++ === 0) NProgress.start();
+}
+function npDone() {
+    if (typeof window === "undefined") return;
+    if (--_pendingReqs <= 0) { _pendingReqs = 0; NProgress.done(); }
+}
+
 const apiClient = axios.create({
     baseURL: API_BASE,
     headers: { "Content-Type": "application/json" },
@@ -122,6 +133,9 @@ const uploadClient = axios.create({
     baseURL: API_BASE,
     withCredentials: true,
 });
+
+apiClient.interceptors.request.use((config) => { npStart(); return config; });
+uploadClient.interceptors.request.use((config) => { npStart(); return config; });
 
 let refreshPromise: Promise<void> | null = null;
 
@@ -140,7 +154,7 @@ async function refreshAccessToken() {
 
 function createResponseInterceptor(client: typeof apiClient) {
     client.interceptors.response.use(
-        (response) => response,
+        (response) => { npDone(); return response; },
         async (error) => {
             const originalRequest = error.config as AxiosRequestConfig & {
                 _retry?: boolean;
@@ -155,6 +169,7 @@ function createResponseInterceptor(client: typeof apiClient) {
                 originalRequest._retry = true;
                 try {
                     await refreshAccessToken();
+                    npDone();
                     return client(originalRequest);
                 } catch {
                     // Refresh also failed — session is fully expired.
@@ -169,6 +184,7 @@ function createResponseInterceptor(client: typeof apiClient) {
                 error.response?.data?.message ??
                 "Terjadi kesalahan pada server";
 
+            npDone();
             throw new ApiError(
                 String(msg),
                 error.response?.status ?? 500,

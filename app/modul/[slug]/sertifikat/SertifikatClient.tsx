@@ -329,7 +329,7 @@ export default function SertifikatClient({ modulId }: SertifikatClientProps) {
                   <img
                     src={certificate.tutorSignatureUrl}
                     alt="Tanda tangan tutor"
-                    className="mx-auto h-[50px] w-auto object-contain"
+                    className="mx-auto h-[80px] w-auto max-w-[180px] object-contain"
                     crossOrigin="anonymous"
                   />
                 ) : (
