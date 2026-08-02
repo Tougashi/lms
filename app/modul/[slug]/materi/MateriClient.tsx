@@ -1,8 +1,11 @@
 "use client";
 
+import "katex/dist/katex.min.css";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import DOMPurify from "dompurify";
+import { renderLatex } from "../../../lib/renderLatex";
 import {
     FaBookOpen,
     FaCheck,
@@ -37,6 +40,21 @@ import type {
 import { ApiError } from "../../../lib/types/umum";
 import { calculateProgress } from "../../../lib/utils/progress";
 import { useAuth } from "../../../context/AuthContext";
+
+// ---------------------------------------------------------------------------
+// HTML / LaTeX rendering helper
+// ---------------------------------------------------------------------------
+function renderHtml(raw: string | null | undefined): { __html: string } {
+    if (!raw) return { __html: "" };
+    const withLatex = renderLatex(raw);
+    if (typeof window === "undefined") return { __html: withLatex };
+    const safe = DOMPurify.sanitize(withLatex, {
+        ADD_TAGS: ["semantics", "annotation", "mrow", "mi", "mo", "mn", "msup", "msub", "mfrac", "mover", "munder", "mtable", "mtr", "mtd"],
+        ADD_ATTR: ["xmlns", "encoding", "class", "style"],
+        FORCE_BODY: true,
+    });
+    return { __html: safe };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -2459,10 +2477,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             Cerita CT
                                                         </p>
                                                         <div
-                                                            className="text-sm leading-relaxed text-[#202126] prose prose-sm max-w-none"
-                                                            dangerouslySetInnerHTML={{
-                                                                __html: story,
-                                                            }}
+                                                            className="text-sm leading-relaxed text-[#202126] prose prose-sm max-w-none [&_.katex]:font-normal"
+                                                            dangerouslySetInnerHTML={renderHtml(story)}
                                                         />
                                                     </div>
                                                 ) : null;
@@ -2487,10 +2503,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 </p>
                                             )}
                                             <div
-                                                className="text-base font-semibold text-[#202126] prose prose-sm max-w-none"
-                                                dangerouslySetInnerHTML={{
-                                                    __html: activeQuestion.pertanyaan,
-                                                }}
+                                                className="text-base font-semibold text-[#202126] prose prose-sm max-w-none [&_.katex]:font-normal"
+                                                dangerouslySetInnerHTML={renderHtml(activeQuestion.pertanyaan)}
                                             />
 
                                             <div className="mt-6 space-y-3">
@@ -2538,7 +2552,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                                 ][optIdx]
                                                             }
                                                         </span>
-                                                        {option}
+                                                        <span
+                                                            className="prose prose-sm max-w-none [&_img]:max-h-40 [&_img]:rounded-lg [&_img]:object-contain [&_.katex]:text-inherit"
+                                                            dangerouslySetInnerHTML={renderHtml(option)}
+                                                        />
                                                     </button>
                                                 ))}
                                             </div>

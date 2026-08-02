@@ -34,6 +34,7 @@ import type { GuruTopikWithMateri } from "../../../lib/types/guru";
 import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
 import { usePopup } from "../../../component/ui/PopupProvider";
 import TrixEditor from "../../../component/ui/TrixEditor";
+import AnswerOptionEditor from "../../../component/ui/AnswerOptionEditor";
 
 const getYoutubeThumb = (url: string) => {
   const match = url.match(/(?:v=|be\/)([a-zA-Z0-9_-]{6,})/);
@@ -3103,7 +3104,7 @@ function TambahModulKontenPageContent() {
                                           {sq.answers.map((ans, aIdx) => (
                                             <div
                                               key={ans.id}
-                                              className="flex items-center gap-2"
+                                              className="flex items-start gap-2"
                                             >
                                               <button
                                                 type="button"
@@ -3115,7 +3116,7 @@ function TambahModulKontenPageContent() {
                                                     ans.id,
                                                   )
                                                 }
-                                                className="inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors"
+                                                className="mt-2 inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors"
                                                 style={{
                                                   borderColor:
                                                     ans.isCorrect
@@ -3127,11 +3128,10 @@ function TambahModulKontenPageContent() {
                                                   <span className="h-2.5 w-2.5 rounded-full bg-[#7054dc]" />
                                                 )}
                                               </button>
-                                              <input
-                                                type="text"
+                                              <AnswerOptionEditor
+                                                id={`ct-answer-${quiz.id}-${story.id}-${sq.id}-${ans.id}`}
                                                 value={ans.text}
-                                                onChange={(e) => {
-                                                  const val = e.target.value;
+                                                onChange={(html) => {
                                                   setQuizzes((p) =>
                                                     p.map((q) =>
                                                       q.id !== quiz.id
@@ -3165,7 +3165,7 @@ function TambahModulKontenPageContent() {
                                                                                             ans.id
                                                                                             ? {
                                                                                                 ...a,
-                                                                                                text: val,
+                                                                                                text: html,
                                                                                               }
                                                                                             : a,
                                                                                       ),
@@ -3177,13 +3177,6 @@ function TambahModulKontenPageContent() {
                                                     ),
                                                   );
                                                 }}
-                                                placeholder={
-                                                  aIdx <
-                                                  sq.answers.length - 1
-                                                    ? "Masukkan Jawaban"
-                                                    : "Tambah Opsi Jawaban"
-                                                }
-                                                className="h-[36px] flex-1 rounded-lg border border-[#e5e3ee] bg-white px-3 text-[12px] text-[#232530] outline-none focus:border-[#7054dc]"
                                               />
                                               <button
                                                 type="button"
@@ -3195,7 +3188,7 @@ function TambahModulKontenPageContent() {
                                                     ans.id,
                                                   )
                                                 }
-                                                className="text-[#7a7e8a] hover:text-[#e04e4e]"
+                                                className="mt-2 text-[#7a7e8a] hover:text-[#e04e4e]"
                                               >
                                                 <FiX size={16} />
                                               </button>
@@ -3245,7 +3238,7 @@ function TambahModulKontenPageContent() {
                                       {question.answers.map((ans, aIdx) => (
                                         <div
                                           key={ans.id}
-                                          className="flex items-center gap-2"
+                                          className="flex items-start gap-2"
                                         >
                                           <button
                                             type="button"
@@ -3256,7 +3249,7 @@ function TambahModulKontenPageContent() {
                                                 ans.id,
                                               )
                                             }
-                                            className="inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors"
+                                            className="mt-2 inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors"
                                             style={{
                                               borderColor:
                                                 ans.isCorrect
@@ -3268,11 +3261,10 @@ function TambahModulKontenPageContent() {
                                               <span className="h-2.5 w-2.5 rounded-full bg-[#7054dc]" />
                                             )}
                                           </button>
-                                          <input
-                                            type="text"
+                                          <AnswerOptionEditor
+                                            id={`answer-${quiz.id}-${question.id}-${ans.id}`}
                                             value={ans.text}
-                                            onChange={(e) => {
-                                              const val = e.target.value;
+                                            onChange={(html) => {
                                               setQuizzes((p) =>
                                                 p.map((q) =>
                                                   q.id !== quiz.id
@@ -3294,7 +3286,7 @@ function TambahModulKontenPageContent() {
                                                                           ans.id
                                                                             ? {
                                                                                 ...a,
-                                                                                text: val,
+                                                                                text: html,
                                                                               }
                                                                             : a,
                                                                       ),
@@ -3304,13 +3296,6 @@ function TambahModulKontenPageContent() {
                                                 ),
                                               );
                                             }}
-                                            placeholder={
-                                              aIdx <
-                                              question.answers.length - 1
-                                                ? "Masukkan Jawaban"
-                                                : "Tambah Opsi Jawaban"
-                                            }
-                                            className="h-[36px] flex-1 rounded-lg border border-[#e5e3ee] bg-white px-3 text-[12px] text-[#232530] outline-none focus:border-[#7054dc]"
                                           />
                                           <button
                                             type="button"
@@ -3321,7 +3306,7 @@ function TambahModulKontenPageContent() {
                                                 ans.id,
                                               )
                                             }
-                                            className="text-[#7a7e8a] hover:text-[#e04e4e]"
+                                            className="mt-2 text-[#7a7e8a] hover:text-[#e04e4e]"
                                           >
                                             <FiX size={16} />
                                           </button>
