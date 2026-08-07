@@ -35,6 +35,7 @@ import { useRoleGuard } from "../../../lib/hooks/useRoleGuard";
 import { usePopup } from "../../../component/ui/PopupProvider";
 import TrixEditor from "../../../component/ui/TrixEditor";
 import AnswerOptionEditor from "../../../component/ui/AnswerOptionEditor";
+import { processTrixSlides } from "../../../lib/utils/trixSlides";
 
 const getYoutubeThumb = (url: string) => {
   const match = url.match(/(?:v=|be\/)([a-zA-Z0-9_-]{6,})/);
@@ -2476,9 +2477,9 @@ function TambahModulKontenPageContent() {
                                           </p>
                                           <div className="rounded-xl border border-[#e5e3ee] bg-white px-3 py-3">
                                             <div
-                                              className="text-[12px] leading-[1.7] text-[#232530] [&_img]:max-w-full [&_img]:rounded-lg"
+                                              className="text-[12px] leading-[1.7] text-[#232530] [&_img]:max-w-full [&_img]:rounded-lg [&_iframe]:w-full [&_iframe]:rounded-lg"
                                               dangerouslySetInnerHTML={{
-                                                __html: material.articleContent,
+                                                __html: processTrixSlides(material.articleContent),
                                               }}
                                             />
                                           </div>
@@ -2507,9 +2508,9 @@ function TambahModulKontenPageContent() {
                                       <div className="mt-2 rounded-xl border border-[#e5e3ee] bg-white px-3 py-3">
                                         {material.articleContent ? (
                                           <div
-                                            className="text-[12px] leading-[1.7] text-[#232530] [&_img]:max-w-full [&_img]:rounded-lg"
+                                            className="text-[12px] leading-[1.7] text-[#232530] [&_img]:max-w-full [&_img]:rounded-lg [&_iframe]:w-full [&_iframe]:rounded-lg"
                                             dangerouslySetInnerHTML={{
-                                              __html: material.articleContent,
+                                              __html: processTrixSlides(material.articleContent),
                                             }}
                                           />
                                         ) : (
@@ -2796,6 +2797,7 @@ function TambahModulKontenPageContent() {
                                         id={`materi-video-article-${material.id}`}
                                         placeholder="Tulis bahan bacaan di sini..."
                                         value={material.articleContent}
+                                        allowSlidesEmbed={true}
                                         onChange={(html) =>
                                           setMaterials((prev) =>
                                             prev.map((m) =>
@@ -2822,6 +2824,7 @@ function TambahModulKontenPageContent() {
                                       id={`materi-article-${material.id}`}
                                       placeholder="Tulis materi artikel di sini..."
                                       value={material.articleContent}
+                                      allowSlidesEmbed={true}
                                       onChange={(html) =>
                                         setMaterials((prev) =>
                                           prev.map((m) =>

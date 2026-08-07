@@ -39,6 +39,7 @@ import type {
 } from "../../../lib/types/siswa";
 import { ApiError } from "../../../lib/types/umum";
 import { calculateProgress } from "../../../lib/utils/progress";
+import { processTrixSlides } from "../../../lib/utils/trixSlides";
 import { useAuth } from "../../../context/AuthContext";
 
 // ---------------------------------------------------------------------------
@@ -2959,7 +2960,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                     {currentSeqItem?.konten ? (
                                                         <div
                                                             dangerouslySetInnerHTML={{
-                                                                __html: currentSeqItem.konten,
+                                                                __html: processTrixSlides(currentSeqItem.konten),
                                                             }}
                                                         />
                                                     ) : (
@@ -2993,7 +2994,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 <div
                                                     className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]"
                                                     dangerouslySetInnerHTML={{
-                                                        __html: currentSeqItem.konten,
+                                                        __html: processTrixSlides(currentSeqItem.konten),
                                                     }}
                                                 />
                                             ) : (

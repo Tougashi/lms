@@ -79,6 +79,15 @@ function ensureTrixAlignConfig() {
   };
 }
 
+function toEmbedUrl(raw: string): string {
+  const s = raw.trim();
+  const gMatch = s.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
+  if (gMatch && !s.includes('/embed')) {
+    return `https://docs.google.com/presentation/d/${gMatch[1]}/embed?start=false&loop=false&delayms=3000`;
+  }
+  return s;
+}
+
 interface TrixEditorProps {
   id: string;
   placeholder?: string;
@@ -86,6 +95,7 @@ interface TrixEditorProps {
   onChange?: (html: string) => void;
   minHeight?: string;
   uploadFileType?: string;
+  allowSlidesEmbed?: boolean;
 }
 
 // FORCE HMR UPDATE: v5
@@ -97,10 +107,17 @@ export default function TrixEditor({
   onChange,
   minHeight = "120px",
   uploadFileType = "MATERI_IMAGE",
+  allowSlidesEmbed = false,
 }: TrixEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lastReportedValue = useRef<string | null>(null);
   const [fontSize, setFontSize] = useState(13);
+  const [showSlideModal, setShowSlideModal] = useState(false);
+  const [slideUrl, setSlideUrl] = useState('');
+  const allowSlidesEmbedRef = useRef(allowSlidesEmbed);
+  allowSlidesEmbedRef.current = allowSlidesEmbed;
+  const slideUrlRef = useRef(slideUrl);
+  slideUrlRef.current = slideUrl;
 
   // Keep a stable ref to the latest onChange callback
   const onChangeRef = useRef(onChange);
@@ -193,6 +210,25 @@ export default function TrixEditor({
       });
 
       row.appendChild(group);
+
+      // Slides embed button
+      if (allowSlidesEmbedRef.current) {
+        const slidesGroup = document.createElement('span');
+        slidesGroup.className = 'trix-button-group trix-button-group--slides';
+        const slidesBtn = document.createElement('button');
+        slidesBtn.type = 'button';
+        slidesBtn.className = 'trix-button trix-slides-btn';
+        slidesBtn.title = 'Sisipkan Presentasi';
+        slidesBtn.tabIndex = -1;
+        slidesBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="14" height="10" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M6 15h4M8 12v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M5.5 8.5l2-2 1.5 1.5L11 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        slidesBtn.addEventListener('mousedown', (e) => e.preventDefault());
+        slidesBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          setShowSlideModal(true);
+        });
+        slidesGroup.appendChild(slidesBtn);
+        row.appendChild(slidesGroup);
+      }
 
       // Listen for selection changes to update button states
       editorEl.addEventListener('trix-selection-change', () => {
@@ -338,6 +374,31 @@ export default function TrixEditor({
     }
   }, [value]);
 
+  function handleInsertSlide() {
+    const url = slideUrlRef.current.trim();
+    if (!url) return;
+    const embedUrl = toEmbedUrl(url);
+    const iframeHtml = `<iframe src="${embedUrl}" width="100%" height="450" frameborder="0" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true" style="border-radius:8px;display:block;"></iframe>`;
+    const TrixObj = (window as any).Trix;
+    const editorEl = containerRef.current?.querySelector('trix-editor') as any;
+    const inputEl = containerRef.current?.querySelector('input') as HTMLInputElement | null;
+    if (TrixObj?.Attachment && editorEl?.editor) {
+      editorEl.editor.insertAttachment(new TrixObj.Attachment({
+        content: iframeHtml,
+        contentType: 'application/x-presentation',
+      }));
+      setTimeout(() => {
+        if (inputEl) {
+          const h = inputEl.value ?? '';
+          lastReportedValue.current = h;
+          onChangeRef.current?.(h);
+        }
+      }, 100);
+    }
+    setShowSlideModal(false);
+    setSlideUrl('');
+  }
+
   return (
     <div className="trix-editor-wrapper prose-trix">
       <div className="flex items-center gap-2 px-2 py-1 border-b border-[#e8e9ef] bg-[#fcfbff]">
@@ -474,7 +535,33 @@ export default function TrixEditor({
           display: inline-flex;
           gap: 1px;
         }
+        .trix-button-group--slides {
+          display: inline-flex;
+        }
       `}</style>
+      {allowSlidesEmbed && showSlideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onMouseDown={(e) => { if (e.target === e.currentTarget) { setShowSlideModal(false); setSlideUrl(''); } }}>
+          <div className="w-[480px] rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 text-sm font-semibold text-[#232530]">Sisipkan Presentasi</h3>
+            <p className="mb-3 text-[11px] text-[#7a7e8a]">
+              Tempel URL Google Slides (tautan berbagi atau publikasi). Untuk PowerPoint, gunakan URL embed dari OneDrive.
+            </p>
+            <input
+              type="text"
+              value={slideUrl}
+              onChange={(e) => setSlideUrl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleInsertSlide(); if (e.key === 'Escape') { setShowSlideModal(false); setSlideUrl(''); } }}
+              placeholder="https://docs.google.com/presentation/d/..."
+              className="w-full rounded-lg border border-[#d9d7df] px-3 py-2 text-[12px] outline-none focus:border-[#7054dc]"
+              autoFocus
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => { setShowSlideModal(false); setSlideUrl(''); }} className="rounded-lg px-4 py-2 text-[12px] text-[#7a7e8a] hover:bg-[#f5f4f8]">Batal</button>
+              <button type="button" onClick={handleInsertSlide} disabled={!slideUrl.trim()} className="rounded-lg bg-[#7054dc] px-4 py-2 text-[12px] text-white disabled:opacity-40 hover:bg-[#5e43c3]">Sisipkan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
