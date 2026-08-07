@@ -18,6 +18,7 @@ import {
 } from "react-icons/fi";
 import GuruHeader from "../../../component/guru/GuruHeader";
 import TrixEditor from "../../../component/ui/TrixEditor";
+import AnswerOptionEditor from "../../../component/ui/AnswerOptionEditor";
 import {
     guruModulApi,
     guruPretestApi,
@@ -1500,7 +1501,7 @@ function PrePostTestPageContent() {
                                                                         key={
                                                                             ans.id
                                                                         }
-                                                                        className="flex items-center gap-2"
+                                                                        className="flex items-start gap-2"
                                                                     >
                                                                         <button
                                                                             type="button"
@@ -1510,30 +1511,22 @@ function PrePostTestPageContent() {
                                                                                     ans.id,
                                                                                 )
                                                                             }
-                                                                            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${ans.isCorrect ? "border-[#7054dc] bg-[#7054dc]" : "border-[#d9d7df] bg-white"}`}
+                                                                            className={`mt-[10px] inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${ans.isCorrect ? "border-[#7054dc] bg-[#7054dc]" : "border-[#d9d7df] bg-white"}`}
                                                                         >
                                                                             {ans.isCorrect && (
                                                                                 <span className="h-2 w-2 rounded-full bg-white" />
                                                                             )}
                                                                         </button>
-                                                                        <input
-                                                                            type="text"
-                                                                            value={
-                                                                                ans.text
-                                                                            }
-                                                                            onChange={(
-                                                                                e,
-                                                                            ) =>
+                                                                        <AnswerOptionEditor
+                                                                            id={`pretest-ans-${question.id}-${ans.id}`}
+                                                                            value={ans.text}
+                                                                            onChange={(html) =>
                                                                                 handleUpdateAnswerText(
                                                                                     question.id,
                                                                                     ans.id,
-                                                                                    e
-                                                                                        .target
-                                                                                        .value,
+                                                                                    html,
                                                                                 )
                                                                             }
-                                                                            placeholder="Masukkan jawaban"
-                                                                            className={`h-[36px] flex-1 rounded-lg border bg-white px-3 text-[12px] text-[#232530] outline-none focus:border-[#7054dc] ${ans.isCorrect ? "border-[#7054dc]" : "border-[#e5e3ee]"}`}
                                                                         />
                                                                         <button
                                                                             type="button"
@@ -1543,7 +1536,7 @@ function PrePostTestPageContent() {
                                                                                     ans.id,
                                                                                 )
                                                                             }
-                                                                            className="text-[#7a7e8a] hover:text-[#e04e4e]"
+                                                                            className="mt-[10px] text-[#7a7e8a] hover:text-[#e04e4e]"
                                                                         >
                                                                             <FiX
                                                                                 size={
@@ -1852,7 +1845,7 @@ function PrePostTestPageContent() {
                                                                             key={
                                                                                 ans.id
                                                                             }
-                                                                            className="flex items-center gap-2"
+                                                                            className="flex items-start gap-2"
                                                                         >
                                                                             <button
                                                                                 type="button"
@@ -1903,19 +1896,17 @@ function PrePostTestPageContent() {
                                                                                                 : prev,
                                                                                     )
                                                                                 }
-                                                                                className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${ans.isCorrect ? "border-[#7054dc] bg-[#7054dc]" : "border-[#d9d7df] bg-white"}`}
+                                                                                className={`mt-[10px] inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${ans.isCorrect ? "border-[#7054dc] bg-[#7054dc]" : "border-[#d9d7df] bg-white"}`}
                                                                             >
                                                                                 {ans.isCorrect && (
                                                                                     <span className="h-2 w-2 rounded-full bg-white" />
                                                                                 )}
                                                                             </button>
-                                                                            <input
-                                                                                type="text"
-                                                                                value={
-                                                                                    ans.text
-                                                                                }
+                                                                            <AnswerOptionEditor
+                                                                                id={`ct-ans-${story.id}-${sq.id}-${ans.id}`}
+                                                                                value={ans.text}
                                                                                 onChange={(
-                                                                                    e,
+                                                                                    html,
                                                                                 ) =>
                                                                                     setBank(
                                                                                         (
@@ -1951,9 +1942,7 @@ function PrePostTestPageContent() {
                                                                                                                                                               ans.id
                                                                                                                                                                   ? {
                                                                                                                                                                         ...a,
-                                                                                                                                                                        text: e
-                                                                                                                                                                            .target
-                                                                                                                                                                            .value,
+                                                                                                                                                                        text: html,
                                                                                                                                                                     }
                                                                                                                                                                   : a,
                                                                                                                                                       ),
@@ -1967,8 +1956,6 @@ function PrePostTestPageContent() {
                                                                                                 : prev,
                                                                                     )
                                                                                 }
-                                                                                placeholder="Masukkan jawaban"
-                                                                                className={`h-[34px] flex-1 rounded-lg border bg-white px-3 text-[11px] text-[#232530] outline-none focus:border-[#7054dc] ${ans.isCorrect ? "border-[#7054dc]" : "border-[#e5e3ee]"}`}
                                                                             />
                                                                             <button
                                                                                 type="button"
@@ -2016,7 +2003,7 @@ function PrePostTestPageContent() {
                                                                                                 : prev,
                                                                                     )
                                                                                 }
-                                                                                className="text-[#7a7e8a] hover:text-[#e04e4e]"
+                                                                                className="mt-[10px] text-[#7a7e8a] hover:text-[#e04e4e]"
                                                                             >
                                                                                 <FiX
                                                                                     size={
