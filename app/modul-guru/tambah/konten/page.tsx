@@ -498,93 +498,105 @@ function TambahModulKontenPageContent() {
             });
           }
 
-          // Load quizzes from API — group consecutive CT quizzes into one entry
+          // Load quizzes from API — group by quizGroupId so multiple questions per card are preserved
           const rawQuizzes = firstTopik.quizzes || [];
           const quizIds: Record<number, string> = {};
           const subQuizIds: Record<number, string> = {};
           const mappedQuizzes: typeof quizzes = [];
-          let qi = 0;
           const baseTs = Date.now();
-          while (qi < rawQuizzes.length) {
-            const q = rawQuizzes[qi];
-            if (q.quizType === "COMPUTATIONAL_THINKING") {
-              const ctGroup: typeof rawQuizzes = [];
-              while (qi < rawQuizzes.length && rawQuizzes[qi].quizType === "COMPUTATIONAL_THINKING") {
-                ctGroup.push(rawQuizzes[qi]);
-                qi++;
-              }
-              ctGroup.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
-              const localId = baseTs + mappedQuizzes.length * 100 + 1000;
-              quizIds[localId] = ctGroup[0].id;
-            const subQs = ctGroup.map((ctQ, ctIdx) => {
-              const sqId = baseTs + mappedQuizzes.length * 1000 + ctIdx * 10 + 5000;
-              if (ctIdx > 0) subQuizIds[sqId] = ctQ.id;
-              return {
-                id: sqId,
-                label: ctQ.question || CT_SUB_LABELS[ctIdx] || `Soal CT ${ctIdx + 1}`,
-                ctAspect: ctQ.ctAspect || undefined,
-                answers: (() => {
-                  let foundCorrect = false;
-                  return (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
-                    const isMatch = opt.option === ctQ.correctAnswer;
-                    const isCorrect = isMatch && !foundCorrect;
-                    if (isMatch) foundCorrect = true;
-                    return {
-                      id: baseTs + mappedQuizzes.length * 1000 + ctIdx * 10 + oIdx + 9000,
-                      text: opt.option,
-                      isCorrect,
-                    };
-                  });
-                })(),
-              };
-            });
+
+          // Build ordered groups by quizGroupId (preserve first-occurrence order)
+          const groupIndexMap1 = new Map<string, number>();
+          const orderedGroups1: { gid: string; quizzes: any[] }[] = [];
+          for (const rawQ of rawQuizzes) {
+            const gid = rawQ.quizGroupId ?? `__solo__${rawQ.id}`;
+            if (!groupIndexMap1.has(gid)) {
+              groupIndexMap1.set(gid, orderedGroups1.length);
+              orderedGroups1.push({ gid, quizzes: [] });
+            }
+            orderedGroups1[groupIndexMap1.get(gid)!].quizzes.push(rawQ);
+          }
+
+          for (const { quizzes: group } of orderedGroups1) {
+            const firstQ = group[0];
+            const cardIdx = mappedQuizzes.length;
+            const localId = baseTs + cardIdx * 100 + 1000;
+            quizIds[localId] = firstQ.id;
+
+            if (firstQ.quizType === "COMPUTATIONAL_THINKING") {
+              const subQs = group.map((ctQ: any, ctIdx: number) => {
+                const sqId = baseTs + cardIdx * 1000 + ctIdx * 10 + 5000;
+                if (ctIdx > 0) subQuizIds[sqId] = ctQ.id;
+                return {
+                  id: sqId,
+                  label: ctQ.question || CT_SUB_LABELS[ctIdx] || `Soal CT ${ctIdx + 1}`,
+                  ctAspect: ctQ.ctAspect || undefined,
+                  answers: (() => {
+                    let foundCorrect = false;
+                    return (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                      const isMatch = opt.option === ctQ.correctAnswer;
+                      const isCorrect = isMatch && !foundCorrect;
+                      if (isMatch) foundCorrect = true;
+                      return {
+                        id: baseTs + cardIdx * 1000 + ctIdx * 10 + oIdx + 9000,
+                        text: opt.option,
+                        isCorrect,
+                      };
+                    });
+                  })(),
+                };
+              });
               while (subQs.length < CT_SUB_LABELS.length) {
                 const padIdx = subQs.length;
-                const padId = baseTs + mappedQuizzes.length * 1000 + padIdx * 10 + 3000;
+                const padId = baseTs + cardIdx * 1000 + padIdx * 10 + 3000;
                 subQs.push({ id: padId, label: CT_SUB_LABELS[padIdx], ctAspect: ["decomposition", "patternRecognition", "abstraction", "algorithm"][padIdx] || "", answers: [
                   { id: padId * 2 + 1, text: "", isCorrect: false },
                   { id: padId * 2 + 2, text: "", isCorrect: false },
                 ]});
               }
               mappedQuizzes.push({
-                id: localId, title: ctGroup[0].judul || "Kuis CT", isExpanded: false, ctMode: true,
-                duration: ctGroup[0].quizSettings[0]?.timeLimit ? Math.round(ctGroup[0].quizSettings[0].timeLimit / 60) : 90,
-                minScore: ctGroup[0].quizSettings[0]?.minScoreTreshold ?? 0,
-                scorePerQuestion: ctGroup[0].quizSettings[0]?.standardScorePerQuestion ?? 10,
+                id: localId, title: firstQ.judul || "Kuis CT", isExpanded: false, ctMode: true,
+                duration: firstQ.quizSettings[0]?.timeLimit ? Math.round(firstQ.quizSettings[0].timeLimit / 60) : 90,
+                minScore: firstQ.quizSettings[0]?.minScoreTreshold ?? 0,
+                scorePerQuestion: firstQ.quizSettings[0]?.standardScorePerQuestion ?? 10,
                 questions: [{ id: localId + 1, label: "Soal Kuis 1", answers: [
                   { id: localId + 10, text: "", isCorrect: false },
                   { id: localId + 11, text: "", isCorrect: false },
                 ]}],
-                ctStories: [{ id: localId + 2, cerita: ctGroup[0]?.ctStory || "", subQuestions: subQs }],
+                ctStories: [{ id: localId + 2, cerita: firstQ?.ctStory || "", subQuestions: subQs }],
               });
             } else {
-              const localId = baseTs + mappedQuizzes.length * 100 + 1000;
-              quizIds[localId] = q.id;
+              const questions = group.map((gq: any, gIdx: number) => {
+                const qLocalId = gIdx === 0
+                  ? localId + 1
+                  : baseTs + cardIdx * 1000 + gIdx * 10 + 7000;
+                if (gIdx > 0) subQuizIds[qLocalId] = gq.id;
+                let foundCorrect = false;
+                return {
+                  id: qLocalId,
+                  label: gq.question || `Soal Kuis ${gIdx + 1}`,
+                  answers: (gq.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                    const isMatch = opt.option === gq.correctAnswer;
+                    const isCorrect = isMatch && !foundCorrect;
+                    if (isMatch) foundCorrect = true;
+                    return {
+                      id: baseTs + cardIdx * 1000 + gIdx * 100 + oIdx + 8000,
+                      text: opt.option,
+                      isCorrect,
+                    };
+                  }),
+                };
+              });
               mappedQuizzes.push({
                 id: localId,
-                title: q.judul || (q.question?.length > 40 ? q.question.substring(0, 40) + "…" : q.question),
+                title: firstQ.judul || (firstQ.question?.length > 40 ? firstQ.question.substring(0, 40) + "…" : firstQ.question),
                 isExpanded: false, ctMode: false,
-                duration: q.quizSettings[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
-                minScore: q.quizSettings[0]?.minScoreTreshold ?? 0,
-                scorePerQuestion: q.quizSettings[0]?.standardScorePerQuestion ?? 10,
-                questions: [{ id: localId + 1, label: q.question,
-                  answers: (() => {
-                    let foundCorrect = false;
-                    return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
-                      const isMatch = opt.option === q.correctAnswer;
-                      const isCorrect = isMatch && !foundCorrect;
-                      if (isMatch) foundCorrect = true;
-                      return {
-                        id: localId + 10 + oIdx,
-                        text: opt.option,
-                        isCorrect,
-                      };
-                    });
-                  })(),
-                }],
+                duration: firstQ.quizSettings[0]?.timeLimit ? Math.round(firstQ.quizSettings[0].timeLimit / 60) : 90,
+                minScore: firstQ.quizSettings[0]?.minScoreTreshold ?? 0,
+                scorePerQuestion: firstQ.quizSettings[0]?.standardScorePerQuestion ?? 10,
+                questions,
                 ctStories: [makeCTStory()],
               });
-              qi++;
             }
           }
           setQuizzes(mappedQuizzes);
@@ -1039,26 +1051,34 @@ function TambahModulKontenPageContent() {
       }
     });
 
-    // Group consecutive CT quizzes into one entry
+    // Group quizzes by quizGroupId so multiple questions per card are preserved
     const rawTopikQuizzes: any[] = topik.quizzes || [];
     const quizIds: Record<number, string> = {};
     const subQIds: Record<number, string> = {};
     const mappedQuiz: typeof quizzes = [];
-    let tqi = 0;
     const bTs = Date.now();
-    while (tqi < rawTopikQuizzes.length) {
-      const q = rawTopikQuizzes[tqi];
-      if (q.quizType === "COMPUTATIONAL_THINKING") {
-        const ctGrp: any[] = [];
-        while (tqi < rawTopikQuizzes.length && rawTopikQuizzes[tqi].quizType === "COMPUTATIONAL_THINKING") {
-          ctGrp.push(rawTopikQuizzes[tqi]);
-          tqi++;
-        }
-        ctGrp.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
-        const localId = bTs + mappedQuiz.length * 100 + 1000;
-        quizIds[localId] = ctGrp[0].id;
-        const subQs = ctGrp.map((ctQ: any, ctIdx: number) => {
-          const sqId = bTs + mappedQuiz.length * 1000 + ctIdx * 10 + 5000;
+
+    // Build ordered groups by quizGroupId (preserve first-occurrence order)
+    const groupIndexMap2 = new Map<string, number>();
+    const orderedGroups2: { gid: string; quizzes: any[] }[] = [];
+    for (const rawQ of rawTopikQuizzes) {
+      const gid = rawQ.quizGroupId ?? `__solo__${rawQ.id}`;
+      if (!groupIndexMap2.has(gid)) {
+        groupIndexMap2.set(gid, orderedGroups2.length);
+        orderedGroups2.push({ gid, quizzes: [] });
+      }
+      orderedGroups2[groupIndexMap2.get(gid)!].quizzes.push(rawQ);
+    }
+
+    for (const { quizzes: group } of orderedGroups2) {
+      const firstQ = group[0];
+      const cardIdx = mappedQuiz.length;
+      const localId = bTs + cardIdx * 100 + 1000;
+      quizIds[localId] = firstQ.id;
+
+      if (firstQ.quizType === "COMPUTATIONAL_THINKING") {
+        const subQs = group.map((ctQ: any, ctIdx: number) => {
+          const sqId = bTs + cardIdx * 1000 + ctIdx * 10 + 5000;
           if (ctIdx > 0) subQIds[sqId] = ctQ.id;
           return {
             id: sqId,
@@ -1071,7 +1091,7 @@ function TambahModulKontenPageContent() {
                 const isCorrect = isMatch && !foundCorrect;
                 if (isMatch) foundCorrect = true;
                 return {
-                  id: bTs + mappedQuiz.length * 1000 + ctIdx * 10 + oIdx + 9000,
+                  id: bTs + cardIdx * 1000 + ctIdx * 10 + oIdx + 9000,
                   text: opt.option,
                   isCorrect,
                 };
@@ -1081,51 +1101,55 @@ function TambahModulKontenPageContent() {
         });
         while (subQs.length < CT_SUB_LABELS.length) {
           const padIdx = subQs.length;
-          const padId = bTs + mappedQuiz.length * 1000 + padIdx * 10 + 3000;
+          const padId = bTs + cardIdx * 1000 + padIdx * 10 + 3000;
           subQs.push({ id: padId, label: CT_SUB_LABELS[padIdx], ctAspect: ["decomposition", "patternRecognition", "abstraction", "algorithm"][padIdx] || "", answers: [
             { id: padId * 2 + 1, text: "", isCorrect: false },
             { id: padId * 2 + 2, text: "", isCorrect: false },
           ]});
         }
         mappedQuiz.push({
-          id: localId, title: ctGrp[0]?.judul || "Kuis CT", isExpanded: false, ctMode: true,
-          duration: ctGrp[0].quizSettings?.[0]?.timeLimit ? Math.round(ctGrp[0].quizSettings[0].timeLimit / 60) : 90,
-          minScore: ctGrp[0].quizSettings?.[0]?.minScoreTreshold ?? 0,
-          scorePerQuestion: ctGrp[0].quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+          id: localId, title: firstQ?.judul || "Kuis CT", isExpanded: false, ctMode: true,
+          duration: firstQ.quizSettings?.[0]?.timeLimit ? Math.round(firstQ.quizSettings[0].timeLimit / 60) : 90,
+          minScore: firstQ.quizSettings?.[0]?.minScoreTreshold ?? 0,
+          scorePerQuestion: firstQ.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
           questions: [{ id: localId + 1, label: "Soal Kuis 1", answers: [
             { id: localId + 10, text: "", isCorrect: false },
             { id: localId + 11, text: "", isCorrect: false },
           ]}],
-          ctStories: [{ id: localId + 2, cerita: ctGrp[0]?.ctStory || "", subQuestions: subQs }],
+          ctStories: [{ id: localId + 2, cerita: firstQ?.ctStory || "", subQuestions: subQs }],
         });
       } else {
-        const localId = bTs + mappedQuiz.length * 100 + 1000;
-        quizIds[localId] = q.id;
+        const questions = group.map((gq: any, gIdx: number) => {
+          const qLocalId = gIdx === 0
+            ? localId + 1
+            : bTs + cardIdx * 1000 + gIdx * 10 + 7000;
+          if (gIdx > 0) subQIds[qLocalId] = gq.id;
+          let foundCorrect = false;
+          return {
+            id: qLocalId,
+            label: gq.question || `Soal Kuis ${gIdx + 1}`,
+            answers: (gq.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+              const isMatch = opt.option === gq.correctAnswer;
+              const isCorrect = isMatch && !foundCorrect;
+              if (isMatch) foundCorrect = true;
+              return {
+                id: bTs + cardIdx * 1000 + gIdx * 100 + oIdx + 8000,
+                text: opt.option,
+                isCorrect,
+              };
+            }),
+          };
+        });
         mappedQuiz.push({
           id: localId,
-          title: q.judul || (q.question?.length > 40 ? q.question.substring(0, 40) + "…" : (q.question || "Untitled")),
+          title: firstQ.judul || (firstQ.question?.length > 40 ? firstQ.question.substring(0, 40) + "…" : (firstQ.question || "Untitled")),
           isExpanded: false, ctMode: false,
-          duration: q.quizSettings?.[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
-          minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
-          scorePerQuestion: q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
-          questions: [{ id: localId + 1, label: q.question || "Soal Kuis",
-            answers: (() => {
-              let foundCorrect = false;
-              return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
-                const isMatch = opt.option === q.correctAnswer;
-                const isCorrect = isMatch && !foundCorrect;
-                if (isMatch) foundCorrect = true;
-                return {
-                  id: localId + 10 + oIdx,
-                  text: opt.option,
-                  isCorrect,
-                };
-              });
-            })(),
-          }],
+          duration: firstQ.quizSettings?.[0]?.timeLimit ? Math.round(firstQ.quizSettings[0].timeLimit / 60) : 90,
+          minScore: firstQ.quizSettings?.[0]?.minScoreTreshold ?? 0,
+          scorePerQuestion: firstQ.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+          questions,
           ctStories: [makeCTStory()],
         });
-        tqi++;
       }
     }
     setQuizzes(mappedQuiz);
@@ -1492,9 +1516,13 @@ function TambahModulKontenPageContent() {
 
     const apiId = quizApiIds[quizId];
     const quiz = quizzes.find((q) => q.id === quizId);
-    const subIds = quiz?.ctStories.flatMap((s) =>
+    const ctSubIds = quiz?.ctStories.flatMap((s) =>
       s.subQuestions.map((sq) => subQuizApiIds[sq.id]).filter(Boolean),
     ) ?? [];
+    const regulerSubIds = quiz && !quiz.ctMode
+      ? quiz.questions.slice(1).map((qn) => subQuizApiIds[qn.id]).filter(Boolean)
+      : [];
+    const subIds = [...ctSubIds, ...regulerSubIds];
 
     showLoading("Menghapus kuis...");
     try {
@@ -1652,18 +1680,21 @@ function TambahModulKontenPageContent() {
         return;
       }
     } else {
-      const qn = quiz.questions[0];
-      if (!qn || !qn.label.trim()) {
-        toast("Masukkan teks soal terlebih dahulu.", "warning");
-        return;
-      }
-      if (qn.answers.length < 2) {
-        toast("Minimal 2 opsi jawaban.", "warning");
-        return;
-      }
-      if (!qn.answers.some((a) => a.isCorrect)) {
-        toast("Pilih jawaban yang benar.", "warning");
-        return;
+      for (let qi = 0; qi < quiz.questions.length; qi++) {
+        const qn = quiz.questions[qi];
+        const soalNum = qi + 1;
+        if (!qn || !qn.label.trim()) {
+          toast(`Masukkan teks soal ${soalNum} terlebih dahulu.`, "warning");
+          return;
+        }
+        if (qn.answers.length < 2) {
+          toast(`Soal ${soalNum}: minimal 2 opsi jawaban.`, "warning");
+          return;
+        }
+        if (!qn.answers.some((a) => a.isCorrect)) {
+          toast(`Soal ${soalNum}: pilih jawaban yang benar.`, "warning");
+          return;
+        }
       }
     }
 
@@ -1770,54 +1801,86 @@ function TambahModulKontenPageContent() {
         }
         toast("Kuis CT berhasil disimpan.", "success");
       } else {
-        const question = quiz.questions[0]?.label || "Soal Kuis";
-        const answers = quiz.questions[0]?.answers || [];
-        const correctAnswer =
-          answers.find((a) => a.isCorrect)?.text || answers[0]?.text || "";
-        const answerOptions = answers.map((a) => ({ option: a.text }));
+        const newSubIds: Record<number, string> = {};
+        const quizSetting = {
+          timeLimit: quiz.duration * 60,
+          allowMultipleAttempts: false,
+          isComputationalThinkingEnabled: false,
+          minScoreTreshold: quiz.minScore,
+          standardScorePerQuestion: quiz.scorePerQuestion,
+        };
 
-        const apiId = quizApiIds[quizId];
-        if (apiId) {
-          await guruKuisApi.update(apiId, {
-            quizGroupId: groupId,
-            question,
-            correctAnswer,
-            skor: quiz.scorePerQuestion || 10,
-            judul: quiz.title,
-            quizType: "REGULER",
-            answerOptions,
-            setting: {
-              timeLimit: quiz.duration * 60,
-              allowMultipleAttempts: false,
-              isComputationalThinkingEnabled: false,
-              minScoreTreshold: quiz.minScore,
-              standardScorePerQuestion: quiz.scorePerQuestion,
-            },
-          });
-          toast("Kuis berhasil diperbarui.", "success");
-        } else {
-          const created = await guruKuisApi.create({
-            quiz: {
-              topikId: topicId!,
-              quizGroupId: groupId,
-              quizType: "REGULER",
-              question,
-              correctAnswer,
-              skor: quiz.scorePerQuestion || 10,
-              judul: quiz.title,
-            },
-            answerOptions,
-            setting: {
-              timeLimit: quiz.duration * 60,
-              allowMultipleAttempts: false,
-              isComputationalThinkingEnabled: false,
-              minScoreTreshold: quiz.minScore,
-              standardScorePerQuestion: quiz.scorePerQuestion,
-            },
-          });
-          setQuizApiIds((prev) => ({ ...prev, [quizId]: created.id }));
-          toast("Kuis berhasil disimpan.", "success");
+        for (let qIdx = 0; qIdx < quiz.questions.length; qIdx++) {
+          const qn = quiz.questions[qIdx];
+          const questionText = qn.label || `Soal Kuis ${qIdx + 1}`;
+          const correctAnswer =
+            qn.answers.find((a) => a.isCorrect)?.text || qn.answers[0]?.text || "";
+          const answerOptions = qn.answers.map((a) => ({ option: a.text }));
+
+          if (qIdx === 0) {
+            const apiId = quizApiIds[quizId];
+            if (apiId) {
+              await guruKuisApi.update(apiId, {
+                quizGroupId: groupId,
+                question: questionText,
+                correctAnswer,
+                skor: quiz.scorePerQuestion || 10,
+                judul: quiz.title,
+                quizType: "REGULER",
+                answerOptions,
+                setting: quizSetting,
+              });
+            } else {
+              const created = await guruKuisApi.create({
+                quiz: {
+                  topikId: topicId!,
+                  quizGroupId: groupId,
+                  quizType: "REGULER",
+                  question: questionText,
+                  correctAnswer,
+                  skor: quiz.scorePerQuestion || 10,
+                  judul: quiz.title,
+                },
+                answerOptions,
+                setting: quizSetting,
+              });
+              setQuizApiIds((prev) => ({ ...prev, [quizId]: created.id }));
+            }
+          } else {
+            const existingApiId = subQuizApiIds[qn.id];
+            if (existingApiId) {
+              await guruKuisApi.update(existingApiId, {
+                quizGroupId: groupId,
+                question: questionText,
+                correctAnswer,
+                skor: quiz.scorePerQuestion || 10,
+                quizType: "REGULER",
+                answerOptions,
+                setting: quizSetting,
+              });
+            } else {
+              const created = await guruKuisApi.create({
+                quiz: {
+                  topikId: topicId!,
+                  quizGroupId: groupId,
+                  quizType: "REGULER",
+                  question: questionText,
+                  correctAnswer,
+                  skor: quiz.scorePerQuestion || 10,
+                  judul: quiz.title,
+                },
+                answerOptions,
+                setting: quizSetting,
+              });
+              newSubIds[qn.id] = created.id;
+            }
+          }
         }
+
+        if (Object.keys(newSubIds).length > 0) {
+          setSubQuizApiIds((prev) => ({ ...prev, ...newSubIds }));
+        }
+        toast("Kuis berhasil disimpan.", "success");
       }
       setQuizzes((prev) =>
         prev.map((q) => (q.id === quizId ? { ...q, isExpanded: false } : q)),

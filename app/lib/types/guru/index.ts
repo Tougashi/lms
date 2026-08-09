@@ -179,6 +179,7 @@ export interface GuruTopikWithMateri extends GuruTopikItem {
 export interface GuruTopikQuizItem {
     id: string;
     topikId: string;
+    quizGroupId?: string | null;
     quizType: "REGULER" | "COMPUTATIONAL_THINKING";
     judul?: string;
     question: string;
