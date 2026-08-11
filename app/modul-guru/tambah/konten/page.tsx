@@ -765,6 +765,12 @@ function TambahModulKontenPageContent() {
           delete next[materialId];
           return next;
         });
+        setTopiks((prev) =>
+          prev.map((t) => ({
+            ...t,
+            materis: t.materis.filter((m) => m.id !== apiId),
+          })),
+        );
       } catch (err) {
         console.error("Delete material error:", err);
         toast("Gagal menghapus materi.", "error");
@@ -864,6 +870,29 @@ function TambahModulKontenPageContent() {
         article: isVideo ? null : "",
       });
       setMaterialApiIds((prev) => ({ ...prev, [nextId]: created.id }));
+      setTopiks((prev) =>
+        prev.map((t) =>
+          t.id === topicId
+            ? {
+                ...t,
+                materis: [
+                  ...t.materis,
+                  {
+                    id: created.id,
+                    topik_id: topicId,
+                    judul: trimmedTitle,
+                    is_video: isVideo,
+                    video_url: null,
+                    article: isVideo ? null : "",
+                    topikId: topicId,
+                    isVideo,
+                    videoUrl: null,
+                  },
+                ],
+              }
+            : t,
+        ),
+      );
     } catch (err) {
       console.error("Create material error:", err);
       toast("Gagal membuat materi. Pastikan topik sudah tersimpan.", "error");
@@ -1182,6 +1211,14 @@ function TambahModulKontenPageContent() {
 
   const switchToTopik = useCallback(async (topik: GuruTopikWithMateri) => {
     if (!modulId) return;
+    // Flush pending quiz edits before leaving the current topik
+    const flushed = await flushPendingQuizzes();
+    if (!flushed) {
+      toast(
+        "Beberapa soal kuis gagal disimpan saat berpindah topik.",
+        "warning",
+      );
+    }
     try {
       const fresh = await guruMateriApi.getByModul(modulId);
       setTopiks(fresh);
@@ -1190,7 +1227,7 @@ function TambahModulKontenPageContent() {
     } catch {
       loadTopicData(topik);
     }
-  }, [modulId, loadTopicData]);
+  }, [modulId, loadTopicData, flushPendingQuizzes, toast]);
 
   const handleCreateQuiz = async () => {
     if (!topicId) {
@@ -1649,17 +1686,25 @@ function TambahModulKontenPageContent() {
     );
   };
 
-  const handleSubmitQuiz = async (quizId: number) => {
-    const quiz = quizzes.find((q) => q.id === quizId);
-    if (!quiz) return;
+  async function persistQuiz(
+    quiz: (typeof quizzes)[number],
+    topicIdParam: string,
+    opts?: { silent?: boolean },
+  ): Promise<{ success: boolean; error?: string }> {
+    const silent = opts?.silent ?? false;
+    if (!quiz || !topicIdParam) {
+      return { success: false, error: "Topik belum tersimpan." };
+    }
 
     if (quiz.ctMode) {
       const hasEmptyQuestion = quiz.ctStories.some((s) =>
         s.subQuestions.some((sq) => !sq.label.trim()),
       );
       if (hasEmptyQuestion) {
-        toast("Masukkan teks soal untuk setiap sub-soal CT.", "warning");
-        return;
+        return {
+          success: false,
+          error: "Masukkan teks soal untuk setiap sub-soal CT.",
+        };
       }
       const hasEmpty = quiz.ctStories.some((s) =>
         s.subQuestions.some((sq) =>
@@ -1667,8 +1712,10 @@ function TambahModulKontenPageContent() {
         ),
       );
       if (hasEmpty) {
-        toast("Lengkapi semua opsi jawaban CT terlebih dahulu.", "warning");
-        return;
+        return {
+          success: false,
+          error: "Lengkapi semua opsi jawaban CT terlebih dahulu.",
+        };
       }
       const hasCorrect = quiz.ctStories.every((s) =>
         s.subQuestions.every((sq) =>
@@ -1676,122 +1723,146 @@ function TambahModulKontenPageContent() {
         ),
       );
       if (!hasCorrect) {
-        toast("Pilih jawaban benar untuk setiap sub-soal CT.", "warning");
-        return;
+        return {
+          success: false,
+          error: "Pilih jawaban benar untuk setiap sub-soal CT.",
+        };
       }
     } else {
       for (let qi = 0; qi < quiz.questions.length; qi++) {
         const qn = quiz.questions[qi];
         const soalNum = qi + 1;
         if (!qn || !qn.label.trim()) {
-          toast(`Masukkan teks soal ${soalNum} terlebih dahulu.`, "warning");
-          return;
+          return {
+            success: false,
+            error: `Masukkan teks soal ${soalNum} terlebih dahulu.`,
+          };
         }
         if (qn.answers.length < 2) {
-          toast(`Soal ${soalNum}: minimal 2 opsi jawaban.`, "warning");
-          return;
+          return {
+            success: false,
+            error: `Soal ${soalNum}: minimal 2 opsi jawaban.`,
+          };
         }
         if (!qn.answers.some((a) => a.isCorrect)) {
-          toast(`Soal ${soalNum}: pilih jawaban yang benar.`, "warning");
-          return;
+          return {
+            success: false,
+            error: `Soal ${soalNum}: pilih jawaban yang benar.`,
+          };
         }
       }
     }
 
-    setIsSavingQuiz(true);
-    showLoading("Menyimpan kuis...");
+    const failures: string[] = [];
     try {
       // Resolve or create QuizGroup for this quiz card
-      let groupId = quizGroupApiIds[quizId];
+      let groupId = quizGroupApiIds[quiz.id];
       if (!groupId) {
         const createdGroup = await guruQuizGroupApi.create({
-          topikId: topicId!,
+          topikId: topicIdParam,
           nama: quiz.title || "Untitled",
           quizType: quiz.ctMode ? "COMPUTATIONAL_THINKING" : "REGULER",
         });
         groupId = createdGroup.id;
-        setQuizGroupApiIds((prev) => ({ ...prev, [quizId]: groupId }));
+        setQuizGroupApiIds((prev) => ({ ...prev, [quiz.id]: groupId }));
       } else {
         // Update group name in case title changed
-        await guruQuizGroupApi.update(groupId, { nama: quiz.title || "Untitled", quizType: quiz.ctMode ? "COMPUTATIONAL_THINKING" : "REGULER" });
+        await guruQuizGroupApi.update(groupId, {
+          nama: quiz.title || "Untitled",
+          quizType: quiz.ctMode ? "COMPUTATIONAL_THINKING" : "REGULER",
+        });
       }
 
       if (quiz.ctMode) {
         let firstSaved = false;
         const newSubIds: Record<number, string> = {};
+        let ctSoalIdx = 0;
 
         for (const story of quiz.ctStories) {
           const ctGroupId = `ctg-${quiz.id}-${story.id}`;
           for (const sq of story.subQuestions) {
-            const ctAspect = sq.ctAspect || ["decomposition", "patternRecognition", "abstraction", "algorithm"][story.subQuestions.indexOf(sq)] || null;
-            const payload = {
-              question: sq.label || "Soal CT",
-              correctAnswer:
-                sq.answers.find((a) => a.isCorrect)?.text ||
-                sq.answers[0]?.text ||
-                "",
-              skor: quiz.scorePerQuestion || 10,
-              quizType: "COMPUTATIONAL_THINKING" as const,
-              ctGroupId,
-              ctStory: story.cerita,
-              ctAspect,
-              answerOptions: sq.answers.map((a) => ({ option: a.text })),
-              setting: {
-                timeLimit: quiz.duration * 60,
-                allowMultipleAttempts: false,
-                isComputationalThinkingEnabled: true,
-                minScoreTreshold: quiz.minScore,
-                standardScorePerQuestion: quiz.scorePerQuestion,
-              },
-            };
+            ctSoalIdx++;
+            try {
+              const ctAspect = sq.ctAspect || ["decomposition", "patternRecognition", "abstraction", "algorithm"][story.subQuestions.indexOf(sq)] || null;
+              const payload = {
+                question: sq.label || "Soal CT",
+                correctAnswer:
+                  sq.answers.find((a) => a.isCorrect)?.text ||
+                  sq.answers[0]?.text ||
+                  "",
+                skor: quiz.scorePerQuestion || 10,
+                quizType: "COMPUTATIONAL_THINKING" as const,
+                ctGroupId,
+                ctStory: story.cerita,
+                ctAspect,
+                answerOptions: sq.answers.map((a) => ({ option: a.text })),
+                setting: {
+                  timeLimit: quiz.duration * 60,
+                  allowMultipleAttempts: false,
+                  isComputationalThinkingEnabled: true,
+                  minScoreTreshold: quiz.minScore,
+                  standardScorePerQuestion: quiz.scorePerQuestion,
+                },
+              };
 
-            if (!firstSaved) {
-              const apiId = quizApiIds[quizId];
-              if (apiId) {
-                await guruKuisApi.update(apiId, { ...payload, judul: quiz.title, quizGroupId: groupId });
-              } else {
-                const created = await guruKuisApi.create({
-                  quiz: {
-                    topikId: topicId!,
-                    question: payload.question,
-                    correctAnswer: payload.correctAnswer,
-                    skor: payload.skor,
-                    quizType: "COMPUTATIONAL_THINKING",
-                    quizGroupId: groupId,
+              if (!firstSaved) {
+                const apiId = quizApiIds[quiz.id];
+                if (apiId) {
+                  await guruKuisApi.update(apiId, {
+                    ...payload,
                     judul: quiz.title,
-                    ctGroupId,
-                    ctStory: story.cerita,
-                    ctAspect,
-                  },
-                  answerOptions: payload.answerOptions,
-                  setting: payload.setting,
-                });
-                setQuizApiIds((prev) => ({ ...prev, [quizId]: created.id }));
-              }
-              firstSaved = true;
-            } else {
-              const existingApiId = subQuizApiIds[sq.id];
-              if (existingApiId) {
-                await guruKuisApi.update(existingApiId, { ...payload, quizGroupId: groupId });
-              } else {
-                const created = await guruKuisApi.create({
-                  quiz: {
-                    topikId: topicId!,
-                    question: payload.question,
-                    correctAnswer: payload.correctAnswer,
-                    skor: payload.skor,
-                    quizType: "COMPUTATIONAL_THINKING",
                     quizGroupId: groupId,
-                    judul: quiz.title,
-                    ctGroupId,
-                    ctStory: story.cerita,
-                    ctAspect,
-                  },
-                  answerOptions: payload.answerOptions,
-                  setting: payload.setting,
-                });
-                newSubIds[sq.id] = created.id;
+                  });
+                } else {
+                  const created = await guruKuisApi.create({
+                    quiz: {
+                      topikId: topicIdParam,
+                      question: payload.question,
+                      correctAnswer: payload.correctAnswer,
+                      skor: payload.skor,
+                      quizType: "COMPUTATIONAL_THINKING",
+                      quizGroupId: groupId,
+                      judul: quiz.title,
+                      ctGroupId,
+                      ctStory: story.cerita,
+                      ctAspect,
+                    },
+                    answerOptions: payload.answerOptions,
+                    setting: payload.setting,
+                  });
+                  setQuizApiIds((prev) => ({ ...prev, [quiz.id]: created.id }));
+                }
+                firstSaved = true;
+              } else {
+                const existingApiId = subQuizApiIds[sq.id];
+                if (existingApiId) {
+                  await guruKuisApi.update(existingApiId, {
+                    ...payload,
+                    quizGroupId: groupId,
+                  });
+                } else {
+                  const created = await guruKuisApi.create({
+                    quiz: {
+                      topikId: topicIdParam,
+                      question: payload.question,
+                      correctAnswer: payload.correctAnswer,
+                      skor: payload.skor,
+                      quizType: "COMPUTATIONAL_THINKING",
+                      quizGroupId: groupId,
+                      judul: quiz.title,
+                      ctGroupId,
+                      ctStory: story.cerita,
+                      ctAspect,
+                    },
+                    answerOptions: payload.answerOptions,
+                    setting: payload.setting,
+                  });
+                  newSubIds[sq.id] = created.id;
+                }
               }
+            } catch (err) {
+              console.error("Save CT question error:", err);
+              failures.push(`Soal CT ${ctSoalIdx}`);
             }
           }
         }
@@ -1799,7 +1870,6 @@ function TambahModulKontenPageContent() {
         if (Object.keys(newSubIds).length > 0) {
           setSubQuizApiIds((prev) => ({ ...prev, ...newSubIds }));
         }
-        toast("Kuis CT berhasil disimpan.", "success");
       } else {
         const newSubIds: Record<number, string> = {};
         const quizSetting = {
@@ -1812,87 +1882,129 @@ function TambahModulKontenPageContent() {
 
         for (let qIdx = 0; qIdx < quiz.questions.length; qIdx++) {
           const qn = quiz.questions[qIdx];
-          const questionText = qn.label || `Soal Kuis ${qIdx + 1}`;
-          const correctAnswer =
-            qn.answers.find((a) => a.isCorrect)?.text || qn.answers[0]?.text || "";
-          const answerOptions = qn.answers.map((a) => ({ option: a.text }));
+          try {
+            const questionText = qn.label || `Soal Kuis ${qIdx + 1}`;
+            const correctAnswer =
+              qn.answers.find((a) => a.isCorrect)?.text ||
+              qn.answers[0]?.text ||
+              "";
+            const answerOptions = qn.answers.map((a) => ({ option: a.text }));
 
-          if (qIdx === 0) {
-            const apiId = quizApiIds[quizId];
-            if (apiId) {
-              await guruKuisApi.update(apiId, {
-                quizGroupId: groupId,
-                question: questionText,
-                correctAnswer,
-                skor: quiz.scorePerQuestion || 10,
-                judul: quiz.title,
-                quizType: "REGULER",
-                answerOptions,
-                setting: quizSetting,
-              });
-            } else {
-              const created = await guruKuisApi.create({
-                quiz: {
-                  topikId: topicId!,
+            if (qIdx === 0) {
+              const apiId = quizApiIds[quiz.id];
+              if (apiId) {
+                await guruKuisApi.update(apiId, {
                   quizGroupId: groupId,
-                  quizType: "REGULER",
                   question: questionText,
                   correctAnswer,
                   skor: quiz.scorePerQuestion || 10,
                   judul: quiz.title,
-                },
-                answerOptions,
-                setting: quizSetting,
-              });
-              setQuizApiIds((prev) => ({ ...prev, [quizId]: created.id }));
-            }
-          } else {
-            const existingApiId = subQuizApiIds[qn.id];
-            if (existingApiId) {
-              await guruKuisApi.update(existingApiId, {
-                quizGroupId: groupId,
-                question: questionText,
-                correctAnswer,
-                skor: quiz.scorePerQuestion || 10,
-                quizType: "REGULER",
-                answerOptions,
-                setting: quizSetting,
-              });
-            } else {
-              const created = await guruKuisApi.create({
-                quiz: {
-                  topikId: topicId!,
-                  quizGroupId: groupId,
                   quizType: "REGULER",
+                  answerOptions,
+                  setting: quizSetting,
+                });
+              } else {
+                const created = await guruKuisApi.create({
+                  quiz: {
+                    topikId: topicIdParam,
+                    quizGroupId: groupId,
+                    quizType: "REGULER",
+                    question: questionText,
+                    correctAnswer,
+                    skor: quiz.scorePerQuestion || 10,
+                    judul: quiz.title,
+                  },
+                  answerOptions,
+                  setting: quizSetting,
+                });
+                setQuizApiIds((prev) => ({ ...prev, [quiz.id]: created.id }));
+              }
+            } else {
+              const existingApiId = subQuizApiIds[qn.id];
+              if (existingApiId) {
+                await guruKuisApi.update(existingApiId, {
+                  quizGroupId: groupId,
                   question: questionText,
                   correctAnswer,
                   skor: quiz.scorePerQuestion || 10,
-                  judul: quiz.title,
-                },
-                answerOptions,
-                setting: quizSetting,
-              });
-              newSubIds[qn.id] = created.id;
+                  quizType: "REGULER",
+                  answerOptions,
+                  setting: quizSetting,
+                });
+              } else {
+                const created = await guruKuisApi.create({
+                  quiz: {
+                    topikId: topicIdParam,
+                    quizGroupId: groupId,
+                    quizType: "REGULER",
+                    question: questionText,
+                    correctAnswer,
+                    skor: quiz.scorePerQuestion || 10,
+                    judul: quiz.title,
+                  },
+                  answerOptions,
+                  setting: quizSetting,
+                });
+                newSubIds[qn.id] = created.id;
+              }
             }
+          } catch (err) {
+            console.error("Save question error:", err);
+            failures.push(`Soal ${qIdx + 1}`);
           }
         }
 
         if (Object.keys(newSubIds).length > 0) {
           setSubQuizApiIds((prev) => ({ ...prev, ...newSubIds }));
         }
-        toast("Kuis berhasil disimpan.", "success");
       }
+    } catch (err) {
+      console.error("Submit quiz error:", err);
+      return {
+        success: false,
+        error: silent ? "Gagal menyimpan kuis." : "Gagal menyimpan kuis.",
+      };
+    }
+
+    if (failures.length > 0) {
+      return {
+        success: false,
+        error: `Beberapa soal gagal disimpan: ${failures.join(", ")}`,
+      };
+    }
+    return { success: true };
+  }
+
+  const handleSubmitQuiz = async (quizId: number) => {
+    const quiz = quizzes.find((q) => q.id === quizId);
+    if (!quiz || !topicId) return;
+    setIsSavingQuiz(true);
+    showLoading("Menyimpan kuis...");
+    const result = await persistQuiz(quiz, topicId);
+    if (result.success) {
+      toast("Kuis berhasil disimpan.", "success");
       setQuizzes((prev) =>
         prev.map((q) => (q.id === quizId ? { ...q, isExpanded: false } : q)),
       );
-    } catch (err) {
-      console.error("Submit quiz error:", err);
-      toast("Gagal menyimpan kuis.", "error");
-    } finally {
-      hideLoading();
-      setIsSavingQuiz(false);
+    } else {
+      toast(result.error || "Gagal menyimpan kuis.", "error");
     }
+    hideLoading();
+    setIsSavingQuiz(false);
   };
+
+  async function flushPendingQuizzes(): Promise<boolean> {
+    if (!topicId) return true;
+    let allOk = true;
+    for (const quiz of quizzes) {
+      const result = await persistQuiz(quiz, topicId, { silent: true });
+      if (!result.success) {
+        allOk = false;
+        console.error("Flush quiz error:", result.error);
+      }
+    }
+    return allOk;
+  }
 
   // Create topic via API
   const handleCreateTopic = useCallback(async () => {
@@ -1905,6 +2017,14 @@ function TambahModulKontenPageContent() {
     setTopicError("");
     showLoading("Membuat topik...");
     try {
+      // Flush pending quiz edits before leaving the current topik
+      const flushed = await flushPendingQuizzes();
+      if (!flushed) {
+        toast(
+          "Beberapa soal kuis gagal disimpan saat membuat topik baru.",
+          "warning",
+        );
+      }
       const created = await guruTopikApi.create({
         modul_id: modulId,
         nama: topicTitle.trim(),
@@ -1931,7 +2051,7 @@ function TambahModulKontenPageContent() {
       hideLoading();
       setIsCreatingTopic(false);
     }
-  }, [topicTitle, modulId]);
+  }, [topicTitle, modulId, flushPendingQuizzes, toast]);
 
   // Edit topic via API
   const handleSaveEditTopic = useCallback(async () => {
@@ -1998,8 +2118,19 @@ function TambahModulKontenPageContent() {
     });
     if (!ok) return;
     
-    showLoading("Menerbitkan modul...");
+    showLoading("Menyimpan konten...");
     try {
+      // Flush pending quiz edits so nothing is lost when publishing
+      const flushed = await flushPendingQuizzes();
+      if (!flushed) {
+        toast(
+          "Beberapa soal kuis gagal disimpan. Periksa kuis Anda lalu coba lagi.",
+          "error",
+        );
+        hideLoading();
+        return;
+      }
+      showLoading("Menerbitkan modul...");
       await guruModulApi.update(modulId, { isDraft: false });
       router.push("/modul-guru?tab=published");
     } catch (err: unknown) {
@@ -2011,7 +2142,7 @@ function TambahModulKontenPageContent() {
     } finally {
       hideLoading();
     }
-  }, [modulId, router, topiks, materials, quizzes, rangkumans, topicId, activeTopikId]);
+  }, [modulId, router, flushPendingQuizzes]);
 
   if (!isAuthorized || isLoading) {
     return (

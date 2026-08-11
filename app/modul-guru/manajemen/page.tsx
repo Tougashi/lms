@@ -115,7 +115,9 @@ function ManajemenModulContent() {
             setTopicCount(topics.length);
 
             const materials = await guruMateriApi.getByModul(modulId);
-            setMaterialCount(materials.length);
+            setMaterialCount(
+              materials.reduce((sum, topik) => sum + (topik.materis?.length ?? 0), 0),
+            );
         } catch (err) {
             console.error("Load module detail error:", err);
             setErrorDetails("Gagal memuat detail modul.");

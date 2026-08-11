@@ -481,6 +481,12 @@ function EditModulKontenPageContent() {
                     delete next[materialId];
                     return next;
                 });
+                setTopiks((prev) =>
+                    prev.map((t) => ({
+                        ...t,
+                        materis: t.materis.filter((m) => m.id !== apiId),
+                    })),
+                );
             } catch (err) {
                 console.error("Delete material error:", err);
                 toast("Gagal menghapus materi.", "error");
@@ -593,6 +599,29 @@ function EditModulKontenPageContent() {
                 isVideo: newMaterialType === "video",
             });
             setMaterialApiIds((prev) => ({ ...prev, [nextId]: created.id }));
+            setTopiks((prev) =>
+                prev.map((t) =>
+                    t.id === topicId
+                        ? {
+                              ...t,
+                              materis: [
+                                  ...t.materis,
+                                  {
+                                      id: created.id,
+                                      topik_id: topicId,
+                                      judul: created.title || trimmedTitle,
+                                      is_video: isVideo,
+                                      video_url: created.videoUrl ?? null,
+                                      article: created.article ?? null,
+                                      topikId: topicId,
+                                      isVideo,
+                                      videoUrl: created.videoUrl ?? null,
+                                  },
+                              ],
+                          }
+                        : t,
+                ),
+            );
         } catch (err) {
             console.error("Create material error:", err);
             toast(
@@ -1294,20 +1323,27 @@ function EditModulKontenPageContent() {
         );
     };
 
-    const handleSubmitQuiz = async (quizId: number) => {
-        const quiz = quizzes.find((q) => q.id === quizId);
-        if (!quiz) return;
+    async function persistQuiz(
+        quiz: (typeof quizzes)[number],
+        topicIdParam: string,
+        opts?: { silent?: boolean },
+    ): Promise<{ success: boolean; error?: string }> {
+        const silent = opts?.silent ?? false;
+        if (!quiz || !topicIdParam) {
+            return { success: false, error: "Topik belum tersimpan." };
+        }
+
+        const warn = (msg: string) => {
+            if (!silent) toast(msg, "warning");
+        };
 
         if (quiz.ctMode) {
             const hasEmptyQuestion = quiz.ctStories.some((s) =>
                 s.subQuestions.some((sq) => !sq.label.trim()),
             );
             if (hasEmptyQuestion) {
-                toast(
-                    "Masukkan teks soal untuk setiap sub-soal CT.",
-                    "warning",
-                );
-                return;
+                warn("Masukkan teks soal untuk setiap sub-soal CT.");
+                return { success: false, error: "Masukkan teks soal untuk setiap sub-soal CT." };
             }
             const hasEmpty = quiz.ctStories.some((s) =>
                 s.subQuestions.some((sq) =>
@@ -1315,11 +1351,8 @@ function EditModulKontenPageContent() {
                 ),
             );
             if (hasEmpty) {
-                toast(
-                    "Lengkapi semua opsi jawaban CT terlebih dahulu.",
-                    "warning",
-                );
-                return;
+                warn("Lengkapi semua opsi jawaban CT terlebih dahulu.");
+                return { success: false, error: "Lengkapi semua opsi jawaban CT terlebih dahulu." };
             }
             const hasCorrect = quiz.ctStories.every((s) =>
                 s.subQuestions.every((sq) =>
@@ -1327,11 +1360,8 @@ function EditModulKontenPageContent() {
                 ),
             );
             if (!hasCorrect) {
-                toast(
-                    "Pilih jawaban benar untuk setiap sub-soal CT.",
-                    "warning",
-                );
-                return;
+                warn("Pilih jawaban benar untuk setiap sub-soal CT.");
+                return { success: false, error: "Pilih jawaban benar untuk setiap sub-soal CT." };
             }
 
             let duplicateAnsId: number | null = null;
@@ -1350,140 +1380,126 @@ function EditModulKontenPageContent() {
                 })
             );
             if (hasDuplicate && duplicateAnsId) {
-                toast(
-                    "Terdapat opsi jawaban dengan teks yang sama pada soal CT. Pastikan setiap opsi unik.",
-                    "warning"
-                );
-                setTimeout(() => {
-                    const el = document.getElementById(`ans-input-${duplicateAnsId}`);
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        el.focus();
-                    }
-                }, 100);
-                return;
+                warn("Terdapat opsi jawaban dengan teks yang sama pada soal CT. Pastikan setiap opsi unik.");
+                return { success: false, error: "Terdapat opsi jawaban dengan teks yang sama pada soal CT." };
             }
         } else {
-            const qn = quiz.questions[0];
-            if (!qn || !qn.label.trim()) {
-                toast("Masukkan teks soal terlebih dahulu.", "warning");
-                return;
-            }
-            if (qn.answers.length < 2) {
-                toast("Minimal 2 opsi jawaban.", "warning");
-                return;
-            }
-            if (!qn.answers.some((a) => a.isCorrect)) {
-                toast("Pilih jawaban yang benar.", "warning");
-                return;
-            }
-
-            let duplicateAnsId: number | null = null;
-            const seen = new Set<string>();
-            for (const a of qn.answers) {
-                const t = a.text.trim().toLowerCase();
-                if (seen.has(t)) {
-                    duplicateAnsId = a.id;
-                    break;
+            for (let qi = 0; qi < quiz.questions.length; qi++) {
+                const qn = quiz.questions[qi];
+                const soalNum = qi + 1;
+                if (!qn || !qn.label.trim()) {
+                    warn(`Masukkan teks soal ${soalNum} terlebih dahulu.`);
+                    return { success: false, error: `Masukkan teks soal ${soalNum} terlebih dahulu.` };
                 }
-                seen.add(t);
-            }
+                if (qn.answers.length < 2) {
+                    warn(`Soal ${soalNum}: minimal 2 opsi jawaban.`);
+                    return { success: false, error: `Soal ${soalNum}: minimal 2 opsi jawaban.` };
+                }
+                if (!qn.answers.some((a) => a.isCorrect)) {
+                    warn(`Soal ${soalNum}: pilih jawaban yang benar.`);
+                    return { success: false, error: `Soal ${soalNum}: pilih jawaban yang benar.` };
+                }
 
-            if (duplicateAnsId) {
-                toast("Terdapat opsi jawaban dengan teks yang sama. Pastikan setiap opsi unik.", "warning");
-                setTimeout(() => {
-                    const el = document.getElementById(`ans-input-${duplicateAnsId}`);
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        el.focus();
+                const seen = new Set<string>();
+                for (const a of qn.answers) {
+                    const t = a.text.trim().toLowerCase();
+                    if (seen.has(t)) {
+                        warn("Terdapat opsi jawaban dengan teks yang sama. Pastikan setiap opsi unik.");
+                        return { success: false, error: "Terdapat opsi jawaban dengan teks yang sama. Pastikan setiap opsi unik." };
                     }
-                }, 100);
-                return;
+                    seen.add(t);
+                }
             }
         }
 
-        setIsSavingQuiz(true);
-        showLoading("Menyimpan kuis...");
+        const failures: string[] = [];
         try {
             if (quiz.ctMode) {
                 let firstSaved = false;
                 const newSubIds: Record<number, string> = {};
+                let ctSoalIdx = 0;
 
                 for (const story of quiz.ctStories) {
                     for (const sq of story.subQuestions) {
-                        const ctGroupId = "ct-" + story.id;
-                        const payload = {
-                            question: sq.question || sq.label || "Soal CT",
-                            correctAnswer:
-                                sq.answers.find((a) => a.isCorrect)?.text ||
-                                sq.answers[0]?.text ||
-                                "",
-                            skor: quiz.scorePerQuestion || 10,
-                            quizType: "COMPUTATIONAL_THINKING" as const,
-                            ctGroupId: ctGroupId,
-                            ctStory: story.cerita || "",
-                            ctAspect: sq.ctAspect || "Soal CT",
-                            answerOptions: sq.answers.map((a) => ({
-                                option: a.text,
-                            })),
-                            setting: {
-                                timeLimit: quiz.duration * 60,
-                                allowMultipleAttempts: false,
-                                isComputationalThinkingEnabled: quiz.ctMode,
-                                minScoreTreshold: quiz.minScore,
-                                standardScorePerQuestion: quiz.scorePerQuestion,
-                            },
-                        };
+                        ctSoalIdx++;
+                        try {
+                            const ctGroupId = "ct-" + story.id;
+                            const payload = {
+                                question: sq.question || sq.label || "Soal CT",
+                                correctAnswer:
+                                    sq.answers.find((a) => a.isCorrect)?.text ||
+                                    sq.answers[0]?.text ||
+                                    "",
+                                skor: quiz.scorePerQuestion || 10,
+                                quizType: "COMPUTATIONAL_THINKING" as const,
+                                ctGroupId: ctGroupId,
+                                ctStory: story.cerita || "",
+                                ctAspect: sq.ctAspect || "Soal CT",
+                                answerOptions: sq.answers.map((a) => ({
+                                    option: a.text,
+                                })),
+                                setting: {
+                                    timeLimit: quiz.duration * 60,
+                                    allowMultipleAttempts: false,
+                                    isComputationalThinkingEnabled: quiz.ctMode,
+                                    minScoreTreshold: quiz.minScore,
+                                    standardScorePerQuestion: quiz.scorePerQuestion,
+                                },
+                            };
 
-                        if (!firstSaved) {
-                            const apiId = quizApiIds[quizId];
-                            if (apiId) {
-                                await adminTopikKuisApi.update(apiId, payload);
+                            if (!firstSaved) {
+                                const apiId = quizApiIds[quiz.id];
+                                if (apiId) {
+                                    await adminTopikKuisApi.update(apiId, payload);
+                                } else {
+                                    const created = await adminTopikKuisApi.create({
+                                        quiz: {
+                                            topikId: topicIdParam,
+                                            question: payload.question,
+                                            correctAnswer: payload.correctAnswer,
+                                            skor: payload.skor,
+                                            quizType: "COMPUTATIONAL_THINKING",
+                                            ctGroupId: payload.ctGroupId,
+                                            ctStory: payload.ctStory,
+                                            ctAspect: payload.ctAspect,
+                                        },
+                                        answerOptions: payload.answerOptions,
+                                        setting: payload.setting,
+                                    });
+                                    setQuizApiIds((prev) => ({
+                                        ...prev,
+                                        [quiz.id]: created.id,
+                                    }));
+                                }
+                                firstSaved = true;
                             } else {
-                                const created = await adminTopikKuisApi.create({
-                                    quiz: {
-                                        topikId: topicId!,
-                                        question: payload.question,
-                                        correctAnswer: payload.correctAnswer,
-                                        skor: payload.skor,
-                                        quizType: "COMPUTATIONAL_THINKING",
-                                        ctGroupId: payload.ctGroupId,
-                                        ctStory: payload.ctStory,
-                                        ctAspect: payload.ctAspect,
-                                    },
-                                    answerOptions: payload.answerOptions,
-                                    setting: payload.setting,
-                                });
-                                setQuizApiIds((prev) => ({
-                                    ...prev,
-                                    [quizId]: created.id,
-                                }));
+                                const existingApiId = subQuizApiIds[sq.id];
+                                if (existingApiId) {
+                                    await adminTopikKuisApi.update(
+                                        existingApiId,
+                                        payload,
+                                    );
+                                } else {
+                                    const created = await adminTopikKuisApi.create({
+                                        quiz: {
+                                            topikId: topicIdParam,
+                                            question: payload.question,
+                                            correctAnswer: payload.correctAnswer,
+                                            skor: payload.skor,
+                                            quizType: "COMPUTATIONAL_THINKING",
+                                            ctGroupId: payload.ctGroupId,
+                                            ctStory: payload.ctStory,
+                                            ctAspect: payload.ctAspect,
+                                        },
+                                        answerOptions: payload.answerOptions,
+                                        setting: payload.setting,
+                                    });
+                                    newSubIds[sq.id] = created.id;
+                                }
                             }
-                            firstSaved = true;
-                        } else {
-                            const existingApiId = subQuizApiIds[sq.id];
-                            if (existingApiId) {
-                                await adminTopikKuisApi.update(
-                                    existingApiId,
-                                    payload,
-                                );
-                            } else {
-                                const created = await adminTopikKuisApi.create({
-                                    quiz: {
-                                        topikId: topicId!,
-                                        question: payload.question,
-                                        correctAnswer: payload.correctAnswer,
-                                        skor: payload.skor,
-                                        quizType: "COMPUTATIONAL_THINKING",
-                                        ctGroupId: payload.ctGroupId,
-                                        ctStory: payload.ctStory,
-                                        ctAspect: payload.ctAspect,
-                                    },
-                                    answerOptions: payload.answerOptions,
-                                    setting: payload.setting,
-                                });
-                                newSubIds[sq.id] = created.id;
-                            }
+                        } catch (err) {
+                            console.error("Save CT question error:", err);
+                            failures.push(`Soal CT ${ctSoalIdx}`);
                         }
                     }
                 }
@@ -1491,85 +1507,161 @@ function EditModulKontenPageContent() {
                 if (Object.keys(newSubIds).length > 0) {
                     setSubQuizApiIds((prev) => ({ ...prev, ...newSubIds }));
                 }
-                toast("Kuis CT berhasil disimpan.", "success");
-                setTimeout(() => window.location.reload(), 1500);
             } else {
-                const question = quiz.questions[0]?.label || "Soal Kuis";
-                const answers = quiz.questions[0]?.answers || [];
-                const correctAnswer =
-                    answers.find((a) => a.isCorrect)?.text ||
-                    answers[0]?.text ||
-                    "";
-                const answerOptions = answers.map((a) => ({ option: a.text }));
-                
-                // DEBUG: log what we're about to send to the backend
-                console.log("=== QUIZ SUBMIT DEBUG ===");
-                console.log("question:", question);
-                console.log("question includes figure:", question.includes("<figure"));
-                console.log("correctAnswer:", correctAnswer);
-                console.log("========================");
+                const newSubIds: Record<number, string> = {};
+                const quizSetting = {
+                    timeLimit: quiz.duration * 60,
+                    allowMultipleAttempts: false,
+                    isComputationalThinkingEnabled: quiz.ctMode,
+                    minScoreTreshold: quiz.minScore,
+                    standardScorePerQuestion: quiz.scorePerQuestion,
+                };
 
-                const apiId = quizApiIds[quizId];
-                if (apiId) {
-                    await adminTopikKuisApi.update(apiId, {
-                        question,
-                        correctAnswer,
-                        skor: quiz.scorePerQuestion || 10,
-                        quizType: "REGULER",
-                        answerOptions,
-                        setting: {
-                            timeLimit: quiz.duration * 60,
-                            allowMultipleAttempts: false,
-                            isComputationalThinkingEnabled: quiz.ctMode,
-                            minScoreTreshold: quiz.minScore,
-                            standardScorePerQuestion: quiz.scorePerQuestion,
-                        },
-                    });
-                    // Update title di state lokal setelah simpan berhasil
-                    const rawText = stripHtml(question);
-                    const newTitle = rawText.length > 40 ? rawText.substring(0, 40) + "…" : rawText;
-                    setQuizzes((prev) =>
-                        prev.map((q) =>
-                            q.id === quizId
-                                ? { ...q, title: newTitle, isEditing: false }
-                                : q,
-                        ),
-                    );
-                    toast("Kuis berhasil diperbarui.", "success");
-                } else {
-                    const created = await adminTopikKuisApi.create({
-                        quiz: {
-                            topikId: topicId!,
-                            quizType: "REGULER",
-                            question,
-                            correctAnswer,
-                            skor: quiz.scorePerQuestion || 10,
-                        },
-                        answerOptions,
-                        setting: {
-                            timeLimit: quiz.duration * 60,
-                            allowMultipleAttempts: false,
-                            isComputationalThinkingEnabled: quiz.ctMode,
-                            minScoreTreshold: quiz.minScore,
-                            standardScorePerQuestion: quiz.scorePerQuestion,
-                        },
-                    });
-                    setQuizApiIds((prev) => ({
-                        ...prev,
-                        [quizId]: created.id,
-                    }));
+                for (let qIdx = 0; qIdx < quiz.questions.length; qIdx++) {
+                    const qn = quiz.questions[qIdx];
+                    try {
+                        const question =
+                            qn.label || (qIdx === 0 ? "Soal Kuis" : `Soal Kuis ${qIdx + 1}`);
+                        const answers = qn.answers || [];
+                        const correctAnswer =
+                            answers.find((a) => a.isCorrect)?.text ||
+                            answers[0]?.text ||
+                            "";
+                        const answerOptions = answers.map((a) => ({ option: a.text }));
+
+                        if (qIdx === 0) {
+                            const apiId = quizApiIds[quiz.id];
+                            if (apiId) {
+                                await adminTopikKuisApi.update(apiId, {
+                                    question,
+                                    correctAnswer,
+                                    skor: quiz.scorePerQuestion || 10,
+                                    quizType: "REGULER",
+                                    answerOptions,
+                                    setting: quizSetting,
+                                });
+                                const rawText = stripHtml(question);
+                                const newTitle = rawText.length > 40 ? rawText.substring(0, 40) + "…" : rawText;
+                                setQuizzes((prev) =>
+                                    prev.map((q) =>
+                                        q.id === quiz.id
+                                            ? { ...q, title: newTitle, isEditing: false }
+                                            : q,
+                                    ),
+                                );
+                            } else {
+                                const created = await adminTopikKuisApi.create({
+                                    quiz: {
+                                        topikId: topicIdParam,
+                                        quizType: "REGULER",
+                                        question,
+                                        correctAnswer,
+                                        skor: quiz.scorePerQuestion || 10,
+                                    },
+                                    answerOptions,
+                                    setting: quizSetting,
+                                });
+                                setQuizApiIds((prev) => ({
+                                    ...prev,
+                                    [quiz.id]: created.id,
+                                }));
+                            }
+                        } else {
+                            const existingApiId = subQuizApiIds[qn.id];
+                            if (existingApiId) {
+                                await adminTopikKuisApi.update(existingApiId, {
+                                    question,
+                                    correctAnswer,
+                                    skor: quiz.scorePerQuestion || 10,
+                                    quizType: "REGULER",
+                                    answerOptions,
+                                    setting: quizSetting,
+                                });
+                            } else {
+                                const created = await adminTopikKuisApi.create({
+                                    quiz: {
+                                        topikId: topicIdParam,
+                                        quizType: "REGULER",
+                                        question,
+                                        correctAnswer,
+                                        skor: quiz.scorePerQuestion || 10,
+                                    },
+                                    answerOptions,
+                                    setting: quizSetting,
+                                });
+                                newSubIds[qn.id] = created.id;
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Save question error:", err);
+                        failures.push(`Soal ${qIdx + 1}`);
+                    }
                 }
-                toast("Kuis berhasil disimpan.", "success");
-                setTimeout(() => window.location.reload(), 1500);
+
+                if (Object.keys(newSubIds).length > 0) {
+                    setSubQuizApiIds((prev) => ({ ...prev, ...newSubIds }));
+                }
             }
         } catch (err) {
             console.error("Submit quiz error:", err);
-            toast("Gagal menyimpan kuis.", "error");
-        } finally {
-            hideLoading();
-            setIsSavingQuiz(false);
+            return {
+                success: false,
+                error: silent ? "Gagal menyimpan kuis." : "Gagal menyimpan kuis.",
+            };
         }
+
+        if (failures.length > 0) {
+            return {
+                success: false,
+                error: `Beberapa soal gagal disimpan: ${failures.join(", ")}`,
+            };
+        }
+        return { success: true };
+    }
+
+    const handleSubmitQuiz = async (quizId: number) => {
+        const quiz = quizzes.find((q) => q.id === quizId);
+        if (!quiz || !topicId) return;
+        setIsSavingQuiz(true);
+        showLoading("Menyimpan kuis...");
+        const result = await persistQuiz(quiz, topicId);
+        if (result.success) {
+            toast("Kuis berhasil disimpan.", "success");
+            setQuizzes((prev) =>
+                prev.map((q) => (q.id === quizId ? { ...q, isExpanded: false } : q)),
+            );
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            toast(result.error || "Gagal menyimpan kuis.", "error");
+        }
+        hideLoading();
+        setIsSavingQuiz(false);
     };
+
+    async function flushPendingQuizzes(): Promise<boolean> {
+        if (!topicId) return true;
+        let allOk = true;
+        for (const quiz of quizzes) {
+            const result = await persistQuiz(quiz, topicId, { silent: true });
+            if (!result.success) {
+                allOk = false;
+                console.error("Flush quiz error:", result.error);
+            }
+        }
+        return allOk;
+    }
+
+    async function switchToTopik(topik: any) {
+        // Flush pending quiz edits before leaving the current topik
+        const flushed = await flushPendingQuizzes();
+        if (!flushed) {
+            toast(
+                "Beberapa soal kuis gagal disimpan saat berpindah topik.",
+                "warning",
+            );
+        }
+        loadTopicData(topik);
+    }
 
     // Create topic via API
     const handleCreateTopic = useCallback(async () => {
@@ -1582,6 +1674,14 @@ function EditModulKontenPageContent() {
         setTopicError("");
         showLoading("Membuat topik...");
         try {
+            // Flush pending quiz edits before leaving the current topik
+            const flushed = await flushPendingQuizzes();
+            if (!flushed) {
+                toast(
+                    "Beberapa soal kuis gagal disimpan saat membuat topik baru.",
+                    "warning",
+                );
+            }
             const created = await adminTopikApi.create({
                 name: topicTitle.trim(),
                 modulId,
@@ -1618,7 +1718,7 @@ function EditModulKontenPageContent() {
             hideLoading();
             setIsCreatingTopic(false);
         }
-    }, [topicTitle, modulId]);
+    }, [topicTitle, modulId, flushPendingQuizzes, toast]);
 
     // Edit topic via API
     const handleSaveEditTopic = useCallback(async () => {
@@ -1698,8 +1798,19 @@ function EditModulKontenPageContent() {
             confirmText: "Terbitkan",
         });
         if (!ok2) return;
-        showLoading("Menerbitkan modul...");
+        showLoading("Menyimpan konten...");
         try {
+            // Flush pending quiz edits so nothing is lost when publishing
+            const flushed = await flushPendingQuizzes();
+            if (!flushed) {
+                toast(
+                    "Beberapa soal kuis gagal disimpan. Periksa kuis Anda lalu coba lagi.",
+                    "error",
+                );
+                hideLoading();
+                return;
+            }
+            showLoading("Menerbitkan modul...");
             await adminModulApi.update(modulId, { isDraft: false });
             router.push("/admin/manajemen-modul");
         } catch (err: unknown) {
@@ -1711,7 +1822,7 @@ function EditModulKontenPageContent() {
         } finally {
             hideLoading();
         }
-    }, [modulId, router]);
+    }, [modulId, router, flushPendingQuizzes]);
 
     if (!isAuthorized || isLoading) {
         return (
@@ -1892,7 +2003,7 @@ function EditModulKontenPageContent() {
                                                                     activeTopikId !==
                                                                     topik.id
                                                                 ) {
-                                                                    loadTopicData(
+                                                                    void switchToTopik(
                                                                         topik,
                                                                     );
                                                                 }
@@ -3635,7 +3746,7 @@ function EditModulKontenPageContent() {
                                                             activeTopikId !==
                                                             topik.id
                                                         ) {
-                                                            loadTopicData(
+                                                            void switchToTopik(
                                                                 topik,
                                                             );
                                                         }
