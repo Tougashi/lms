@@ -188,38 +188,127 @@ function TambahModulKontenPageContent() {
             if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
           }
 
-          // Load quizzes from API
+          // Load quizzes from API (group CT and multi-question quizzes properly)
+          const rawQuizzes = firstTopik.quizzes || [];
           const quizIds: Record<number, string> = {};
-          const mappedQuizzes = (firstTopik.quizzes || []).map((q: any, qIdx: number) => {
-            const localId = Date.now() + qIdx + 1000;
-            quizIds[localId] = q.id;
-            return {
-              id: localId,
-              title: q.judul || (q.question?.length > 40 ? q.question.substring(0, 40) + "…" : q.question),
-              isExpanded: false,
-              ctMode: q.quizType === "COMPUTATIONAL_THINKING",
-              duration: q.quizSettings[0]?.timeLimit
-                ? Math.round(q.quizSettings[0].timeLimit / 60)
-                : 90,
-              minScore: q.quizSettings[0]?.minScoreTreshold ?? 0,
-              scorePerQuestion:
-                q.quizSettings[0]?.standardScorePerQuestion ?? 10,
-              questions: [
-                {
-                  id: localId + 1,
-                  label: q.question,
-                  answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
-                    id: localId + 10 + oIdx,
-                    text: opt.option,
-                    isCorrect: opt.option === q.correctAnswer,
-                  })),
-                },
-              ],
-              ctStories: [makeCTStory()],
-            };
-          });
+          const subQuizIds: Record<number, string> = {};
+          const mappedQuizzes: typeof quizzes = [];
+          const baseTs = Date.now();
+
+          const groupIndexMap = new Map<string, number>();
+          const orderedGroups: { gid: string; quizzes: any[] }[] = [];
+          for (const rawQ of rawQuizzes) {
+            const gid =
+              rawQ.quizGroupId ??
+              rawQ.ctGroupId ??
+              (rawQ.quizType === "COMPUTATIONAL_THINKING"
+                ? `__ct_${rawQ.ctStory || rawQ.judul || "story"}`
+                : `__solo__${rawQ.id}`);
+            if (!groupIndexMap.has(gid)) {
+              groupIndexMap.set(gid, orderedGroups.length);
+              orderedGroups.push({ gid, quizzes: [] });
+            }
+            orderedGroups[groupIndexMap.get(gid)!].quizzes.push(rawQ);
+          }
+
+          for (const { quizzes: group } of orderedGroups) {
+            const firstQ = group[0];
+            const cardIdx = mappedQuizzes.length;
+            const localId = baseTs + cardIdx * 100 + 1000;
+            quizIds[localId] = firstQ.id;
+
+            if (firstQ.quizType === "COMPUTATIONAL_THINKING") {
+              const subQs = group.map((ctQ: any, ctIdx: number) => {
+                const sqId = baseTs + cardIdx * 1000 + ctIdx * 10 + 5000;
+                if (ctIdx > 0) subQuizIds[sqId] = ctQ.id;
+                return {
+                  id: sqId,
+                  label: ctQ.question || ctSubLabels[ctIdx] || `Soal CT ${ctIdx + 1}`,
+                  ctAspect: ctQ.ctAspect || undefined,
+                  answers: (() => {
+                    let foundCorrect = false;
+                    return (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                      const isMatch = opt.option === ctQ.correctAnswer;
+                      const isCorrect = isMatch && !foundCorrect;
+                      if (isMatch) foundCorrect = true;
+                      return {
+                        id: baseTs + cardIdx * 1000 + ctIdx * 10 + oIdx + 9000,
+                        text: opt.option,
+                        isCorrect,
+                      };
+                    });
+                  })(),
+                };
+              });
+              while (subQs.length < ctSubLabels.length) {
+                const padIdx = subQs.length;
+                const padId = baseTs + cardIdx * 1000 + padIdx * 10 + 3000;
+                subQs.push({
+                  id: padId,
+                  label: ctSubLabels[padIdx],
+                  ctAspect: ["decomposition", "patternRecognition", "abstraction", "algorithm"][padIdx] || "",
+                  answers: [
+                    { id: padId * 2 + 1, text: "", isCorrect: false },
+                    { id: padId * 2 + 2, text: "", isCorrect: false },
+                  ],
+                });
+              }
+              mappedQuizzes.push({
+                id: localId,
+                title: firstQ.judul || "Kuis CT",
+                isExpanded: false,
+                ctMode: true,
+                duration: firstQ.quizSettings?.[0]?.timeLimit ? Math.round(firstQ.quizSettings[0].timeLimit / 60) : 90,
+                minScore: firstQ.quizSettings?.[0]?.minScoreTreshold ?? 0,
+                scorePerQuestion: firstQ.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+                questions: [
+                  {
+                    id: localId + 1,
+                    label: "Soal Kuis 1",
+                    answers: [
+                      { id: localId + 10, text: "", isCorrect: false },
+                      { id: localId + 11, text: "", isCorrect: false },
+                    ],
+                  },
+                ],
+                ctStories: [{ id: localId + 2, cerita: firstQ?.ctStory || "", subQuestions: subQs }],
+              });
+            } else {
+              const questions = group.map((gq: any, gIdx: number) => {
+                const qLocalId = gIdx === 0 ? localId + 1 : baseTs + cardIdx * 1000 + gIdx * 10 + 7000;
+                if (gIdx > 0) subQuizIds[qLocalId] = gq.id;
+                let foundCorrect = false;
+                return {
+                  id: qLocalId,
+                  label: gq.question || `Soal Kuis ${gIdx + 1}`,
+                  answers: (gq.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                    const isMatch = opt.option === gq.correctAnswer;
+                    const isCorrect = isMatch && !foundCorrect;
+                    if (isMatch) foundCorrect = true;
+                    return {
+                      id: baseTs + cardIdx * 1000 + gIdx * 100 + oIdx + 8000,
+                      text: opt.option,
+                      isCorrect,
+                    };
+                  }),
+                };
+              });
+              mappedQuizzes.push({
+                id: localId,
+                title: firstQ.judul || (firstQ.question?.length > 40 ? firstQ.question.substring(0, 40) + "…" : (firstQ.question || "Untitled")),
+                isExpanded: false,
+                ctMode: false,
+                duration: firstQ.quizSettings?.[0]?.timeLimit ? Math.round(firstQ.quizSettings[0].timeLimit / 60) : 90,
+                minScore: firstQ.quizSettings?.[0]?.minScoreTreshold ?? 0,
+                scorePerQuestion: firstQ.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+                questions,
+                ctStories: [makeCTStory()],
+              });
+            }
+          }
           setQuizzes(mappedQuizzes);
           setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+          setSubQuizApiIds((prev) => ({ ...prev, ...subQuizIds }));
         }
       } catch (err) {
         console.error("Load content error:", err);
@@ -608,34 +697,126 @@ function TambahModulKontenPageContent() {
     if (loaded.length > 0) setActiveMaterialId(loaded[0].id);
     else setActiveMaterialId(null);
 
+    const rawQuizzes = topik.quizzes || [];
     const quizIds: Record<number, string> = {};
-    const mappedQuiz = topik.quizzes.map((q: any, qIdx: number) => {
-      const localId = Date.now() + qIdx + 1000;
-      quizIds[localId] = q.id;
-      return {
-        id: localId,
-        title: q.judul || (q.question?.length > 40 ? q.question.substring(0, 40) + "…" : (q.question || "Untitled")),
-        isExpanded: false,
-        ctMode: q.quizType === "COMPUTATIONAL_THINKING",
-        duration: q.quizSettings?.[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
-        minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
-        scorePerQuestion: q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
-        questions: [
-          {
-            id: localId + 1,
-            label: q.question || "Soal Kuis",
-            answers: (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => ({
-              id: localId + 10 + oIdx,
-              text: opt.option,
-              isCorrect: opt.option === q.correctAnswer,
-            })),
-          },
-        ],
-        ctStories: [makeCTStory()],
-      };
-    });
+    const subQIds: Record<number, string> = {};
+    const mappedQuiz: typeof quizzes = [];
+    const bTs = Date.now();
+
+    const groupIndexMap = new Map<string, number>();
+    const orderedGroups: { gid: string; quizzes: any[] }[] = [];
+    for (const rawQ of rawQuizzes) {
+      const gid =
+        rawQ.quizGroupId ??
+        rawQ.ctGroupId ??
+        (rawQ.quizType === "COMPUTATIONAL_THINKING"
+          ? `__ct_${rawQ.ctStory || rawQ.judul || "story"}`
+          : `__solo__${rawQ.id}`);
+      if (!groupIndexMap.has(gid)) {
+        groupIndexMap.set(gid, orderedGroups.length);
+        orderedGroups.push({ gid, quizzes: [] });
+      }
+      orderedGroups[groupIndexMap.get(gid)!].quizzes.push(rawQ);
+    }
+
+    for (const { quizzes: group } of orderedGroups) {
+      const firstQ = group[0];
+      const cardIdx = mappedQuiz.length;
+      const localId = bTs + cardIdx * 100 + 1000;
+      quizIds[localId] = firstQ.id;
+
+      if (firstQ.quizType === "COMPUTATIONAL_THINKING") {
+        const subQs = group.map((ctQ: any, ctIdx: number) => {
+          const sqId = bTs + cardIdx * 1000 + ctIdx * 10 + 5000;
+          if (ctIdx > 0) subQIds[sqId] = ctQ.id;
+          return {
+            id: sqId,
+            label: ctQ.question || ctSubLabels[ctIdx] || `Soal CT ${ctIdx + 1}`,
+            ctAspect: ctQ.ctAspect || undefined,
+            answers: (() => {
+              let foundCorrect = false;
+              return (ctQ.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                const isMatch = opt.option === ctQ.correctAnswer;
+                const isCorrect = isMatch && !foundCorrect;
+                if (isMatch) foundCorrect = true;
+                return {
+                  id: bTs + cardIdx * 1000 + ctIdx * 10 + oIdx + 9000,
+                  text: opt.option,
+                  isCorrect,
+                };
+              });
+            })(),
+          };
+        });
+        while (subQs.length < ctSubLabels.length) {
+          const padIdx = subQs.length;
+          const padId = bTs + cardIdx * 1000 + padIdx * 10 + 3000;
+          subQs.push({
+            id: padId,
+            label: ctSubLabels[padIdx],
+            ctAspect: ["decomposition", "patternRecognition", "abstraction", "algorithm"][padIdx] || "",
+            answers: [
+              { id: padId * 2 + 1, text: "", isCorrect: false },
+              { id: padId * 2 + 2, text: "", isCorrect: false },
+            ],
+          });
+        }
+        mappedQuiz.push({
+          id: localId,
+          title: firstQ.judul || "Kuis CT",
+          isExpanded: false,
+          ctMode: true,
+          duration: firstQ.quizSettings?.[0]?.timeLimit ? Math.round(firstQ.quizSettings[0].timeLimit / 60) : 90,
+          minScore: firstQ.quizSettings?.[0]?.minScoreTreshold ?? 0,
+          scorePerQuestion: firstQ.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+          questions: [
+            {
+              id: localId + 1,
+              label: "Soal Kuis 1",
+              answers: [
+                { id: localId + 10, text: "", isCorrect: false },
+                { id: localId + 11, text: "", isCorrect: false },
+              ],
+            },
+          ],
+          ctStories: [{ id: localId + 2, cerita: firstQ?.ctStory || "", subQuestions: subQs }],
+        });
+      } else {
+        const questions = group.map((gq: any, gIdx: number) => {
+          const qLocalId = gIdx === 0 ? localId + 1 : bTs + cardIdx * 1000 + gIdx * 10 + 7000;
+          if (gIdx > 0) subQIds[qLocalId] = gq.id;
+          let foundCorrect = false;
+          return {
+            id: qLocalId,
+            label: gq.question || `Soal Kuis ${gIdx + 1}`,
+            answers: (gq.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+              const isMatch = opt.option === gq.correctAnswer;
+              const isCorrect = isMatch && !foundCorrect;
+              if (isMatch) foundCorrect = true;
+              return {
+                id: bTs + cardIdx * 1000 + gIdx * 100 + oIdx + 8000,
+                text: opt.option,
+                isCorrect,
+              };
+            }),
+          };
+        });
+        mappedQuiz.push({
+          id: localId,
+          title: firstQ.judul || (firstQ.question?.length > 40 ? firstQ.question.substring(0, 40) + "…" : (firstQ.question || "Untitled")),
+          isExpanded: false,
+          ctMode: false,
+          duration: firstQ.quizSettings?.[0]?.timeLimit ? Math.round(firstQ.quizSettings[0].timeLimit / 60) : 90,
+          minScore: firstQ.quizSettings?.[0]?.minScoreTreshold ?? 0,
+          scorePerQuestion: firstQ.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
+          questions,
+          ctStories: [makeCTStory()],
+        });
+      }
+    }
     setQuizzes(mappedQuiz);
     setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+    setSubQuizApiIds((prev) => ({ ...prev, ...subQIds }));
   }, [getYoutubeThumb, makeCTStory]);
 
   const handleCreateQuiz = async () => {
@@ -1063,7 +1244,7 @@ function TambahModulKontenPageContent() {
         let ctSoalIdx = 0;
 
         for (const story of quiz.ctStories) {
-          const ctGroupId = `ctg-${quiz.id}-${story.id}-${Date.now()}`;
+          const ctGroupId = `ctg-${quiz.id}-${story.id}`;
           for (const sq of story.subQuestions) {
             ctSoalIdx++;
             try {

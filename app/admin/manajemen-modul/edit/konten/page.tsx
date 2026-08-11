@@ -224,47 +224,47 @@ function EditModulKontenPageContent() {
                         setActiveMaterialId(null);
 
                     // Load quizzes from API
-                    // Bug 3: Strip HTML dari quiz title
                     const rawQuizzes = firstTopik.quizzes || [];
-                    const groupedQuizzes: any[] = [];
+                    const baseQuizId = Date.now() + 100000;
+                    
                     const ctGroupMap = new Map<string, any[]>();
+                    const groupedQuizzes: { type: "SINGLE" | "GROUP"; item?: any; items?: any[] }[] = [];
                     
                     for (const q of rawQuizzes) {
-                        if (q.quizType === "COMPUTATIONAL_THINKING" && q.ctGroupId) {
-                            if (!ctGroupMap.has(q.ctGroupId)) {
-                                ctGroupMap.set(q.ctGroupId, []);
+                        if (q.quizType === "COMPUTATIONAL_THINKING") {
+                            const key = q.ctGroupId || q.quizGroupId || q.ctStory || q.judul || "ct_group";
+                            if (!ctGroupMap.has(key)) {
+                                ctGroupMap.set(key, []);
                             }
-                            ctGroupMap.get(q.ctGroupId)!.push(q);
+                            ctGroupMap.get(key)!.push(q);
                         } else {
                             groupedQuizzes.push({ type: "SINGLE", item: q });
                         }
                     }
-                    
-                    for (const [groupId, items] of Array.from(ctGroupMap.entries())) {
-                        groupedQuizzes.push({ type: "GROUP", groupId, items });
+
+                    for (const [, items] of Array.from(ctGroupMap.entries())) {
+                        groupedQuizzes.push({ type: "GROUP", items });
                     }
 
                     const quizIds: Record<number, string> = {};
                     const subQuizIds: Record<number, string> = {};
-                    const baseQuizId = Date.now() + 100000;
-                    
+
                     const mappedQuizzes = groupedQuizzes.map((g, qIdx) => {
-                        const localId = baseQuizId + qIdx * 10;
+                        const localId = baseQuizId + qIdx * 100;
                         if (g.type === "SINGLE") {
                             const q = g.item;
                             quizIds[localId] = q.id;
                             const rawTitle = stripHtml(q.question || "");
-                            const isCT = q.quizType === "COMPUTATIONAL_THINKING";
                             
                             return {
                                 id: localId,
                                 title: rawTitle.length > 40 ? rawTitle.substring(0, 40) + "…" : rawTitle || "Untitled",
                                 isExpanded: false,
-                                ctMode: isCT,
+                                ctMode: false,
                                 duration: q.quizSettings?.[0]?.timeLimit ? Math.round(q.quizSettings[0].timeLimit / 60) : 90,
                                 minScore: q.quizSettings?.[0]?.minScoreTreshold ?? 0,
                                 scorePerQuestion: q.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
-                                questions: isCT ? [] : [
+                                questions: [
                                     {
                                         id: localId + 1,
                                         label: q.question || "",
@@ -282,73 +282,63 @@ function EditModulKontenPageContent() {
                                         })(),
                                     },
                                 ],
-                                ctStories: isCT ? [
-                                    {
-                                        id: localId + 2,
-                                        subQuestions: [
-                                            {
-                                                id: localId + 3,
-                                                label: q.question || "",
-                                                ctAspect: q.ctAspect || "Soal CT",
-                                                answers: (() => {
-                                                    let foundCorrect = false;
-                                                    return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
-                                                        const isMatch = opt.option === q.correctAnswer && !foundCorrect;
-                                                        if (isMatch) foundCorrect = true;
-                                                        return {
-                                                            id: localId + 20 + oIdx,
-                                                            text: opt.option,
-                                                            isMatch: isMatch,
-                                                            isCorrect: isMatch,
-                                                        };
-                                                    });
-                                                })(),
-                                            }
-                                        ]
-                                    }
-                                ] : [{ ...makeCTStory(), cerita: q.ctStory || "" }],
+                                ctStories: [{ ...makeCTStory(), cerita: q.ctStory || "" }],
                             };
                         } else {
-                            const items = g.items;
+                            const items = g.items!;
                             const firstItem = items[0];
                             quizIds[localId] = firstItem.id;
                             
-                            const ctStory = {
-                                id: localId + 2,
-                                cerita: firstItem.ctStory || "",
-                                subQuestions: items.map((q: any, i: number) => {
-                                    const subId = localId + 100 + i;
-                                    if (i > 0) subQuizIds[subId] = q.id;
-                                    return {
-                                        id: subId,
-                                        label: q.question || "",
-                                        ctAspect: q.ctAspect || "Soal CT",
-                                        answers: (() => {
-                                            let foundCorrect = false;
-                                            return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
-                                                const isMatch = opt.option === q.correctAnswer && !foundCorrect;
-                                                if (isMatch) foundCorrect = true;
-                                                return {
-                                                    id: localId + 200 + (i * 10) + oIdx,
-                                                    text: opt.option,
-                                                    isCorrect: isMatch,
-                                                };
-                                            });
-                                        })(),
-                                    };
-                                })
-                            };
+                            const subQuestions = items.map((q: any, i: number) => {
+                                const subId = localId + 100 + i;
+                                if (i > 0) subQuizIds[subId] = q.id;
+                                return {
+                                    id: subId,
+                                    label: q.question || ctSubLabels[i] || `Soal CT ${i + 1}`,
+                                    ctAspect: q.ctAspect || ["decomposition", "patternRecognition", "abstraction", "algorithm"][i] || "Soal CT",
+                                    answers: (() => {
+                                        let foundCorrect = false;
+                                        return (q.quizAnswerOptions || []).map((opt: any, oIdx: number) => {
+                                            const isMatch = opt.option === q.correctAnswer && !foundCorrect;
+                                            if (isMatch) foundCorrect = true;
+                                            return {
+                                                id: localId + 200 + (i * 10) + oIdx,
+                                                text: opt.option,
+                                                isCorrect: isMatch,
+                                            };
+                                        });
+                                    })(),
+                                };
+                            });
+
+                            while (subQuestions.length < 4) {
+                                const padIdx = subQuestions.length;
+                                const padId = localId + 100 + padIdx;
+                                subQuestions.push({
+                                    id: padId,
+                                    label: ctSubLabels[padIdx],
+                                    ctAspect: ["decomposition", "patternRecognition", "abstraction", "algorithm"][padIdx] || "Soal CT",
+                                    answers: [
+                                        { id: padId * 10 + 1, text: "", isCorrect: false },
+                                        { id: padId * 10 + 2, text: "", isCorrect: false },
+                                    ],
+                                });
+                            }
                             
                             return {
                                 id: localId,
-                                title: "Soal Computational Thinking",
+                                title: firstItem.judul || "Soal Computational Thinking",
                                 isExpanded: false,
                                 ctMode: true,
                                 duration: firstItem.quizSettings?.[0]?.timeLimit ? Math.round(firstItem.quizSettings[0].timeLimit / 60) : 90,
                                 minScore: firstItem.quizSettings?.[0]?.minScoreTreshold ?? 0,
                                 scorePerQuestion: firstItem.quizSettings?.[0]?.standardScorePerQuestion ?? 10,
                                 questions: [],
-                                ctStories: [ctStory],
+                                ctStories: [{
+                                    id: localId + 2,
+                                    cerita: firstItem.ctStory || "",
+                                    subQuestions,
+                                }],
                             };
                         }
                     });
@@ -1435,6 +1425,7 @@ function EditModulKontenPageContent() {
                                 ctGroupId: ctGroupId,
                                 ctStory: story.cerita || "",
                                 ctAspect: sq.ctAspect || "Soal CT",
+                                judul: quiz.title,
                                 answerOptions: sq.answers.map((a) => ({
                                     option: a.text,
                                 })),
@@ -1459,6 +1450,7 @@ function EditModulKontenPageContent() {
                                             correctAnswer: payload.correctAnswer,
                                             skor: payload.skor,
                                             quizType: "COMPUTATIONAL_THINKING",
+                                            judul: quiz.title,
                                             ctGroupId: payload.ctGroupId,
                                             ctStory: payload.ctStory,
                                             ctAspect: payload.ctAspect,
@@ -1487,6 +1479,7 @@ function EditModulKontenPageContent() {
                                             correctAnswer: payload.correctAnswer,
                                             skor: payload.skor,
                                             quizType: "COMPUTATIONAL_THINKING",
+                                            judul: quiz.title,
                                             ctGroupId: payload.ctGroupId,
                                             ctStory: payload.ctStory,
                                             ctAspect: payload.ctAspect,
