@@ -191,6 +191,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                     topikName: topik.nama,
                     ctSubIds: group.map((q) => q.id),
                 });
+                for (const q of group) handledCtIds.add(q.id);
             }
             ctJudulMap.clear();
         };
@@ -255,6 +256,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                             topikName: topik.nama,
                             ctSubIds: group.map((q) => q.id),
                         });
+                        for (const q of group) handledCtIds.add(q.id);
                     }
                 } else if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId) {
                     // Priority 2: CT group by ctGroupId (backward compat)
@@ -269,6 +271,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                             topikName: topik.nama,
                             ctSubIds: group.map((q) => q.id),
                         });
+                        for (const q of group) handledCtIds.add(q.id);
                     }
                 } else if (item.quizType === "COMPUTATIONAL_THINKING") {
                     // Fallback: group by judul across whole topik (no ctGroupId)
@@ -376,6 +379,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                     topikName: topik.nama,
                     ctSubIds: group.map((q) => q.id),
                 });
+                for (const q of group) handledCtIds.add(q.id);
             }
             ctJudulMap.clear();
         };
@@ -440,6 +444,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                             topikName: topik.nama,
                             ctSubIds: group.map((q) => q.id),
                         });
+                        for (const q of group) handledCtIds.add(q.id);
                     }
                 } else if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId) {
                     // Priority 2: CT group by ctGroupId (backward compat)
@@ -454,6 +459,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                             topikName: topik.nama,
                             ctSubIds: group.map((q) => q.id),
                         });
+                        for (const q of group) handledCtIds.add(q.id);
                     }
                 } else if (item.quizType === "COMPUTATIONAL_THINKING") {
                     const key = item.judul || "Kuis CT";
@@ -1212,9 +1218,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
     const progressPercent = useMemo(() => {
         if (isModuleCompletedOrGraduated) return 100;
-        const backendPct = Math.round(progress?.progressPercentage ?? 0);
-        return Math.max(calculatedProgress, backendPct);
-    }, [isModuleCompletedOrGraduated, calculatedProgress, progress?.progressPercentage]);
+        if (completedSteps === 0) return 0;
+        return calculatedProgress;
+    }, [isModuleCompletedOrGraduated, completedSteps, calculatedProgress]);
 
     const markContentItemAsCompleted = useCallback(
         async (itemId: string, itemType?: string) => {

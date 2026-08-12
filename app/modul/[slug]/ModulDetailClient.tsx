@@ -409,31 +409,36 @@ export default function ModulDetailPage({
                                     </a>
                                 )}
 
-                                {isEnrolled && moduleData.progress && (
-                                    <div className="mt-2 rounded-lg bg-[#f5f2ff] p-3">
-                                        <p className="text-xs font-semibold text-[#7054dc]">
-                                            Progress Kamu
-                                        </p>
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e5e2ec]">
-                                                <div
-                                                    className="h-full rounded-full bg-[#7054dc]"
-                                                    style={{
-                                                        width: `${moduleData.progress.progressPercentage ?? 0}%`,
-                                                    }}
-                                                />
+                                {isEnrolled && moduleData.progress && (() => {
+                                    const rawPct = moduleData.progress.progressPercentage ?? 0;
+                                    const hasNoActivity =
+                                        (!moduleData.progress.completedContentItems || moduleData.progress.completedContentItems.length === 0) &&
+                                        !moduleData.progress.isGraduated &&
+                                        moduleData.progress.status !== "COMPLETED" &&
+                                        moduleData.progress.pretestScore == null &&
+                                        moduleData.progress.posttestScore == null;
+                                    const displayPct = hasNoActivity ? 0 : Math.round(rawPct);
+                                    return (
+                                        <div className="mt-2 rounded-lg bg-[#f5f2ff] p-3">
+                                            <p className="text-xs font-semibold text-[#7054dc]">
+                                                Progress Kamu
+                                            </p>
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e5e2ec]">
+                                                    <div
+                                                        className="h-full rounded-full bg-[#7054dc]"
+                                                        style={{
+                                                            width: `${displayPct}%`,
+                                                        }}
+                                                    />
+                                                </div>
+                                                <span className="text-xs font-medium text-[#7054dc]">
+                                                    {displayPct}%
+                                                </span>
                                             </div>
-                                            <span className="text-xs font-medium text-[#7054dc]">
-                                                {Math.round(
-                                                    moduleData.progress
-                                                        .progressPercentage ??
-                                                        0,
-                                                )}
-                                                %
-                                            </span>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
                             </aside>
                         </div>
                     </div>

@@ -1,5 +1,8 @@
 export function processTrixSlides(html: string): string {
-    if (!html || typeof window === 'undefined') return html;
+    if (!html) return html;
+    if (typeof window === 'undefined') {
+        return html.replace(/<figcaption[^>]*class="[^"]*attachment__caption[^"]*"[^>]*>[\s\S]*?<\/figcaption>/gi, "");
+    }
     const doc = new DOMParser().parseFromString(html, 'text/html');
     doc.querySelectorAll('figure[data-trix-attachment]').forEach((fig) => {
         try {
@@ -12,5 +15,9 @@ export function processTrixSlides(html: string): string {
             }
         } catch {}
     });
+    doc.querySelectorAll('figcaption.attachment__caption, .attachment__caption').forEach((caption) => {
+        caption.remove();
+    });
     return doc.body.innerHTML;
 }
+
