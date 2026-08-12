@@ -24,12 +24,22 @@ export function groupQuizRecords<T extends BaseQuizRecord>(records: T[]): T[] {
 
     for (const rec of records) {
         const raw = rec as unknown as Record<string, unknown>;
-        const key =
-            (raw.quizGroupId as string) ||
-            (raw.ctGroupId as string) ||
-            (raw.judul
-                ? `${rec.topik}___${rec.quizType}___${raw.judul}`
-                : `${rec.topik}___${rec.quizType}___${rec.activityType || "Kuis"}`);
+
+        // Build a unique grouping key per quiz.
+        // For COMPUTATIONAL_THINKING, group all subquestions in the same topic together into 1 CT Quiz.
+        let key: string;
+        if (raw.quizGroupId) {
+            key = String(raw.quizGroupId);
+        } else if (raw.ctGroupId) {
+            key = String(raw.ctGroupId);
+        } else if (rec.quizType === "COMPUTATIONAL_THINKING") {
+            key = `${rec.topik}___COMPUTATIONAL_THINKING`;
+        } else {
+            const title = (raw.quizTitle || raw.quizName || raw.groupTitle) as string | undefined;
+            key = title
+                ? `${rec.topik}___${rec.quizType}___${title}`
+                : `${rec.topik}___${rec.quizType}___${rec.activityType || "Kuis"}`;
+        }
 
         if (map.has(key)) {
             const existing = map.get(key)!;

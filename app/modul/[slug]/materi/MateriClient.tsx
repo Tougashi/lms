@@ -927,6 +927,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     if (prog.posttestScore != null)
                         completedMap["posttest"] = true;
 
+                    // Mark parent sequence item IDs as completed if any subIds are completed
+                    seq.forEach((item) => {
+                        if (item.ctSubIds && item.ctSubIds.length > 0) {
+                            if (item.ctSubIds.some((subId) => completedMap[subId])) {
+                                completedMap[item.id] = true;
+                            }
+                        }
+                    });
+
                     if (prog.status === "COMPLETED" || prog.isGraduated) {
                         seq.forEach((item) => {
                             completedMap[item.id] = true;
@@ -1168,6 +1177,17 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         [sequence],
     );
 
+    const isItemDone = useCallback(
+        (item: SequenceItem) => {
+            if (completedContentItemMap[item.id]) return true;
+            if (item.ctSubIds && item.ctSubIds.length > 0) {
+                return item.ctSubIds.some((subId) => completedContentItemMap[subId]);
+            }
+            return false;
+        },
+        [completedContentItemMap],
+    );
+
     const completedSteps = useMemo(
         () => {
             if (isModuleCompletedOrGraduated) {
@@ -1175,19 +1195,23 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             }
             return sequence.filter(
                 (item) =>
-                    completedContentItemMap[item.id] &&
-                    item.type !== "rating",
+                    item.type !== "rating" && isItemDone(item),
             ).length;
         },
-        [sequence, completedContentItemMap, isModuleCompletedOrGraduated, totalSteps],
+        [sequence, isItemDone, isModuleCompletedOrGraduated, totalSteps],
     );
 
-    const progressPercent = calculateProgress(
-        sequence,
-        completedContentItemMap,
-        progress?.status,
-        progress?.isGraduated,
-    );
+    const calculatedProgress = useMemo(() => {
+        if (isModuleCompletedOrGraduated) return 100;
+        if (totalSteps === 0) return 0;
+        return Math.min(100, Math.round((completedSteps / totalSteps) * 100));
+    }, [isModuleCompletedOrGraduated, completedSteps, totalSteps]);
+
+    const progressPercent = useMemo(() => {
+        if (isModuleCompletedOrGraduated) return 100;
+        const backendPct = Math.round(progress?.progressPercentage ?? 0);
+        return Math.max(calculatedProgress, backendPct);
+    }, [isModuleCompletedOrGraduated, calculatedProgress, progress?.progressPercentage]);
 
     const markContentItemAsCompleted = useCallback(
         async (itemId: string, itemType?: string) => {
@@ -1201,9 +1225,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             }
 
             // Optimistic update: mark completed immediately in local state
+            const targetSeqItem = sequence.find((s) => s.id === itemId);
             setCompletedContentItemMap((prev) => {
-                if (prev[itemId]) return prev;
-                return { ...prev, [itemId]: true };
+                const next = { ...prev, [itemId]: true };
+                if (targetSeqItem?.ctSubIds) {
+                    targetSeqItem.ctSubIds.forEach((subId) => {
+                        next[subId] = true;
+                    });
+                }
+                return next;
             });
 
             const type =
