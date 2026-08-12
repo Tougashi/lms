@@ -1138,11 +1138,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const isFinalSummaryActive = currentView === "materi" && isFinalSummaryView;
     const isRatingView = currentView === "rating";
 
-    const summaryHighlightText =
-        currentSeqItem?.type === "summary"
-            ? "Rangkuman ini merangkum poin-poin penting dari topik yang telah dipelajari."
-            : undefined;
-
     // ─── Sequential unlock ─────────────────────────────────────────────────
     const isItemUnlockedByIndex = useCallback(
         (index: number): boolean => {
@@ -3035,14 +3030,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                         )}
 
                                         <div className="mt-4">
-                                            {currentSeqItem?.type ===
-                                                "summary" &&
-                                                summaryHighlightText && (
-                                                    <div className="mb-5 rounded-xl bg-[#f3dfc9] px-4 py-4 text-sm font-semibold leading-relaxed text-[#202126]">
-                                                        {summaryHighlightText}
-                                                    </div>
-                                                )}
-
                                             {isFinalSummaryView ? (
                                                 <div className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]">
                                                     {currentSeqItem?.konten ? (
