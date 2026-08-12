@@ -11,6 +11,7 @@ import { IoPersonCircle } from 'react-icons/io5';
 import { adminProgressApi } from '../../lib/api';
 import type { AdminCTAnalysisData, AdminProgressDetail, AdminModuleProgressItem } from '../../lib/types/admin';
 import AdminHeader from '../../component/admin/AdminHeader';
+import { groupQuizRecords } from '../../lib/utils/quizGroup';
 
 /* ───────────────── helpers ───────────────── */
 
@@ -422,14 +423,18 @@ function NilaiSiswaContent() {
                       </tr>
                     </thead>
                     <tbody>
-                      {!(selectedModule?.quizRecords) || selectedModule.quizRecords.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-5 py-8 text-center text-[13px] text-[#8a8d98]">
-                            Belum ada data kuis.
-                          </td>
-                        </tr>
-                      ) : (
-                        selectedModule.quizRecords.map((row, index) => (
+                      {(() => {
+                        const records = groupQuizRecords(selectedModule?.quizRecords ?? []);
+                        if (records.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="px-5 py-8 text-center text-[13px] text-[#8a8d98]">
+                                Belum ada data kuis.
+                              </td>
+                            </tr>
+                          );
+                        }
+                        return records.map((row, index) => (
                           <tr
                             key={index}
                             className="border-t border-[#f0eef6] text-[13px] text-[#232530]"
@@ -439,10 +444,10 @@ function NilaiSiswaContent() {
                               {row.quizType === 'COMPUTATIONAL_THINKING' ? (
                                 <span className="text-[13px] font-medium text-[#7054dc]">Mode CT</span>
                               ) : (
-                                <span className="text-[#8a8d98]">-</span>
+                                <span className="text-[#8a8d98]">Reguler</span>
                               )}
                             </td>
-                            <td className="px-5 py-4 text-[#555968]">Kuis</td>
+                            <td className="px-5 py-4 text-[#555968]">{row.activityType ?? 'Kuis'}</td>
                             <td className="px-5 py-4 font-semibold">{row.score}</td>
                             <td className="px-5 py-4">
                               {row.status === 'tuntas' ? (
@@ -458,8 +463,8 @@ function NilaiSiswaContent() {
                               )}
                             </td>
                           </tr>
-                        ))
-                      )}
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>

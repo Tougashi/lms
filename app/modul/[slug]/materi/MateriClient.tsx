@@ -927,6 +927,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     if (prog.posttestScore != null)
                         completedMap["posttest"] = true;
 
+                    if (prog.status === "COMPLETED" || prog.isGraduated) {
+                        seq.forEach((item) => {
+                            completedMap[item.id] = true;
+                        });
+                    }
+
                     setCompletedContentItemMap(completedMap);
 
                     // If pretest is finished OR if there is NO pretest, show materi
@@ -1153,20 +1159,29 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     }, [sequence, isItemUnlockedByIndex]);
 
     // ─── Progress calculation ──────────────────────────────────────────────
+    const isModuleCompletedOrGraduated =
+        progress?.status === "COMPLETED" || progress?.isGraduated === true;
+
     const totalSteps = useMemo(
         () =>
             sequence.filter((item) => item.type !== "rating").length,
         [sequence],
     );
+
     const completedSteps = useMemo(
-        () =>
-            sequence.filter(
+        () => {
+            if (isModuleCompletedOrGraduated) {
+                return totalSteps;
+            }
+            return sequence.filter(
                 (item) =>
                     completedContentItemMap[item.id] &&
                     item.type !== "rating",
-            ).length,
-        [sequence, completedContentItemMap],
+            ).length;
+        },
+        [sequence, completedContentItemMap, isModuleCompletedOrGraduated, totalSteps],
     );
+
     const progressPercent = calculateProgress(
         sequence,
         completedContentItemMap,

@@ -13,6 +13,7 @@ import GuruHeader from '../../../component/guru/GuruHeader';
 import CursorPagination from '../../../component/ui/CursorPagination';
 import { guruProgressApi } from '../../../lib/api';
 import type { CTAnalysisResponse } from '../../../lib/types/guru';
+import { groupQuizRecords } from '../../../lib/utils/quizGroup';
 
 /* ─── Types ─── */
 
@@ -149,7 +150,8 @@ function SiswaDetailPageContent() {
   const student = data?.studentInfo;
   const mod = data?.moduleProgress;
   const ct = data?.computationalThinking ?? null;
-  const quizRecs = data?.quizRecords ?? [];
+  const quizRecsRaw = data?.quizRecords ?? [];
+  const quizRecs = useMemo(() => groupQuizRecords(quizRecsRaw), [quizRecsRaw]);
   const topikCT = data?.topikCTAnalysis ?? [];
   const rec = data?.recommendation ?? '';
   const isCT = topikCT.length > 0 || (ct
