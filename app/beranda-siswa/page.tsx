@@ -30,7 +30,8 @@ export default function BerandaSiswaPage() {
 
     let isMounted = true;
 
-    const fetchDashboard = async () => {
+    const fetchDashboard = async (showLoading = true) => {
+      if (showLoading) setIsLoadingData(true);
       try {
         const data = await dashboardApi.siswa();
         if (!isMounted) return;
@@ -78,14 +79,23 @@ export default function BerandaSiswaPage() {
         if (isMounted) setDashboard(data);
       } catch (err: unknown) {
         console.error('Dashboard fetch error:', err);
-        if (isMounted) setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
+        if (isMounted && showLoading) setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
       } finally {
-        if (isMounted) setIsLoadingData(false);
+        if (isMounted && showLoading) setIsLoadingData(false);
       }
     };
 
-    fetchDashboard();
-    return () => { isMounted = false; };
+    fetchDashboard(true);
+
+    const handleFocus = () => {
+      fetchDashboard(false);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [authLoading, user]);
 
   // Derive data from dashboard response

@@ -108,8 +108,8 @@ function EksplorModulContent() {
 
         let isMounted = true;
 
-        const fetchData = async () => {
-            setIsLoading(true);
+        const fetchData = async (showLoading = true) => {
+            if (showLoading) setIsLoading(true);
             setError("");
             try {
                 const [allRes, enrolledRes] = await Promise.all([
@@ -129,20 +129,27 @@ function EksplorModulContent() {
                 setEnrolledModules(enrolled);
             } catch (err: unknown) {
                 console.error("Eksplor modul fetch error:", err);
-                if (isMounted)
+                if (isMounted && showLoading)
                     setError(
                         err instanceof Error
                             ? err.message
                             : "Gagal memuat data modul",
                     );
             } finally {
-                if (isMounted) setIsLoading(false);
+                if (isMounted && showLoading) setIsLoading(false);
             }
         };
 
-        fetchData();
+        fetchData(true);
+
+        const handleFocus = () => {
+            fetchData(false);
+        };
+
+        window.addEventListener("focus", handleFocus);
         return () => {
             isMounted = false;
+            window.removeEventListener("focus", handleFocus);
         };
     }, []);
 

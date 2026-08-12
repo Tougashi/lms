@@ -1171,12 +1171,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const isModuleCompletedOrGraduated =
         progress?.status === "COMPLETED" || progress?.isGraduated === true;
 
-    const totalSteps = useMemo(
-        () =>
-            sequence.filter((item) => item.type !== "rating").length,
-        [sequence],
-    );
-
     const isItemDone = useCallback(
         (item: SequenceItem) => {
             if (completedContentItemMap[item.id]) return true;
@@ -1188,24 +1182,33 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         [completedContentItemMap],
     );
 
-    const completedSteps = useMemo(
-        () => {
-            if (isModuleCompletedOrGraduated) {
-                return totalSteps;
-            }
-            return sequence.filter(
-                (item) =>
-                    item.type !== "rating" && isItemDone(item),
-            ).length;
-        },
-        [sequence, isItemDone, isModuleCompletedOrGraduated, totalSteps],
-    );
+    const countableSequence = useMemo(() => {
+        return sequence.filter(
+            (item) =>
+                item.type !== "rating" &&
+                item.type !== "summary" &&
+                item.type !== "rangkuman-akhir" &&
+                !item.id.startsWith("summary-") &&
+                item.id !== "rangkuman-akhir" &&
+                item.id !== "rating",
+        );
+    }, [sequence]);
+
+    const totalSteps = countableSequence.length;
+
+    const completedSteps = useMemo(() => {
+        if (isModuleCompletedOrGraduated) return totalSteps;
+        return countableSequence.filter((item) => isItemDone(item)).length;
+    }, [isModuleCompletedOrGraduated, totalSteps, countableSequence, isItemDone]);
 
     const calculatedProgress = useMemo(() => {
-        if (isModuleCompletedOrGraduated) return 100;
-        if (totalSteps === 0) return 0;
-        return Math.min(100, Math.round((completedSteps / totalSteps) * 100));
-    }, [isModuleCompletedOrGraduated, completedSteps, totalSteps]);
+        return calculateProgress(
+            sequence,
+            completedContentItemMap,
+            progress?.status,
+            progress?.isGraduated,
+        );
+    }, [sequence, completedContentItemMap, progress?.status, progress?.isGraduated]);
 
     const progressPercent = useMemo(() => {
         if (isModuleCompletedOrGraduated) return 100;
@@ -1388,6 +1391,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         newMap["pretest"] = true;
                     if (updated.progress.posttestScore != null)
                         newMap["posttest"] = true;
+                    sequence.forEach((item) => {
+                        if (item.ctSubIds && item.ctSubIds.length > 0) {
+                            if (item.ctSubIds.some((subId) => newMap[subId])) {
+                                newMap[item.id] = true;
+                            }
+                        }
+                    });
                     setCompletedContentItemMap(newMap);
                 }
                 if (updated.certificate) setCertificate(updated.certificate);

@@ -77,24 +77,39 @@ export default function ModulDetailPage({
     const [enrollError, setEnrollError] = useState("");
 
     useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
+        let isMounted = true;
+
+        const fetchData = async (showLoading = true) => {
+            if (showLoading) setIsLoading(true);
             setError("");
             try {
                 const res = await siswaModulApi.getById(id);
-                setModuleData(res);
+                if (isMounted) setModuleData(res);
             } catch (err: unknown) {
                 console.error("Modul detail fetch error:", err);
-                setError(
-                    err instanceof AxiosError
-                        ? err.message
-                        : "Gagal memuat detail modul",
-                );
+                if (isMounted && showLoading) {
+                    setError(
+                        err instanceof AxiosError
+                            ? err.message
+                            : "Gagal memuat detail modul",
+                    );
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted && showLoading) setIsLoading(false);
             }
         };
-        fetchData();
+
+        fetchData(true);
+
+        const handleFocus = () => {
+            fetchData(false);
+        };
+
+        window.addEventListener("focus", handleFocus);
+        return () => {
+            isMounted = false;
+            window.removeEventListener("focus", handleFocus);
+        };
     }, [id]);
 
     const totalTopiks = moduleData?.topiks.length ?? 0;
