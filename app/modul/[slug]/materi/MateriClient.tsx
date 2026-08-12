@@ -299,7 +299,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                     type: "summary",
                     topikId: topik.id,
                     topikName: topik.nama,
-                    konten: item.article ?? undefined,
+                    konten: item.article ?? topik.rangkumanTopik ?? undefined,
                 });
             }
         }
@@ -486,7 +486,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                     type: "summary",
                     topikId: topik.id,
                     topikName: topik.nama,
-                    konten: item.article ?? undefined,
+                    konten: item.article ?? topik.rangkumanTopik ?? undefined,
                 });
             }
         }
@@ -1151,15 +1151,19 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             const item = sequence[index];
             // Direct unlock: item was already completed
             if (completedContentItemMap[item.id]) return true;
+            if (item.ctSubIds && item.ctSubIds.some((subId) => completedContentItemMap[subId])) return true;
             // Posttest: unlock when all real items (materi + quiz) are completed
             if (item.type === "posttest") {
                 return sequence
                     .filter((s) => s.type !== "posttest" && s.type !== "rating" && s.id !== "rangkuman-akhir")
-                    .every((s) => completedContentItemMap[s.id]);
+                    .every((s) => completedContentItemMap[s.id] || (s.ctSubIds && s.ctSubIds.some((subId) => completedContentItemMap[subId])));
             }
             // Sequential unlock: previous item completed
-            const prevId = sequence[index - 1].id;
-            return completedContentItemMap[prevId] === true;
+            const prevItem = sequence[index - 1];
+            if (!prevItem) return true;
+            if (completedContentItemMap[prevItem.id] === true) return true;
+            if (prevItem.ctSubIds && prevItem.ctSubIds.some((subId) => completedContentItemMap[subId])) return true;
+            return false;
         },
         [sequence, completedContentItemMap],
     );
@@ -1389,22 +1393,31 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     setProgress(updated.progress);
                     // Rebuild completedContentItemMap so auto-unlocked materis
                     // (e.g. after pretest BKT) immediately appear unlocked in sidebar
-                    const newMap: Record<string, boolean> = {};
-                    (updated.progress.completedContentItems ?? []).forEach(
-                        (id) => { newMap[id] = true; },
-                    );
-                    if (updated.progress.pretestScore != null)
-                        newMap["pretest"] = true;
-                    if (updated.progress.posttestScore != null)
-                        newMap["posttest"] = true;
-                    sequence.forEach((item) => {
-                        if (item.ctSubIds && item.ctSubIds.length > 0) {
-                            if (item.ctSubIds.some((subId) => newMap[subId])) {
-                                newMap[item.id] = true;
-                            }
+                    setCompletedContentItemMap((prev) => {
+                        const newMap: Record<string, boolean> = { ...prev };
+                        (updated.progress?.completedContentItems ?? []).forEach(
+                            (id) => { newMap[id] = true; },
+                        );
+                        if (updated.progress?.pretestScore != null)
+                            newMap["pretest"] = true;
+                        if (updated.progress?.posttestScore != null)
+                            newMap["posttest"] = true;
+                        if (activeQuizItemId) {
+                            newMap[activeQuizItemId] = true;
                         }
+                        if (activeCtSubIds && activeCtSubIds.length > 0) {
+                            activeCtSubIds.forEach((subId) => { newMap[subId] = true; });
+                        }
+                        sequence.forEach((item) => {
+                            if (item.ctSubIds && item.ctSubIds.length > 0) {
+                                if (newMap[item.id] || item.ctSubIds.some((subId) => newMap[subId])) {
+                                    newMap[item.id] = true;
+                                    item.ctSubIds.forEach((subId) => { newMap[subId] = true; });
+                                }
+                            }
+                        });
+                        return newMap;
                     });
-                    setCompletedContentItemMap(newMap);
                 }
                 if (updated.certificate) setCertificate(updated.certificate);
             } catch {
@@ -1516,6 +1529,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 } else {
                     setCurrentView("materi");
                     setIsMaterialMode(true);
+                    setIsFinalSummaryView(nextItem?.type === "summary" || nextItem?.type === "rangkuman-akhir");
+                    setIsDescriptionExpanded(true);
+                    setActiveQuizItemId(null);
                 }
             }
             return;
@@ -2922,6 +2938,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 } else {
                                                     setCurrentView("materi");
                                                     setIsMaterialMode(true);
+                                                    setIsFinalSummaryView(
+                                                        nextItem?.type === "summary" || nextItem?.type === "rangkuman-akhir",
+                                                    );
+                                                    setIsDescriptionExpanded(true);
+                                                    setActiveQuizItemId(null);
                                                     if (
                                                         nextIdx <
                                                         sequence.length
@@ -2974,15 +2995,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 />
                                             )}
 
-                                        <div className="mt-5 flex items-center justify-between gap-4">
-                                            <h2 className="text-2xl sm:text-3xl font-bold text-[#202126]">
-                                                {isFinalSummaryView
-                                                    ? "Rangkuman Akhir"
-                                                    : (currentSeqItem?.title ??
-                                                      "Materi")}
-                                            </h2>
-                                            {!isFinalSummaryView &&
-                                                currentSeqItem?.hasVideo && (
+                                        {!isFinalSummaryView && currentSeqItem?.type !== "summary" && (
+                                            <div className="mt-5 flex items-center justify-between gap-4">
+                                                <h2 className="text-2xl sm:text-3xl font-bold text-[#202126]">
+                                                    {currentSeqItem?.title ?? "Materi"}
+                                                </h2>
+                                                {currentSeqItem?.hasVideo && (
                                                     <button
                                                         type="button"
                                                         onClick={() =>
@@ -3005,7 +3023,16 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                         />
                                                     </button>
                                                 )}
-                                        </div>
+                                            </div>
+                                        )}
+
+                                        {isFinalSummaryView && (
+                                            <div className="mt-5 flex items-center justify-between gap-4">
+                                                <h2 className="text-2xl sm:text-3xl font-bold text-[#202126]">
+                                                    Rangkuman Akhir
+                                                </h2>
+                                            </div>
+                                        )}
 
                                         <div className="mt-4">
                                             {currentSeqItem?.type ===
@@ -3049,9 +3076,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                         </p>
                                                     )}
                                                 </div>
-                                            ) : currentSeqItem?.konten &&
-                                              (!currentSeqItem?.hasVideo ||
-                                                  isDescriptionExpanded) ? (
+                                            ) : currentSeqItem?.konten ? (
                                                 <div
                                                     className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]"
                                                     dangerouslySetInnerHTML={{

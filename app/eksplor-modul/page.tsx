@@ -320,19 +320,27 @@ function EksplorModulContent() {
                                     <div
                                         className={`flex items-center gap-3 ${activeTab === "relevan" ? "pr-7 sm:gap-4" : ""}`}
                                     >
-                                        <div className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-xl sm:h-[88px] sm:w-[88px]">
+                                        <Link
+                                            href={`/modul/${item.id}`}
+                                            className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-xl sm:h-[88px] sm:w-[88px] block group"
+                                        >
                                             <Image
                                                 src={getThumbnail(item)}
                                                 alt={getModuleName(item)}
                                                 fill
-                                                className="object-cover"
+                                                className="object-cover transition-transform duration-200 group-hover:scale-105"
                                             />
-                                        </div>
+                                        </Link>
 
                                         <div className="min-w-0 flex-1">
-                                            <h3 className="text-xl font-semibold text-[#202126]">
-                                                {getModuleName(item)}
-                                            </h3>
+                                            <Link
+                                                href={`/modul/${item.id}`}
+                                                className="group inline-block"
+                                            >
+                                                <h3 className="text-xl font-semibold text-[#202126] transition-colors group-hover:text-[#7054dc]">
+                                                    {getModuleName(item)}
+                                                </h3>
+                                            </Link>
                                             <p className="mt-1 text-xs text-[#60636d]">
                                                 {getJenjangKelas(item)}
                                             </p>
