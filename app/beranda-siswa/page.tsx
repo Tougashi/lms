@@ -107,9 +107,13 @@ export default function BerandaSiswaPage() {
   const continueHref = continueModuleId ? `/modul/${continueModuleId}/materi` : '/eksplor-modul';
   const continueText = continueModuleId ? 'Lanjutkan Belajar' : 'Mulai Belajar';
 
+  const isModuleDone = (item: ProgressItem) => {
+    return item.isGraduated || item.status === 'COMPLETED' || (item.progressPercentage ?? 0) >= 100;
+  };
+
   // Calculate overall stats
   const totalProgress = progressData.length;
-  const completedCount = progressData.filter((p) => p.isGraduated || p.status === 'COMPLETED').length;
+  const completedCount = progressData.filter(isModuleDone).length;
   const inProgressCount = totalProgress - completedCount;
   const completedPercent = totalProgress > 0 ? Math.round((completedCount / totalProgress) * 100) : 0;
   const inProgressPercent = totalProgress > 0 ? 100 - completedPercent : 0;
@@ -120,12 +124,12 @@ export default function BerandaSiswaPage() {
   const inProgressArc = (inProgressPercent / 100) * circumference;
 
   const getStatusLabel = (item: ProgressItem) => {
-    if (item.isGraduated || item.status === 'COMPLETED') return 'Sudah Selesai';
+    if (isModuleDone(item)) return 'Selesai';
     return 'Sedang Berjalan';
   };
 
   const getStatusColor = (item: ProgressItem) => {
-    if (item.isGraduated || item.status === 'COMPLETED') return 'bg-[#fce5cc] text-[#f39b39]';
+    if (isModuleDone(item)) return 'bg-[#e6f4ea] text-[#1e8e3e] border border-[#ceead6]';
     return 'bg-[#e5d3ff] text-[#7054dc]';
   };
 
@@ -295,7 +299,7 @@ export default function BerandaSiswaPage() {
                       <div>
                         <span className="font-medium text-[#21212b]">{getModuleName(item)}</span>
                         <p className="text-sm text-[#8a8a96]">
-                          {item.status === 'COMPLETED' ? 'Selesai' : `${Math.round(item.progressPercentage ?? 0)}% selesai`}
+                          {isModuleDone(item) ? 'Selesai' : `${Math.round(item.progressPercentage ?? 0)}% selesai`}
                         </p>
                       </div>
                     </div>
@@ -303,8 +307,8 @@ export default function BerandaSiswaPage() {
                     <div className="flex-1 px-4 flex items-center gap-2">
                       <div className="flex-1 max-w-[220px] h-2 bg-[#e7e7e7] rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-[#7054dc] transition-all"
-                          style={{ width: `${item.progressPercentage ?? 0}%` }}
+                          className={`h-full transition-all ${isModuleDone(item) ? 'bg-[#1e8e3e]' : 'bg-[#7054dc]'}`}
+                          style={{ width: `${Math.min(100, item.progressPercentage ?? 0)}%` }}
                         />
                       </div>
                       <span className="text-sm font-medium text-[#8a8a96] min-w-[40px]">{Math.round(item.progressPercentage ?? 0)}%</span>
