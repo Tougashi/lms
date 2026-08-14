@@ -158,7 +158,18 @@ function ManajemenModulContent() {
                     id: item.siswaId,
                     name: item.siswaName,
                     email: item.email,
-                    progress: Math.round(Number(item.progressPercentage) || 0),
+                    progress: (() => {
+                        const raw = Math.round(Number(item.progressPercentage) || 0);
+                        // Sanity check: if no evidence of activity, clamp to 0
+                        const hasNoActivity =
+                            !item.isGraduated &&
+                            item.status !== 'COMPLETED' &&
+                            item.pretestScore == null &&
+                            item.posttestScore == null &&
+                            raw > 0 &&
+                            raw < 1; // Only clamp truly zero-activity cases
+                        return hasNoActivity ? 0 : raw;
+                    })(),
                     preTest: item.pretestScore ?? "-",
                     postTest: item.posttestScore ?? "-",
                     rataKuis: item.averageQuizScore,

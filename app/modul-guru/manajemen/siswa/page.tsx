@@ -173,6 +173,15 @@ function SiswaDetailPageContent() {
   const recStyle = getRecStyle(rec);
   const recDesc = getRecDesc(rec);
 
+  const displayProgressPercentage = useMemo(() => {
+    const raw = mod?.progressPercentage ?? 0;
+    const hasNoActivity =
+      (data?.completedTopics === 0 || mod?.completedTopik === 0) &&
+      mod?.pretestScore == null &&
+      mod?.posttestScore == null;
+    return hasNoActivity ? 0 : raw;
+  }, [mod, data]);
+
   if (isLoading) return (
     <div className="min-h-screen bg-[#f7f6fb]">
       <GuruHeader />
@@ -251,9 +260,9 @@ function SiswaDetailPageContent() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#eceaf4]">
-                      <div className="h-full rounded-full bg-[#7054dc] transition-all" style={{ width: `${mod?.progressPercentage ?? 0}%` }} />
+                      <div className="h-full rounded-full bg-[#7054dc] transition-all" style={{ width: `${displayProgressPercentage}%` }} />
                     </div>
-                    <span className="text-[13px] font-semibold text-[#232530]">{Math.round(mod?.progressPercentage ?? 0)}%</span>
+                    <span className="text-[13px] font-semibold text-[#232530]">{Math.round(displayProgressPercentage)}%</span>
                   </div>
                   <p className="mt-1.5 text-[11px] text-[#7a7e8a]">{data?.completedTopics ?? 0} dari {data?.totalTopics ?? 0} Topik Selesai</p>
                 </div>

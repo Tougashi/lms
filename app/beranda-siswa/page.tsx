@@ -13,9 +13,10 @@ import { FaBookOpen } from 'react-icons/fa';
 import { RiFileList3Fill } from 'react-icons/ri';
 import Header from '../component/Header';
 import { useAuth } from '../context/AuthContext';
-import { dashboardApi, siswaModulApi } from '../lib/api';
+import { dashboardApi, siswaModulApi, siswaStudyRoomApi } from '../lib/api';
 import { useRoleGuard } from '../lib/hooks/useRoleGuard';
 import type { SiswaDashboard, ProgressItem } from '../lib/types/siswa';
+import { recalculateProgress } from '../lib/utils/buildSequence';
 
 export default function BerandaSiswaPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -24,6 +25,7 @@ export default function BerandaSiswaPage() {
   const [dashboard, setDashboard] = useState<SiswaDashboard | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState('');
+  const [recalculatedProgress, setRecalculatedProgress] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -76,7 +78,31 @@ export default function BerandaSiswaPage() {
           }
         }
 
-        if (isMounted) setDashboard(data);
+        if (isMounted) {
+          setDashboard(data);
+
+          // Recalculate progress via study-room for each module
+          const progressItems = data.latestProgress ?? [];
+          const modulIds = new Set<string>();
+          for (const p of progressItems) {
+            if (p.modulId) modulIds.add(p.modulId);
+          }
+          if (data.lastActivity?.modulId) modulIds.add(data.lastActivity.modulId);
+
+          // Fetch study-room data in parallel for each enrolled module
+          const recalcMap: Record<string, number> = {};
+          await Promise.allSettled(
+            Array.from(modulIds).map(async (mid) => {
+              try {
+                const studyRoom = await siswaStudyRoomApi.getByModul(mid);
+                recalcMap[mid] = recalculateProgress(studyRoom);
+              } catch {
+                // Fallback: keep backend value (don't add to map)
+              }
+            })
+          );
+          if (isMounted) setRecalculatedProgress(recalcMap);
+        }
       } catch (err: unknown) {
         console.error('Dashboard fetch error:', err);
         if (isMounted && showLoading) setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
@@ -107,8 +133,14 @@ export default function BerandaSiswaPage() {
   const continueHref = continueModuleId ? `/modul/${continueModuleId}/materi` : '/eksplor-modul';
   const continueText = continueModuleId ? 'Lanjutkan Belajar' : 'Mulai Belajar';
 
+  const getAccurateProgress = (item: ProgressItem): number => {
+    const mid = item.modulId || item.modul?.id || '';
+    if (mid && recalculatedProgress[mid] != null) return recalculatedProgress[mid];
+    return item.progressPercentage ?? 0;
+  };
+
   const isModuleDone = (item: ProgressItem) => {
-    return item.isGraduated || item.status === 'COMPLETED' || (item.progressPercentage ?? 0) >= 100;
+    return item.isGraduated || item.status === 'COMPLETED' || getAccurateProgress(item) >= 100;
   };
 
   // Calculate overall stats
@@ -299,7 +331,7 @@ export default function BerandaSiswaPage() {
                       <div>
                         <span className="font-medium text-[#21212b]">{getModuleName(item)}</span>
                         <p className="text-sm text-[#8a8a96]">
-                          {isModuleDone(item) ? 'Selesai' : `${Math.round(item.progressPercentage ?? 0)}% selesai`}
+                          {isModuleDone(item) ? 'Selesai' : `${Math.round(getAccurateProgress(item))}% selesai`}
                         </p>
                       </div>
                     </div>
@@ -308,10 +340,10 @@ export default function BerandaSiswaPage() {
                       <div className="flex-1 max-w-[220px] h-2 bg-[#e7e7e7] rounded-full overflow-hidden">
                         <div
                           className={`h-full transition-all ${isModuleDone(item) ? 'bg-[#1e8e3e]' : 'bg-[#7054dc]'}`}
-                          style={{ width: `${Math.min(100, item.progressPercentage ?? 0)}%` }}
+                          style={{ width: `${Math.min(100, getAccurateProgress(item))}%` }}
                         />
                       </div>
-                      <span className="text-sm font-medium text-[#8a8a96] min-w-[40px]">{Math.round(item.progressPercentage ?? 0)}%</span>
+                      <span className="text-sm font-medium text-[#8a8a96] min-w-[40px]">{Math.round(getAccurateProgress(item))}%</span>
                     </div>
 
                     <div className="w-32 flex items-center">
@@ -365,7 +397,7 @@ export default function BerandaSiswaPage() {
                     </div>
                     
                     <p className="text-sm text-[#8a8a96]">
-                      Progres: {Math.round(lastActivity.progressPercentage ?? 0)}%
+                      Progres: {Math.round(getAccurateProgress(lastActivity))}%
                     </p>
                   </div>
                   

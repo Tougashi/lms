@@ -422,15 +422,29 @@ function ManagementSiswaContent() {
                       <td className="px-3 py-3 align-middle">{row.kelas_sekolah ?? '-'}</td>
                       <td className="px-3 py-3 align-middle">{row.email}</td>
                       <td className="px-3 py-3 align-middle">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-20 rounded-full bg-[#e8e6f0]">
-                            <div
-                              className="h-full rounded-full bg-[#7054dc] transition-all"
-                              style={{ width: `${Math.round(row.progressPercentage ?? 0)}%` }}
-                            />
-                          </div>
-                          <span className="text-[11px] text-[#7a7e8a]">{Math.round(row.progressPercentage ?? 0)}%</span>
-                        </div>
+                        {(() => {
+                          const pct = (() => {
+                            const raw = Math.round(row.progressPercentage ?? 0);
+                            const hasNoActivity =
+                              !row.isGraduated &&
+                              row.status !== "COMPLETED" &&
+                              row.pretestScore == null &&
+                              row.posttestScore == null &&
+                              raw > 0 && raw < 1;
+                            return hasNoActivity ? 0 : raw;
+                          })();
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 w-20 rounded-full bg-[#e8e6f0]">
+                                <div
+                                  className="h-full rounded-full bg-[#7054dc] transition-all"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-[11px] text-[#7a7e8a]">{pct}%</span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-3 align-middle text-right">
                         <div className="relative inline-flex">

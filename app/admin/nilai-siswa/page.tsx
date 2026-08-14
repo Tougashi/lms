@@ -259,6 +259,16 @@ function NilaiSiswaContent() {
   const moduleName = selectedModule?.moduleName || 'Modul';
   const level = selectedModule?.level || '';
   const cls = selectedModule?.class || '';
+  const selectedModuleProgressPercentage = (() => {
+    if (!selectedModule) return 0;
+    const raw = selectedModule.progressPercentage || 0;
+    const hasNoActivity =
+      (selectedModule.completedMateri === 0) &&
+      !selectedModule.isGraduated &&
+      selectedModule.pretestScore == null &&
+      selectedModule.posttestScore == null;
+    return hasNoActivity ? 0 : raw;
+  })();
 
   return (
     <div className="min-h-screen bg-[#f4f4f7] text-[#232530]">
@@ -351,11 +361,11 @@ function NilaiSiswaContent() {
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#eceaf4]">
                       <div
                         className="h-full rounded-full bg-[#7054dc] transition-all"
-                        style={{ width: `${selectedModule?.progressPercentage || 0}%` }}
+                        style={{ width: `${selectedModuleProgressPercentage}%` }}
                       />
                     </div>
                     <span className="text-[14px] font-semibold text-[#232530]">
-                      {Math.round(selectedModule?.progressPercentage || 0)}%
+                      {Math.round(selectedModuleProgressPercentage)}%
                     </span>
                   </div>
                   <p className="mt-1.5 text-[13px] text-[#555968]">

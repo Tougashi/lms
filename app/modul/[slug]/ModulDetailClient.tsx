@@ -19,10 +19,11 @@ import {
 import { MdTimer } from "react-icons/md";
 import SiswaHeader from "../../component/siswa/SiswaHeader";
 import AccordionMateri from "../../component/siswa/AccordionMateri";
-import { siswaModulApi } from "../../lib/api";
+import { siswaModulApi, siswaStudyRoomApi } from "../../lib/api";
 import type { ModuleDetailResponse } from "../../lib/types/siswa";
 import { ApiError } from "../../lib/types/umum";
 import { AxiosError } from "axios";
+import { recalculateProgress } from "../../lib/utils/buildSequence";
 
 function getAvatarUrl(seed: string) {
     return `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(seed)}`;
@@ -75,6 +76,7 @@ export default function ModulDetailPage({
     const [isEnrolling, setIsEnrolling] = useState(false);
     const [error, setError] = useState("");
     const [enrollError, setEnrollError] = useState("");
+    const [recalculatedPct, setRecalculatedPct] = useState<number | null>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -84,7 +86,20 @@ export default function ModulDetailPage({
             setError("");
             try {
                 const res = await siswaModulApi.getById(id);
-                if (isMounted) setModuleData(res);
+                if (isMounted) {
+                    setModuleData(res);
+
+                    // If enrolled, recalculate progress via study-room
+                    if (res.progress) {
+                        try {
+                            const studyRoom = await siswaStudyRoomApi.getByModul(res.id);
+                            const pct = recalculateProgress(studyRoom);
+                            if (isMounted) setRecalculatedPct(pct);
+                        } catch {
+                            // Fallback: keep backend value
+                        }
+                    }
+                }
             } catch (err: unknown) {
                 console.error("Modul detail fetch error:", err);
                 if (isMounted && showLoading) {
@@ -410,8 +425,9 @@ export default function ModulDetailPage({
                                 )}
 
                                 {isEnrolled && moduleData.progress && (() => {
-                                    const rawPct = moduleData.progress.progressPercentage ?? 0;
+                                    const rawPct = recalculatedPct ?? moduleData.progress.progressPercentage ?? 0;
                                     const hasNoActivity =
+                                        recalculatedPct == null &&
                                         (!moduleData.progress.completedContentItems || moduleData.progress.completedContentItems.length === 0) &&
                                         !moduleData.progress.isGraduated &&
                                         moduleData.progress.status !== "COMPLETED" &&

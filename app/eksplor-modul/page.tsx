@@ -6,9 +6,10 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FaBookOpen, FaLock, FaSearch } from "react-icons/fa";
 import SiswaHeader from "../component/siswa/SiswaHeader";
-import { siswaModulApi } from "../lib/api";
+import { siswaModulApi, siswaStudyRoomApi } from "../lib/api";
 import type { ModuleItem } from "../lib/types/modul";
 import type { EnrolledModuleItem } from "../lib/types/siswa";
+import { recalculateProgress } from "../lib/utils/buildSequence";
 
 const statusFilters = [
     { id: "semua", label: "Semua" },
@@ -20,8 +21,11 @@ type StatusFilter = (typeof statusFilters)[number]["id"];
 
 function getStatusFromEnrolled(
     item: EnrolledModuleItem,
+    recalcMap?: Record<string, number>,
 ): "belum-mulai" | "dalam-progress" | "selesai" {
-    const pct = item.progress?.progressPercentage ?? 0;
+    const pct = recalcMap && recalcMap[item.id] != null
+        ? recalcMap[item.id]
+        : (item.progress?.progressPercentage ?? 0);
     if (
         item.progress?.isGraduated ||
         item.progress?.status === "COMPLETED" ||
@@ -55,7 +59,8 @@ function getPreTestLabel(item: EnrolledModuleItem): string {
     return "Pre-Test: -";
 }
 
-function getProgress(item: EnrolledModuleItem): number {
+function getProgress(item: EnrolledModuleItem, recalcMap?: Record<string, number>): number {
+    if (recalcMap && recalcMap[item.id] != null) return recalcMap[item.id];
     return item.progress?.progressPercentage ?? 0;
 }
 
@@ -91,6 +96,7 @@ function EksplorModulContent() {
     >([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
+    const [recalculatedProgress, setRecalculatedProgress] = useState<Record<string, number>>({});
 
     useEffect(() => {
         // API may return array directly OR { data: [...] } wrapper
@@ -127,6 +133,22 @@ function EksplorModulContent() {
                     allModules.filter((m) => !enrolledIds.has(m.id)),
                 );
                 setEnrolledModules(enrolled);
+
+                // Recalculate progress via study-room for enrolled modules
+                if (enrolled.length > 0) {
+                    const recalcMap: Record<string, number> = {};
+                    await Promise.allSettled(
+                        enrolled.map(async (mod) => {
+                            try {
+                                const studyRoom = await siswaStudyRoomApi.getByModul(mod.id);
+                                recalcMap[mod.id] = recalculateProgress(studyRoom);
+                            } catch {
+                                // Fallback: keep backend value
+                            }
+                        })
+                    );
+                    if (isMounted) setRecalculatedProgress(recalcMap);
+                }
             } catch (err: unknown) {
                 console.error("Eksplor modul fetch error:", err);
                 if (isMounted && showLoading)
@@ -169,7 +191,7 @@ function EksplorModulContent() {
             if (activeTab !== "terdaftar" || activeStatus === "semua")
                 return true;
 
-            const status = getStatusFromEnrolled(item as EnrolledModuleItem);
+            const status = getStatusFromEnrolled(item as EnrolledModuleItem, recalculatedProgress);
             if (activeStatus === "dalam-progress")
                 return status === "dalam-progress" || status === "belum-mulai";
             if (activeStatus === "selesai") return status === "selesai";
@@ -294,10 +316,10 @@ function EksplorModulContent() {
                                 ? (item as EnrolledModuleItem)
                                 : null;
                             const progress = enrolledItem
-                                ? getProgress(enrolledItem)
+                                ? getProgress(enrolledItem, recalculatedProgress)
                                 : 0;
                             const status = enrolledItem
-                                ? getStatusFromEnrolled(enrolledItem)
+                                ? getStatusFromEnrolled(enrolledItem, recalculatedProgress)
                                 : null;
 
                             return (
