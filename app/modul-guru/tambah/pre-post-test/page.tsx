@@ -111,6 +111,9 @@ function PrePostTestPageContent() {
     const [aksesRules, setAksesRules] = useState<
         { id: number; minScore: number; topikId: string }[]
     >([{ id: 1, minScore: 30, topikId: "" }]);
+    const [posttestAksesRules, setPosttestAksesRules] = useState<
+        { id: number; minScore: number; topikId: string }[]
+    >([]);
     const [topikOptions, setTopikOptions] = useState<
         { id: string; nama: string; materis: { id: string; judul: string }[] }[]
     >([]);
@@ -319,6 +322,27 @@ function PrePostTestPageContent() {
                 }
                 if (posttest && posttest.id) {
                     setPosttestId(posttest.id);
+                    try {
+                        const postRules =
+                            await guruPosttestApi.getAccessRules(posttest.id);
+                        if (
+                            Array.isArray(postRules) &&
+                            postRules.length > 0
+                        ) {
+                            setPosttestAksesRules(
+                                postRules.map(
+                                    (rule: any, idx: number) => ({
+                                        id: Date.now() + idx + 1000,
+                                        minScore: rule.minScore || 30,
+                                        topikId:
+                                            rule.selectedTopics?.[0]?.id || "",
+                                    }),
+                                ),
+                            );
+                        }
+                    } catch {
+                        /* ignore load error */
+                    }
                 }
             } finally {
                 setIsLoading(false);
@@ -989,10 +1013,9 @@ function PrePostTestPageContent() {
                     if (!ar.topikId) continue;
                     const topik = topikOptions.find((t) => t.id === ar.topikId);
                     const firstMateriId = topik?.materis?.[0]?.id;
-                    if (!firstMateriId) continue;
                     await guruPretestApi.createAccessRule({
                         pretestId: targetBank.apiId,
-                        materiId: firstMateriId,
+                        ...(firstMateriId ? { materiId: firstMateriId } : {}),
                         minScore: ar.minScore,
                         selectedTopicIds: [ar.topikId],
                     });
@@ -1004,6 +1027,26 @@ function PrePostTestPageContent() {
                     duration: posttestDuration,
                     countShownQuestions: posttestCountShown,
                 });
+                const existingPostRules =
+                    await guruPosttestApi.getAccessRules(posttestId);
+                if (Array.isArray(existingPostRules)) {
+                    for (const rule of existingPostRules) {
+                        await guruPosttestApi.deleteAccessRule(
+                            (rule as any).id,
+                        );
+                    }
+                }
+                for (const ar of posttestAksesRules) {
+                    if (!ar.topikId) continue;
+                    const topik = topikOptions.find((t) => t.id === ar.topikId);
+                    const firstMateriId = topik?.materis?.[0]?.id;
+                    await guruPosttestApi.createAccessRule({
+                        posttestId,
+                        ...(firstMateriId ? { materiId: firstMateriId } : {}),
+                        minScore: ar.minScore,
+                        selectedTopicIds: [ar.topikId],
+                    });
+                }
             }
 
             toast("Pengaturan berhasil disimpan!", "success");
@@ -1031,6 +1074,7 @@ function PrePostTestPageContent() {
         posttestCountShown,
         posttestId,
         aksesRules,
+        posttestAksesRules,
         topikOptions,
         hideLoading,
         showLoading,
@@ -2376,6 +2420,30 @@ function PrePostTestPageContent() {
                                                                             ),
                                                                         )}
                                                                     </select>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            setAksesRules(
+                                                                                (
+                                                                                    p,
+                                                                                ) =>
+                                                                                    p.filter(
+                                                                                        (
+                                                                                            r,
+                                                                                        ) =>
+                                                                                            r.id !==
+                                                                                            rule.id,
+                                                                                    ),
+                                                                            )
+                                                                        }
+                                                                        className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[#a8a6b2] transition-colors hover:bg-[#fdeeee] hover:text-[#e5484d]"
+                                                                        title="Hapus aturan"
+                                                                        aria-label="Hapus aturan"
+                                                                    >
+                                                                        <FiX
+                                                                            size={14}
+                                                                        />
+                                                                    </button>
                                                                 </div>
                                                             ),
                                                         )}
@@ -2842,7 +2910,7 @@ function PrePostTestPageContent() {
                                                     Atur Akses Materi Otomatis
                                                 </p>
                                                 <div className="mt-3 rounded-xl border border-dashed border-[#8e7bff] bg-[#fbfaff] px-4 py-4">
-                                                    {aksesRules.map((rule) => (
+                                                    {posttestAksesRules.map((rule) => (
                                                         <div
                                                             key={rule.id}
                                                             className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-[#d9d7df] bg-white px-3 py-2.5 last:mb-0"
@@ -2865,7 +2933,7 @@ function PrePostTestPageContent() {
                                                                                 .target
                                                                                 .value,
                                                                         ) || 0;
-                                                                    setAksesRules(
+                                                                    setPosttestAksesRules(
                                                                         (p) =>
                                                                             p.map(
                                                                                 (
@@ -2897,7 +2965,7 @@ function PrePostTestPageContent() {
                                                                     const v =
                                                                         e.target
                                                                             .value;
-                                                                    setAksesRules(
+                                                                    setPosttestAksesRules(
                                                                         (p) =>
                                                                             p.map(
                                                                                 (
@@ -2936,12 +3004,34 @@ function PrePostTestPageContent() {
                                                                     ),
                                                                 )}
                                                             </select>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setPosttestAksesRules(
+                                                                        (p) =>
+                                                                            p.filter(
+                                                                                (
+                                                                                    r,
+                                                                                ) =>
+                                                                                    r.id !==
+                                                                                    rule.id,
+                                                                            ),
+                                                                    )
+                                                                }
+                                                                className="ml-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[#a8a6b2] transition-colors hover:bg-[#fdeeee] hover:text-[#e5484d]"
+                                                                title="Hapus aturan"
+                                                                aria-label="Hapus aturan"
+                                                            >
+                                                                <FiX
+                                                                    size={14}
+                                                                />
+                                                            </button>
                                                         </div>
                                                     ))}
                                                     <button
                                                         type="button"
                                                         onClick={() =>
-                                                            setAksesRules(
+                                                            setPosttestAksesRules(
                                                                 (p) => [
                                                                     ...p,
                                                                     {

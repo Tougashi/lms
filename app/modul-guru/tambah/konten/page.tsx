@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useEffect, useRef, useState, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback, memo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   FiBookOpen,
@@ -2670,11 +2670,8 @@ function TambahModulKontenPageContent() {
                                             Bahan Bacaan
                                           </p>
                                           <div className="rounded-xl border border-[#e5e3ee] bg-white px-3 py-3">
-                                            <div
-                                              className="text-[12px] leading-[1.7] text-[#232530] [&_img]:max-w-full [&_img]:rounded-lg [&_iframe]:w-full [&_iframe]:rounded-lg"
-                                              dangerouslySetInnerHTML={{
-                                                __html: processTrixSlides(material.articleContent),
-                                              }}
+                                            <ArticleContentPreview
+                                              content={material.articleContent}
                                             />
                                           </div>
                                         </div>
@@ -2701,11 +2698,8 @@ function TambahModulKontenPageContent() {
                                       </div>
                                       <div className="mt-2 rounded-xl border border-[#e5e3ee] bg-white px-3 py-3">
                                         {material.articleContent ? (
-                                          <div
-                                            className="text-[12px] leading-[1.7] text-[#232530] [&_img]:max-w-full [&_img]:rounded-lg [&_iframe]:w-full [&_iframe]:rounded-lg"
-                                            dangerouslySetInnerHTML={{
-                                              __html: processTrixSlides(material.articleContent),
-                                            }}
+                                          <ArticleContentPreview
+                                            content={material.articleContent}
                                           />
                                         ) : (
                                           <p className="text-[12px] leading-[1.7] text-[#232530]">
@@ -3984,6 +3978,19 @@ function TambahModulKontenPageContent() {
     </div>
   );
 }
+
+const ArticleContentPreview = memo(function ArticleContentPreview({
+  content,
+}: {
+  content: string;
+}) {
+  return (
+    <div
+      className="text-[12px] leading-[1.7] text-[#232530] [&_img]:max-w-full [&_img]:rounded-lg [&_iframe]:w-full [&_iframe]:rounded-lg"
+      dangerouslySetInnerHTML={{ __html: processTrixSlides(content) }}
+    />
+  );
+});
 
 export default function TambahModulKontenPage() {
   return (

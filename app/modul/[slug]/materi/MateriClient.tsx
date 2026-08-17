@@ -3,7 +3,7 @@
 import "katex/dist/katex.min.css";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import DOMPurify from "dompurify";
 import { renderLatex } from "../../../lib/renderLatex";
 import {
@@ -38,7 +38,6 @@ import type {
     TestSubmitResult,
 } from "../../../lib/types/siswa";
 import { ApiError } from "../../../lib/types/umum";
-import { calculateProgress } from "../../../lib/utils/progress";
 import { processTrixSlides } from "../../../lib/utils/trixSlides";
 import { useAuth } from "../../../context/AuthContext";
 
@@ -104,7 +103,6 @@ type SequenceItemType =
     | "quiz"
     | "quiz-ct"
     | "summary"
-    | "rangkuman-akhir"
     | "posttest"
     | "rating";
 
@@ -301,15 +299,6 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
             }
         }
         flushJudulMap();
-    }
-
-    if (modul.curriculum.rangkumanAkhir) {
-        seq.push({
-            id: "rangkuman-akhir",
-            title: modul.curriculum.rangkumanAkhir.title,
-            type: "rangkuman-akhir",
-            konten: modul.curriculum.rangkumanAkhir.content ?? undefined,
-        });
     }
 
     if (modul.curriculum.posttest) {
@@ -972,19 +961,34 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         (isPosttestStarted &&
             !isPosttestFinished &&
             assessmentType === "posttest") ||
-        (assessmentType === "kuis" && !isSubmitting);
+        (assessmentType === "kuis" &&
+            currentView === "pretest-quiz" &&
+            !isSubmitting);
     useEffect(() => {
         if (!isTimerActive) return;
-        if (remainingSeconds <= 0) return;
+        // Interval dibuat sekali per aktivasi — jangan restart tiap detik
+        // (sebelumnya `remainingSeconds` ikut di dependency → re-render 1 Hz).
         const timer = setInterval(() => {
-            setRemainingSeconds((prev) => Math.max(0, prev - 1));
+            setRemainingSeconds((prev) => {
+                if (prev <= 0) {
+                    clearInterval(timer);
+                    return 0;
+                }
+                return Math.max(0, prev - 1);
+            });
         }, 1000);
         return () => clearInterval(timer);
-    }, [isTimerActive, remainingSeconds]);
+    }, [isTimerActive]);
 
-    // Auto-submit when timer runs out
+    // Auto-submit when timer runs out (guard ref agar tidak re-fire)
+    const autoSubmittedRef = useRef(false);
     useEffect(() => {
-        if (remainingSeconds !== 0) return;
+        if (remainingSeconds > 0) {
+            autoSubmittedRef.current = false;
+            return;
+        }
+        if (autoSubmittedRef.current) return;
+        autoSubmittedRef.current = true;
         setWasTimeUp(true);
         handleSubmitTest();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1105,6 +1109,16 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const displayedElapsedSeconds = finishedElapsedSeconds ?? elapsedSeconds;
 
     const currentSeqItem = sequence[currentSeqIndex] ?? null;
+
+    // Memoize hasil parsing slides agar iframe tidak dibuat ulang
+    // pada setiap re-render (sumber kelap-kelip).
+    const currentKontenHtml = useMemo(
+        () =>
+            currentSeqItem?.konten
+                ? processTrixSlides(currentSeqItem.konten)
+                : "",
+        [currentSeqItem?.konten],
+    );
     const isFirstItem = currentSeqIndex === 0;
     const isLastItem = currentSeqIndex === sequence.length - 1;
 
@@ -1114,7 +1128,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         currentView === "pretest-result";
     const isPretestActive = isAssessmentView && assessmentType === "pretest";
     const isPosttestActive = isAssessmentView && assessmentType === "posttest";
-    const isFinalSummaryActive = currentView === "materi" && isFinalSummaryView;
     const isRatingView = currentView === "rating";
 
     const summaryHighlightText =
@@ -1133,7 +1146,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             // Posttest: unlock when all real items (materi + quiz) are completed
             if (item.type === "posttest") {
                 return sequence
-                    .filter((s) => s.type !== "posttest" && s.type !== "rating" && s.id !== "rangkuman-akhir")
+                    .filter((s) => s.type !== "posttest" && s.type !== "rating")
                     .every((s) => completedContentItemMap[s.id]);
             }
             // Sequential unlock: previous item completed
@@ -1167,17 +1180,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             ).length,
         [sequence, completedContentItemMap],
     );
-    const progressPercent = calculateProgress(
-        sequence,
-        completedContentItemMap,
-        progress?.status,
-        progress?.isGraduated,
-    );
+    // Nilai % dari server (formula kanonik backend — sinkron dengan tutor/admin)
+    const progressPercent = Math.round(progress?.progressPercentage ?? 0);
 
     const markContentItemAsCompleted = useCallback(
         async (itemId: string, itemType?: string) => {
             // Skip API call for synthetic items (not DB-backed)
-            if (itemId.startsWith("summary-") || itemId === "rangkuman-akhir") {
+            if (itemId.startsWith("summary-")) {
                 setCompletedContentItemMap((prev) => {
                     if (prev[itemId]) return prev;
                     return { ...prev, [itemId]: true };
@@ -1524,15 +1533,21 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 );
             }
         } catch (err) {
-            console.error("Rating submit error:", err);
-            // If backend returns 400 (already rated), mark as submitted
-            setIsRatingSubmitted(true);
-            if (progress?.siswaId) {
-                localStorage.setItem(
-                    `rating_submitted_${modulId}_${progress.siswaId}`,
-                    "true",
-                );
+            // Hanya anggap "sudah dikirim" jika backend menolak karena rating
+            // memang sudah ada (403). Error lain (network/500) berarti rating
+            // belum tersimpan — biarkan siswa mencoba lagi.
+            if (err instanceof ApiError && err.status === 403) {
+                setIsRatingSubmitted(true);
+                if (progress?.siswaId) {
+                    localStorage.setItem(
+                        `rating_submitted_${modulId}_${progress.siswaId}`,
+                        "true",
+                    );
+                }
+            } else {
+                setToastMsg("Gagal mengirim penilaian. Silakan coba lagi.");
             }
+            console.error("Rating submit error:", err);
         } finally {
             setIsRatingSubmitting(false);
         }
@@ -1981,67 +1996,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                 </div>
                             );
                         })}
-
-                        {/* ─── Rangkuman Akhir ─── */}
-                        {(() => {
-                            const itemId = "rangkuman-akhir";
-                            const seqIndex = sequence.findIndex(
-                                (s) => s.id === itemId,
-                            );
-                            const isLocked =
-                                seqIndex > 0 &&
-                                !isItemUnlockedByIndex(seqIndex);
-                            const isCompleted = completedContentItemMap[itemId];
-                            const isActive = isFinalSummaryActive;
-                            return (
-                                <button
-                                    type="button"
-                                    aria-current={isActive ? true : undefined}
-                                    disabled={isLocked}
-                                    onClick={() => {
-                                        if (isLocked) return;
-                                        if (seqIndex >= 0)
-                                            setCurrentSeqIndex(seqIndex);
-                                        setIsModuleSidebarOpen(false);
-                                        setCurrentView("materi");
-                                        setIsMaterialMode(true);
-                                        setIsFinalSummaryView(true);
-                                        setActiveQuizItemId(null);
-                                    }}
-                                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                                        isLocked
-                                            ? "cursor-not-allowed border border-[#dcdae3] bg-white text-[#8f95a3]"
-                                            : isActive
-                                              ? "border border-[#e0d5ff] bg-[#efe9ff] text-[#7054dc]"
-                                              : "border border-[#dcdae3] bg-white text-[#313643]"
-                                    }`}
-                                >
-                                    {isCompleted ? (
-                                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#7054dc]">
-                                            <FaCheck
-                                                size={9}
-                                                className="text-white"
-                                            />
-                                        </span>
-                                    ) : isLocked ? (
-                                        <FaLock
-                                            size={11}
-                                            className="text-[#8f95a3]"
-                                        />
-                                    ) : (
-                                        <FaFileAlt
-                                            size={11}
-                                            className={
-                                                isActive
-                                                    ? "text-[#7054dc]"
-                                                    : "text-[#202126]"
-                                            }
-                                        />
-                                    )}
-                                    Rangkuman Akhir
-                                </button>
-                            );
-                        })()}
 
                         {/* ─── Post-Test ─── */}
                         {(() => {
@@ -2915,10 +2869,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
                                         <div className="mt-5 flex items-center justify-between gap-4">
                                             <h2 className="text-2xl sm:text-3xl font-bold text-[#202126]">
-                                                {isFinalSummaryView
-                                                    ? "Rangkuman Akhir"
-                                                    : (currentSeqItem?.title ??
-                                                      "Materi")}
+                                                {currentSeqItem?.title ??
+                                                    "Materi"}
                                             </h2>
                                             {!isFinalSummaryView &&
                                                 currentSeqItem?.hasVideo && (
@@ -2955,46 +2907,13 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                     </div>
                                                 )}
 
-                                            {isFinalSummaryView ? (
-                                                <div className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]">
-                                                    {currentSeqItem?.konten ? (
-                                                        <div
-                                                            dangerouslySetInnerHTML={{
-                                                                __html: processTrixSlides(currentSeqItem.konten),
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <p>
-                                                            Rangkuman akhir dari
-                                                            seluruh materi yang
-                                                            telah kamu pelajari.
-                                                            Kamu telah
-                                                            menyelesaikan semua
-                                                            topik dalam modul
-                                                            ini. Selamat!
-                                                        </p>
-                                                    )}
-                                                    {progress?.posttestScore !=
-                                                        null && (
-                                                        <p>
-                                                            Nilai Post-Test
-                                                            kamu:{" "}
-                                                            <strong>
-                                                                {
-                                                                    progress.posttestScore
-                                                                }
-                                                                /100
-                                                            </strong>
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            ) : currentSeqItem?.konten &&
+                                            {currentSeqItem?.konten &&
                                               (!currentSeqItem?.hasVideo ||
                                                   isDescriptionExpanded) ? (
                                                 <div
                                                     className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]"
                                                     dangerouslySetInnerHTML={{
-                                                        __html: processTrixSlides(currentSeqItem.konten),
+                                                        __html: currentKontenHtml,
                                                     }}
                                                 />
                                             ) : (

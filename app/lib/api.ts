@@ -852,7 +852,7 @@ export const guruPretestApi = {
 
     createAccessRule(payload: {
         pretestId: string;
-        materiId: string;
+        materiId?: string;
         minScore: number;
         selectedTopicIds?: string[];
     }) {
@@ -949,6 +949,31 @@ export const guruPosttestApi = {
             method: "PUT",
             data: payload,
         });
+    },
+
+    getAccessRules(posttestId: string) {
+        return apiFetch<unknown[]>(
+            `/tutor/posttest/${posttestId}/access-rules`,
+        );
+    },
+
+    createAccessRule(payload: {
+        posttestId: string;
+        materiId?: string;
+        minScore: number;
+        selectedTopicIds?: string[];
+    }) {
+        return apiFetch<unknown>(
+            `/tutor/posttest/${payload.posttestId}/access-rules`,
+            { method: "POST", data: payload },
+        );
+    },
+
+    deleteAccessRule(id: string) {
+        return apiFetch<{ message: string }>(
+            `/tutor/posttest/access-rules/${id}`,
+            { method: "DELETE" },
+        );
     },
 };
 
