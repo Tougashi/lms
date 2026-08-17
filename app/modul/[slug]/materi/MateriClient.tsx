@@ -1413,7 +1413,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
         const answers = currentSoal.map((soal, idx) => {
             const selectedIdx = selectedAnswers[idx] ?? 0;
-            const opts = soal.options ?? [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d];
+            const opts = soal.options?.length
+                ? soal.options
+                : [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d];
             const answerText = opts[selectedIdx] ?? "";
             return {
                 questionId: soal.id,
@@ -1476,7 +1478,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 const kuisResults = await Promise.all(
                     currentSoal.map(async (soal, idx) => {
                         const selectedIdx = selectedAnswers[idx] ?? 0;
-                        const opts = soal.options ?? [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d];
+                        const opts = soal.options?.length
+                            ? soal.options
+                            : [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d];
                         const answerText = opts[selectedIdx] ?? "";
                         try {
                             const res = await siswaKuisApi.submit({
@@ -2770,12 +2774,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             />
 
                                             <div className="mt-6 space-y-3">
-                                                {(activeQuestion.options ?? [
-                                                    activeQuestion.pilihan_a,
-                                                    activeQuestion.pilihan_b,
-                                                    activeQuestion.pilihan_c,
-                                                    activeQuestion.pilihan_d,
-                                                ]).map((option, optIdx) => (
+                                                {(activeQuestion.options?.length
+                                                    ? activeQuestion.options
+                                                    : [
+                                                        activeQuestion.pilihan_a,
+                                                        activeQuestion.pilihan_b,
+                                                        activeQuestion.pilihan_c,
+                                                        activeQuestion.pilihan_d,
+                                                    ]
+                                                ).map((option, optIdx) => (
                                                     <button
                                                         key={optIdx}
                                                         type="button"
@@ -3225,18 +3232,38 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                const nextIdx =
+                                                let targetIdx =
                                                     currentSeqIndex + 1;
-                                                const nextItem =
-                                                    sequence[nextIdx];
+                                                while (
+                                                    targetIdx <
+                                                        sequence.length &&
+                                                    !isItemUnlockedByIndex(
+                                                        targetIdx,
+                                                    )
+                                                ) {
+                                                    targetIdx++;
+                                                }
                                                 if (
-                                                    nextIdx < sequence.length &&
+                                                    targetIdx >=
+                                                        sequence.length ||
+                                                    !isItemUnlockedByIndex(
+                                                        targetIdx,
+                                                    )
+                                                )
+                                                    return;
+                                                const nextItem =
+                                                    sequence[targetIdx];
+                                                if (
+                                                    targetIdx <
+                                                        sequence.length &&
                                                     (nextItem?.type ===
                                                         "quiz" ||
                                                         nextItem?.type ===
                                                             "quiz-ct")
                                                 ) {
-                                                    setCurrentSeqIndex(nextIdx);
+                                                    setCurrentSeqIndex(
+                                                        targetIdx,
+                                                    );
                                                     setAssessmentType("kuis");
                                                     setActiveQuizItemId(
                                                         nextItem.id,
@@ -3256,7 +3283,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                     setWasTimeUp(false);
                                                     setRemainingSeconds(900);
                                                 } else if (
-                                                    nextIdx < sequence.length &&
+                                                    targetIdx <
+                                                        sequence.length &&
                                                     nextItem?.type ===
                                                         "posttest"
                                                 ) {
@@ -3265,7 +3293,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             modulDetail,
                                                             "posttest",
                                                         ) ?? 900;
-                                                    setCurrentSeqIndex(nextIdx);
+                                                    setCurrentSeqIndex(
+                                                        targetIdx,
+                                                    );
                                                     setAssessmentType(
                                                         "posttest",
                                                     );
@@ -3298,11 +3328,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                     );
                                                     setActiveQuizItemId(null);
                                                     if (
-                                                        nextIdx <
+                                                        targetIdx <
                                                         sequence.length
                                                     ) {
                                                         setCurrentSeqIndex(
-                                                            nextIdx,
+                                                            targetIdx,
                                                         );
                                                     }
                                                 }
