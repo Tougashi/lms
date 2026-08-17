@@ -49,7 +49,22 @@ function renderHtml(raw: string | null | undefined): { __html: string } {
     const withLatex = renderLatex(raw);
     if (typeof window === "undefined") return { __html: withLatex };
     const safe = DOMPurify.sanitize(withLatex, {
-        ADD_TAGS: ["semantics", "annotation", "mrow", "mi", "mo", "mn", "msup", "msub", "mfrac", "mover", "munder", "mtable", "mtr", "mtd"],
+        ADD_TAGS: [
+            "semantics",
+            "annotation",
+            "mrow",
+            "mi",
+            "mo",
+            "mn",
+            "msup",
+            "msub",
+            "mfrac",
+            "mover",
+            "munder",
+            "mtable",
+            "mtr",
+            "mtd",
+        ],
         ADD_ATTR: ["xmlns", "encoding", "class", "style"],
         FORCE_BODY: true,
     });
@@ -142,15 +157,22 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
     }
 
     // Group CT quizzes by ctGroupId across all topiks
-    const ctGroupMap = new Map<string, typeof modul.curriculum.topiks[0]["items"]>();
+    const ctGroupMap = new Map<
+        string,
+        (typeof modul.curriculum.topiks)[0]["items"]
+    >();
 
     // Group quizzes by quizGroupId (both REGULER and CT) across all topiks
-    const quizGroupMap = new Map<string, typeof modul.curriculum.topiks[0]["items"]>();
+    const quizGroupMap = new Map<
+        string,
+        (typeof modul.curriculum.topiks)[0]["items"]
+    >();
 
     for (const topik of modul.curriculum.topiks) {
         for (const item of topik.items) {
             if (
-                (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") &&
+                (item.itemType === "QUIZ" ||
+                    (item.itemType as string)?.toUpperCase() === "KUIS") &&
                 item.quizGroupId
             ) {
                 const group = quizGroupMap.get(item.quizGroupId) || [];
@@ -163,7 +185,8 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
     for (const topik of modul.curriculum.topiks) {
         for (const item of topik.items) {
             if (
-                (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") &&
+                (item.itemType === "QUIZ" ||
+                    (item.itemType as string)?.toUpperCase() === "KUIS") &&
                 item.quizType === "COMPUTATIONAL_THINKING" &&
                 item.ctGroupId
             ) {
@@ -212,7 +235,11 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                 (item.itemType as string)?.toUpperCase() === "KUIS"
             ) {
                 // Priority 0: Backend-grouped CT item (has ctSubIds array)
-                if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctSubIds && item.ctSubIds.length > 0) {
+                if (
+                    item.quizType === "COMPUTATIONAL_THINKING" &&
+                    item.ctSubIds &&
+                    item.ctSubIds.length > 0
+                ) {
                     flushJudulMap();
                     seq.push({
                         id: item.id,
@@ -223,32 +250,48 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                         ctSubIds: item.ctSubIds,
                     });
                     for (const subId of item.ctSubIds) handledCtIds.add(subId);
-                // Priority 0b: Backend-grouped REGULER item (has ctSubIds array)
-                } else if (item.quizType === "REGULER" && item.ctSubIds && item.ctSubIds.length > 0) {
+                    // Priority 0b: Backend-grouped REGULER item (has ctSubIds array)
+                } else if (
+                    item.quizType === "REGULER" &&
+                    item.ctSubIds &&
+                    item.ctSubIds.length > 0
+                ) {
                     flushJudulMap();
                     seq.push({
                         id: item.id,
-                        title: item.judul ? item.judul.replace(/<[^>]*>?/gm, "") : "Kuis",
+                        title: item.judul
+                            ? item.judul.replace(/<[^>]*>?/gm, "")
+                            : "Kuis",
                         type: "quiz",
                         topikId: topik.id,
                         topikName: topik.nama,
                         ctSubIds: item.ctSubIds,
                     });
                     for (const subId of item.ctSubIds) handledCtIds.add(subId);
-                // Individual item already covered by a group — skip rendering but keep in topik.items for question lookup
+                    // Individual item already covered by a group — skip rendering but keep in topik.items for question lookup
                 } else if (handledCtIds.has(item.id)) {
                     // intentionally skipped
-                // Priority 1: Group by quizGroupId (REGULER only — CT falls through to Priority 2)
-                } else if (item.quizGroupId && !(item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId)) {
+                    // Priority 1: Group by quizGroupId (REGULER only — CT falls through to Priority 2)
+                } else if (
+                    item.quizGroupId &&
+                    !(
+                        item.quizType === "COMPUTATIONAL_THINKING" &&
+                        item.ctGroupId
+                    )
+                ) {
                     const group = quizGroupMap.get(item.quizGroupId);
                     if (group && group[0]?.id === item.id) {
                         flushJudulMap();
-                        const isCt = group.some((g) => g.quizType === "COMPUTATIONAL_THINKING");
+                        const isCt = group.some(
+                            (g) => g.quizType === "COMPUTATIONAL_THINKING",
+                        );
                         seq.push({
                             id: item.id,
                             title: isCt
-                                ? (item.judul || "Kuis CT")
-                                : (item.judul ? item.judul.replace(/<[^>]*>?/gm, "") : "Kuis"),
+                                ? item.judul || "Kuis CT"
+                                : item.judul
+                                  ? item.judul.replace(/<[^>]*>?/gm, "")
+                                  : "Kuis",
                             type: isCt ? "quiz-ct" : "quiz",
                             topikId: topik.id,
                             topikName: topik.nama,
@@ -256,7 +299,10 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                         });
                         for (const q of group) handledCtIds.add(q.id);
                     }
-                } else if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId) {
+                } else if (
+                    item.quizType === "COMPUTATIONAL_THINKING" &&
+                    item.ctGroupId
+                ) {
                     // Priority 2: CT group by ctGroupId (backward compat)
                     const group = ctGroupMap.get(item.ctGroupId);
                     if (group && group[0]?.id === item.id) {
@@ -321,11 +367,15 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
     const tree: ContentSection[] = [];
 
     // Build ctGroupId map across all topiks (same as buildSequence)
-    const ctGroupMap = new Map<string, typeof modul.curriculum.topiks[0]["items"]>();
+    const ctGroupMap = new Map<
+        string,
+        (typeof modul.curriculum.topiks)[0]["items"]
+    >();
     for (const topik of modul.curriculum.topiks) {
         for (const item of topik.items) {
             if (
-                (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") &&
+                (item.itemType === "QUIZ" ||
+                    (item.itemType as string)?.toUpperCase() === "KUIS") &&
                 item.quizType === "COMPUTATIONAL_THINKING" &&
                 item.ctGroupId
             ) {
@@ -337,12 +387,16 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
     }
 
     // Group quizzes by quizGroupId (both REGULER and CT) across all topiks
-    const buildTreeQuizGroupMap = new Map<string, typeof modul.curriculum.topiks[0]["items"]>();
+    const buildTreeQuizGroupMap = new Map<
+        string,
+        (typeof modul.curriculum.topiks)[0]["items"]
+    >();
 
     for (const topik of modul.curriculum.topiks) {
         for (const item of topik.items) {
             if (
-                (item.itemType === "QUIZ" || (item.itemType as string)?.toUpperCase() === "KUIS") &&
+                (item.itemType === "QUIZ" ||
+                    (item.itemType as string)?.toUpperCase() === "KUIS") &&
                 item.quizGroupId
             ) {
                 const group = buildTreeQuizGroupMap.get(item.quizGroupId) || [];
@@ -391,7 +445,11 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                 (item.itemType as string)?.toUpperCase() === "KUIS"
             ) {
                 // Priority 0: Backend-grouped CT item (has ctSubIds array)
-                if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctSubIds && item.ctSubIds.length > 0) {
+                if (
+                    item.quizType === "COMPUTATIONAL_THINKING" &&
+                    item.ctSubIds &&
+                    item.ctSubIds.length > 0
+                ) {
                     flushJudulMap();
                     items.push({
                         id: item.id,
@@ -402,32 +460,48 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                         ctSubIds: item.ctSubIds,
                     });
                     for (const subId of item.ctSubIds) handledCtIds.add(subId);
-                // Priority 0b: Backend-grouped REGULER item (has ctSubIds array)
-                } else if (item.quizType === "REGULER" && item.ctSubIds && item.ctSubIds.length > 0) {
+                    // Priority 0b: Backend-grouped REGULER item (has ctSubIds array)
+                } else if (
+                    item.quizType === "REGULER" &&
+                    item.ctSubIds &&
+                    item.ctSubIds.length > 0
+                ) {
                     flushJudulMap();
                     items.push({
                         id: item.id,
-                        title: item.judul ? item.judul.replace(/<[^>]*>?/gm, "") : "Kuis",
+                        title: item.judul
+                            ? item.judul.replace(/<[^>]*>?/gm, "")
+                            : "Kuis",
                         type: "quiz",
                         topikId: topik.id,
                         topikName: topik.nama,
                         ctSubIds: item.ctSubIds,
                     });
                     for (const subId of item.ctSubIds) handledCtIds.add(subId);
-                // Individual item already covered by a group — skip rendering but keep in topik.items for question lookup
+                    // Individual item already covered by a group — skip rendering but keep in topik.items for question lookup
                 } else if (handledCtIds.has(item.id)) {
                     // intentionally skipped
-                // Priority 1: Group by quizGroupId (REGULER only — CT falls through to Priority 2)
-                } else if (item.quizGroupId && !(item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId)) {
+                    // Priority 1: Group by quizGroupId (REGULER only — CT falls through to Priority 2)
+                } else if (
+                    item.quizGroupId &&
+                    !(
+                        item.quizType === "COMPUTATIONAL_THINKING" &&
+                        item.ctGroupId
+                    )
+                ) {
                     const group = buildTreeQuizGroupMap.get(item.quizGroupId);
                     if (group && group[0]?.id === item.id) {
                         flushJudulMap();
-                        const isCt = group.some((g) => g.quizType === "COMPUTATIONAL_THINKING");
+                        const isCt = group.some(
+                            (g) => g.quizType === "COMPUTATIONAL_THINKING",
+                        );
                         items.push({
                             id: item.id,
                             title: isCt
-                                ? (item.judul || "Kuis CT")
-                                : (item.judul ? item.judul.replace(/<[^>]*>?/gm, "") : "Kuis"),
+                                ? item.judul || "Kuis CT"
+                                : item.judul
+                                  ? item.judul.replace(/<[^>]*>?/gm, "")
+                                  : "Kuis",
                             type: isCt ? "quiz-ct" : "quiz",
                             topikId: topik.id,
                             topikName: topik.nama,
@@ -435,7 +509,10 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                         });
                         for (const q of group) handledCtIds.add(q.id);
                     }
-                } else if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId) {
+                } else if (
+                    item.quizType === "COMPUTATIONAL_THINKING" &&
+                    item.ctGroupId
+                ) {
                     // Priority 2: CT group by ctGroupId (backward compat)
                     const group = ctGroupMap.get(item.ctGroupId);
                     if (group && group[0]?.id === item.id) {
@@ -527,94 +604,112 @@ function mapAssessmentToSoal(
 // Video Embed — detects YouTube / Vimeo / Google Drive / direct file
 // ---------------------------------------------------------------------------
 function VideoEmbed({ url, className }: { url: string; className?: string }) {
-  const getEmbedUrl = (src: string): { type: 'iframe' | 'video' | 'link'; src: string } => {
-    const trimmed = src.trim();
+    const getEmbedUrl = (
+        src: string,
+    ): { type: "iframe" | "video" | "link"; src: string } => {
+        const trimmed = src.trim();
 
-    // YouTube (including Shorts and live)
-    const ytMatch = trimmed.match(
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]+)/
-    );
-    if (ytMatch) {
-      return { type: 'iframe', src: `https://www.youtube.com/embed/${ytMatch[1]}` };
+        // YouTube (including Shorts and live)
+        const ytMatch = trimmed.match(
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]+)/,
+        );
+        if (ytMatch) {
+            return {
+                type: "iframe",
+                src: `https://www.youtube.com/embed/${ytMatch[1]}`,
+            };
+        }
+
+        // Vimeo
+        const vimeoMatch = trimmed.match(/vimeo\.com\/(\d+)/);
+        if (vimeoMatch) {
+            return {
+                type: "iframe",
+                src: `https://player.vimeo.com/video/${vimeoMatch[1]}`,
+            };
+        }
+
+        // Google Drive
+        const gDriveMatch = trimmed.match(
+            /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
+        );
+        if (gDriveMatch) {
+            return {
+                type: "iframe",
+                src: `https://drive.google.com/file/d/${gDriveMatch[1]}/preview`,
+            };
+        }
+
+        // Cloudinary video URLs (used by the app's upload system)
+        if (/res\.cloudinary\.com/i.test(trimmed)) {
+            return { type: "video", src: trimmed };
+        }
+
+        // Direct video file
+        if (/\.(mp4|webm|ogg|mov|avi)(\?|$)/i.test(trimmed)) {
+            return { type: "video", src: trimmed };
+        }
+
+        // Try as iframe for any other URL (best-effort embed)
+        if (/^https?:\/\//i.test(trimmed)) {
+            return { type: "iframe", src: trimmed };
+        }
+
+        return { type: "link", src: trimmed };
+    };
+
+    const info = getEmbedUrl(url);
+
+    if (info.type === "iframe") {
+        return (
+            <div className={cn("overflow-hidden rounded-2xl", className)}>
+                <iframe
+                    src={info.src}
+                    className="aspect-video w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title="Video"
+                />
+            </div>
+        );
     }
 
-    // Vimeo
-    const vimeoMatch = trimmed.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch) {
-      return { type: 'iframe', src: `https://player.vimeo.com/video/${vimeoMatch[1]}` };
+    if (info.type === "video") {
+        return (
+            <div className={cn("overflow-hidden rounded-2xl", className)}>
+                <video
+                    src={info.src}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    controlsList="nodownload noremoteplayback"
+                    disablePictureInPicture
+                    className="aspect-video w-full bg-black object-cover"
+                >
+                    Browser kamu tidak mendukung video.
+                </video>
+            </div>
+        );
     }
 
-    // Google Drive
-    const gDriveMatch = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (gDriveMatch) {
-      return { type: 'iframe', src: `https://drive.google.com/file/d/${gDriveMatch[1]}/preview` };
-    }
-
-    // Cloudinary video URLs (used by the app's upload system)
-    if (/res\.cloudinary\.com/i.test(trimmed)) {
-      return { type: 'video', src: trimmed };
-    }
-
-    // Direct video file
-    if (/\.(mp4|webm|ogg|mov|avi)(\?|$)/i.test(trimmed)) {
-      return { type: 'video', src: trimmed };
-    }
-
-    // Try as iframe for any other URL (best-effort embed)
-    if (/^https?:\/\//i.test(trimmed)) {
-      return { type: 'iframe', src: trimmed };
-    }
-
-    return { type: 'link', src: trimmed };
-  };
-
-  const info = getEmbedUrl(url);
-
-  if (info.type === 'iframe') {
     return (
-      <div className={cn('overflow-hidden rounded-2xl', className)}>
-        <iframe
-          src={info.src}
-          className="aspect-video w-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          title="Video"
-        />
-      </div>
-    );
-  }
-
-  if (info.type === 'video') {
-    return (
-      <div className={cn('overflow-hidden rounded-2xl', className)}>
-        <video
-          src={info.src}
-          controls
-          playsInline
-          preload="metadata"
-          controlsList="nodownload noremoteplayback"
-          disablePictureInPicture
-          className="aspect-video w-full bg-black object-cover"
+        <div
+            className={cn(
+                "overflow-hidden rounded-2xl border border-[#e6e4ed] p-4",
+                className,
+            )}
         >
-          Browser kamu tidak mendukung video.
-        </video>
-      </div>
+            <a
+                href={info.src}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm font-medium text-[#7054dc] hover:underline"
+            >
+                <FaPlay size={14} />
+                Buka video di tab baru
+            </a>
+        </div>
     );
-  }
-
-  return (
-    <div className={cn('overflow-hidden rounded-2xl border border-[#e6e4ed] p-4', className)}>
-      <a
-        href={info.src}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-2 text-sm font-medium text-[#7054dc] hover:underline"
-      >
-        <FaPlay size={14} />
-        Buka video di tab baru
-      </a>
-    </div>
-  );
 }
 
 import { cn } from "../../../lib/utils/cn";
@@ -651,7 +746,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         null,
     );
     const [activeCtSubIds, setActiveCtSubIds] = useState<string[]>([]);
-    const [activeQuizAllowMultipleAttempts, setActiveQuizAllowMultipleAttempts] = useState<boolean>(false);
+    const [
+        activeQuizAllowMultipleAttempts,
+        setActiveQuizAllowMultipleAttempts,
+    ] = useState<boolean>(false);
     const [currentView, setCurrentView] = useState<
         | "pretest-intro"
         | "pretest-quiz"
@@ -707,11 +805,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         const handleVisibilityChange = () => {
             if (document.hidden) setToastMsg("Jangan alihkan fokus kamu!");
         };
-        const handleWindowBlur = () => setToastMsg("Jangan alihkan fokus kamu!");
+        const handleWindowBlur = () =>
+            setToastMsg("Jangan alihkan fokus kamu!");
         document.addEventListener("visibilitychange", handleVisibilityChange);
         window.addEventListener("blur", handleWindowBlur);
         return () => {
-            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange,
+            );
             window.removeEventListener("blur", handleWindowBlur);
         };
     }, [currentView]);
@@ -738,7 +840,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         window.history.pushState(null, "", window.location.href);
         const handlePopState = () => {
             window.history.pushState(null, "", window.location.href);
-            setToastMsg("Tidak dapat keluar halaman saat tes sedang berlangsung!");
+            setToastMsg(
+                "Tidak dapat keluar halaman saat tes sedang berlangsung!",
+            );
         };
 
         window.addEventListener("beforeunload", handleBeforeUnload);
@@ -925,7 +1029,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     // Mark parent sequence item IDs as completed ONLY if ALL subIds are completed
                     seq.forEach((item) => {
                         if (item.ctSubIds && item.ctSubIds.length > 0) {
-                            if (item.ctSubIds.every((subId) => completedMap[subId])) {
+                            if (
+                                item.ctSubIds.every(
+                                    (subId) => completedMap[subId],
+                                )
+                            ) {
                                 completedMap[item.id] = true;
                             }
                         }
@@ -952,7 +1060,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         setCurrentSeqIndex(startIdx);
 
                         const startItem = seq[startIdx];
-                        if (startItem?.type === "quiz" || startItem?.type === "quiz-ct") {
+                        if (
+                            startItem?.type === "quiz" ||
+                            startItem?.type === "quiz-ct"
+                        ) {
                             setAssessmentType("kuis");
                             setActiveQuizItemId(startItem.id);
                             setActiveCtSubIds(startItem.ctSubIds ?? []);
@@ -1070,7 +1181,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         // CT group: collect all 4 sub-questions across topiks
         if (activeCtSubIds.length > 0) {
             const soals: SoalItem[] = [];
-            const itemMap = new Map<string, (typeof modulDetail.curriculum.topiks[0]["items"][0])>();
+            const itemMap = new Map<
+                string,
+                (typeof modulDetail.curriculum.topiks)[0]["items"][0]
+            >();
             for (const topik of modulDetail.curriculum.topiks) {
                 for (const it of topik.items) {
                     itemMap.set(it.id, it);
@@ -1129,8 +1243,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         const seen = new Set<string>();
         const order: string[] = [];
         for (const s of kuisSoal) {
-            const key = s.ceritaCT ?? '';
-            if (!seen.has(key)) { seen.add(key); order.push(key); }
+            const key = s.ceritaCT ?? "";
+            if (!seen.has(key)) {
+                seen.add(key);
+                order.push(key);
+            }
         }
         return order;
     }, [kuisSoal, activeCtSubIds.length]);
@@ -1176,7 +1293,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             const item = sequence[index];
             // Direct unlock: item was already completed
             if (completedContentItemMap[item.id]) return true;
-            if (item.ctSubIds && item.ctSubIds.length > 0 && item.ctSubIds.every((subId) => completedContentItemMap[subId])) return true;
+            if (
+                item.ctSubIds &&
+                item.ctSubIds.length > 0 &&
+                item.ctSubIds.every((subId) => completedContentItemMap[subId])
+            )
+                return true;
             // Posttest: unlock when all real items (materi + quiz) are completed
             if (item.type === "posttest") {
                 return sequence
@@ -1187,7 +1309,14 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             const prevItem = sequence[index - 1];
             if (!prevItem) return true;
             if (completedContentItemMap[prevItem.id] === true) return true;
-            if (prevItem.ctSubIds && prevItem.ctSubIds.length > 0 && prevItem.ctSubIds.every((subId) => completedContentItemMap[subId])) return true;
+            if (
+                prevItem.ctSubIds &&
+                prevItem.ctSubIds.length > 0 &&
+                prevItem.ctSubIds.every(
+                    (subId) => completedContentItemMap[subId],
+                )
+            )
+                return true;
             return false;
         },
         [sequence, completedContentItemMap],
@@ -1204,55 +1333,19 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
     // ─── Progress calculation ──────────────────────────────────────────────
     const totalSteps = useMemo(
-        () =>
-            sequence.filter((item) => item.type !== "rating").length,
+        () => sequence.filter((item) => item.type !== "rating").length,
         [sequence],
     );
     const completedSteps = useMemo(
         () =>
             sequence.filter(
                 (item) =>
-                    completedContentItemMap[item.id] &&
-                    item.type !== "rating",
+                    completedContentItemMap[item.id] && item.type !== "rating",
             ).length,
         [sequence, completedContentItemMap],
     );
     // Nilai % dari server (formula kanonik backend — sinkron dengan tutor/admin)
     const progressPercent = Math.round(progress?.progressPercentage ?? 0);
-
-    const countableSequence = useMemo(() => {
-        return sequence.filter(
-            (item) =>
-                item.type !== "rating" &&
-                item.type !== "summary" &&
-                item.type !== "rangkuman-akhir" &&
-                !item.id.startsWith("summary-") &&
-                item.id !== "rangkuman-akhir" &&
-                item.id !== "rating",
-        );
-    }, [sequence]);
-
-    const totalSteps = countableSequence.length;
-
-    const completedSteps = useMemo(() => {
-        if (isModuleCompletedOrGraduated) return totalSteps;
-        return countableSequence.filter((item) => isItemDone(item)).length;
-    }, [isModuleCompletedOrGraduated, totalSteps, countableSequence, isItemDone]);
-
-    const calculatedProgress = useMemo(() => {
-        return calculateProgress(
-            sequence,
-            completedContentItemMap,
-            progress?.status,
-            progress?.isGraduated,
-        );
-    }, [sequence, completedContentItemMap, progress?.status, progress?.isGraduated]);
-
-    const progressPercent = useMemo(() => {
-        if (isModuleCompletedOrGraduated) return 100;
-        if (completedSteps === 0) return 0;
-        return calculatedProgress;
-    }, [isModuleCompletedOrGraduated, completedSteps, calculatedProgress]);
 
     const markContentItemAsCompleted = useCallback(
         async (itemId: string, itemType?: string) => {
@@ -1287,7 +1380,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         ? "RATING"
                         : "MATERI");
 
-            if (type === "SUMMARY" || type === "RANGKUMAN-AKHIR" || type === "RANGKUMAN") {
+            if (
+                type === "SUMMARY" ||
+                type === "RANGKUMAN-AKHIR" ||
+                type === "RANGKUMAN"
+            ) {
                 type = "MATERI";
             }
 
@@ -1407,9 +1504,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     await markContentItemAsCompleted(activeQuizItemId, "quiz");
                 }
                 const kuisBenar = kuisResults.filter(Boolean).length;
-                const kuisScore = currentSoal.length > 0
-                    ? Math.round((kuisBenar / currentSoal.length) * 100)
-                    : 0;
+                const kuisScore =
+                    currentSoal.length > 0
+                        ? Math.round((kuisBenar / currentSoal.length) * 100)
+                        : 0;
                 result = {
                     score: kuisScore,
                     totalBenar: kuisBenar,
@@ -1428,7 +1526,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     setCompletedContentItemMap((prev) => {
                         const newMap: Record<string, boolean> = { ...prev };
                         (updated.progress?.completedContentItems ?? []).forEach(
-                            (id) => { newMap[id] = true; },
+                            (id) => {
+                                newMap[id] = true;
+                            },
                         );
                         if (updated.progress?.pretestScore != null)
                             newMap["pretest"] = true;
@@ -1438,13 +1538,20 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                             newMap[activeQuizItemId] = true;
                         }
                         if (activeCtSubIds && activeCtSubIds.length > 0) {
-                            activeCtSubIds.forEach((subId) => { newMap[subId] = true; });
+                            activeCtSubIds.forEach((subId) => {
+                                newMap[subId] = true;
+                            });
                         }
                         sequence.forEach((item) => {
                             if (item.ctSubIds && item.ctSubIds.length > 0) {
-                                if (newMap[item.id] || item.ctSubIds.some((subId) => newMap[subId])) {
+                                if (
+                                    newMap[item.id] ||
+                                    item.ctSubIds.some((subId) => newMap[subId])
+                                ) {
                                     newMap[item.id] = true;
-                                    item.ctSubIds.forEach((subId) => { newMap[subId] = true; });
+                                    item.ctSubIds.forEach((subId) => {
+                                        newMap[subId] = true;
+                                    });
                                 }
                             }
                         });
@@ -1535,58 +1642,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 if (nextIdx < sequence.length) {
                     const nextItem = sequence[nextIdx];
                     setCurrentSeqIndex(nextIdx);
-                    if (nextItem?.type === "quiz" || nextItem?.type === "quiz-ct") {
-                        setAssessmentType("kuis");
-                        setActiveQuizItemId(nextItem.id);
-                        setActiveCtSubIds(nextItem.ctSubIds ?? []);
-                        setCurrentView("pretest-intro");
-                        setIsMaterialMode(false);
-                        setIsFinalSummaryView(false);
-                        setActiveQuestionIndex(0);
-                        setSelectedAnswers({});
-                        setWasTimeUp(false);
-                        setRemainingSeconds(900);
-                    } else if (nextItem?.type === "posttest") {
-                        const duration = getDurationForAssessment(modulDetail, "posttest") ?? 900;
-                        setAssessmentType("posttest");
-                        setCurrentView("pretest-intro");
-                        setIsMaterialMode(false);
-                        setIsFinalSummaryView(false);
-                        setActiveQuestionIndex(0);
-                        setSelectedAnswers({});
-                        setRemainingSeconds(duration);
-                        setTestDurationSeconds(duration);
-                        setTestResult(null);
-                        setIsPosttestStarted(false);
-                        setIsPosttestFinished(false);
-                    } else if (nextItem?.type === "rating") {
-                        setCurrentView("rating");
-                        setIsMaterialMode(false);
-                        setIsFinalSummaryView(false);
-                    } else {
-                        setCurrentView("materi");
-                        setIsMaterialMode(true);
-                        setIsFinalSummaryView(nextItem?.type === "summary" || nextItem?.type === "rangkuman-akhir");
-                        setIsDescriptionExpanded(true);
-                        setActiveQuizItemId(null);
-                    }
-                } else {
-                    router.push(`/modul/${modulId}`);
-                }
-                return;
-            }
-
-            if (currentView === "materi") {
-                if (currentSeqIndex >= 0 && currentSeqIndex < sequence.length) {
-                    const item = sequence[currentSeqIndex];
-                    await markContentItemAsCompleted(item.id, item.type);
-                }
-
-                const nextIdx = currentSeqIndex + 1;
-                if (nextIdx < sequence.length) {
-                    const nextItem = sequence[nextIdx];
-                    setCurrentSeqIndex(nextIdx);
-                    if (nextItem?.type === "quiz" || nextItem?.type === "quiz-ct") {
+                    if (
+                        nextItem?.type === "quiz" ||
+                        nextItem?.type === "quiz-ct"
+                    ) {
                         setAssessmentType("kuis");
                         setActiveQuizItemId(nextItem.id);
                         setActiveCtSubIds(nextItem.ctSubIds ?? []);
@@ -1619,16 +1678,71 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     } else {
                         setCurrentView("materi");
                         setIsMaterialMode(true);
-                        setIsFinalSummaryView(
-                            nextItem?.type === "summary" || nextItem?.type === "rangkuman-akhir"
-                        );
+                        setIsFinalSummaryView(false);
+                        setIsDescriptionExpanded(true);
+                        setActiveQuizItemId(null);
+                    }
+                } else {
+                    router.push(`/modul/${modulId}`);
+                }
+                return;
+            }
+
+            if (currentView === "materi") {
+                if (currentSeqIndex >= 0 && currentSeqIndex < sequence.length) {
+                    const item = sequence[currentSeqIndex];
+                    await markContentItemAsCompleted(item.id, item.type);
+                }
+
+                const nextIdx = currentSeqIndex + 1;
+                if (nextIdx < sequence.length) {
+                    const nextItem = sequence[nextIdx];
+                    setCurrentSeqIndex(nextIdx);
+                    if (
+                        nextItem?.type === "quiz" ||
+                        nextItem?.type === "quiz-ct"
+                    ) {
+                        setAssessmentType("kuis");
+                        setActiveQuizItemId(nextItem.id);
+                        setActiveCtSubIds(nextItem.ctSubIds ?? []);
+                        setCurrentView("pretest-intro");
+                        setIsMaterialMode(false);
+                        setIsFinalSummaryView(false);
+                        setActiveQuestionIndex(0);
+                        setSelectedAnswers({});
+                        setWasTimeUp(false);
+                        setRemainingSeconds(900);
+                    } else if (nextItem?.type === "posttest") {
+                        const duration =
+                            getDurationForAssessment(modulDetail, "posttest") ??
+                            900;
+                        setAssessmentType("posttest");
+                        setCurrentView("pretest-intro");
+                        setIsMaterialMode(false);
+                        setIsFinalSummaryView(false);
+                        setActiveQuestionIndex(0);
+                        setSelectedAnswers({});
+                        setRemainingSeconds(duration);
+                        setTestDurationSeconds(duration);
+                        setTestResult(null);
+                        setIsPosttestStarted(false);
+                        setIsPosttestFinished(false);
+                    } else if (nextItem?.type === "rating") {
+                        setCurrentView("rating");
+                        setIsMaterialMode(false);
+                        setIsFinalSummaryView(false);
+                    } else {
+                        setCurrentView("materi");
+                        setIsMaterialMode(true);
+                        setIsFinalSummaryView(false);
                         setIsDescriptionExpanded(true);
                         setActiveQuizItemId(null);
                     }
                 } else {
                     // Refetch study room to sync progress state before returning
                     try {
-                        const updated = await siswaStudyRoomApi.getByModul(modulId);
+                        const updated =
+                            await siswaStudyRoomApi.getByModul(modulId);
                         if (updated.progress) setProgress(updated.progress);
                     } catch {}
                     router.push(`/modul/${modulId}`);
@@ -1674,8 +1788,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 setCertificate(cert);
             } catch (certErr) {
                 if (certErr instanceof ApiError && certErr.status === 409) {
-                    const certData = certErr.data as { certificate?: StudyRoomCertificate };
-                    if (certData?.certificate) setCertificate(certData.certificate);
+                    const certData = certErr.data as {
+                        certificate?: StudyRoomCertificate;
+                    };
+                    if (certData?.certificate)
+                        setCertificate(certData.certificate);
                 }
             }
             router.push(`/modul/${modulId}/sertifikat`);
@@ -1727,7 +1844,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         <p className="text-red-500">{dataError}</p>
                         {dataErrorStatus === 403 && (
                             <p className="mt-2 text-sm text-[#8a8a96]">
-                                Silakan hubungi guru atau admin Anda untuk mendapatkan akses.
+                                Silakan hubungi guru atau admin Anda untuk
+                                mendapatkan akses.
                             </p>
                         )}
                         <button
@@ -1955,10 +2073,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                                 item.id,
                                                             );
                                                             setActiveCtSubIds(
-                                                                item.ctSubIds ?? [],
+                                                                item.ctSubIds ??
+                                                                    [],
                                                             );
                                                             setActiveQuizAllowMultipleAttempts(
-                                                                item.allowMultipleAttempts ?? false,
+                                                                item.allowMultipleAttempts ??
+                                                                    false,
                                                             );
                                                             setCurrentView(
                                                                 "pretest-intro",
@@ -1975,9 +2095,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             setSelectedAnswers(
                                                                 {},
                                                             );
-                                                            setWasTimeUp(
-                                                                false,
-                                                            );
+                                                            setWasTimeUp(false);
                                                             setRemainingSeconds(
                                                                 1800,
                                                             );
@@ -2013,16 +2131,36 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             <span className="flex-1 min-w-0">
                                                                 <span className="flex items-center gap-1.5">
                                                                     <span className="block text-xs font-medium leading-tight truncate">
-                                                                        {item.type === "quiz-ct" ? (
-                                                                            <>Kuis CT - {item.title}</>
+                                                                        {item.type ===
+                                                                        "quiz-ct" ? (
+                                                                            <>
+                                                                                Kuis
+                                                                                CT
+                                                                                -{" "}
+                                                                                {
+                                                                                    item.title
+                                                                                }
+                                                                            </>
                                                                         ) : (
-                                                                            <>Kuis Reguler - {item.title}</>
+                                                                            <>
+                                                                                Kuis
+                                                                                Reguler
+                                                                                -{" "}
+                                                                                {
+                                                                                    item.title
+                                                                                }
+                                                                            </>
                                                                         )}
                                                                     </span>
-                                                                    {item.type === "quiz-ct" ? (
-                                                                        <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">CT</span>
+                                                                    {item.type ===
+                                                                    "quiz-ct" ? (
+                                                                        <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">
+                                                                            CT
+                                                                        </span>
                                                                     ) : (
-                                                                        <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-700">Reguler</span>
+                                                                        <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-700">
+                                                                            Reguler
+                                                                        </span>
                                                                     )}
                                                                 </span>
                                                             </span>
@@ -2055,8 +2193,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                                 true,
                                                             );
                                                             setIsFinalSummaryView(
-                                                                item.type ===
-                                                                    "summary",
+                                                                false,
                                                             );
                                                             setActiveQuizItemId(
                                                                 null,
@@ -2108,7 +2245,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             )}
                                                             <span>
                                                                 <span className="block text-xs font-medium leading-tight">
-                                                                    {item.type === "summary" ? (
+                                                                    {item.type ===
+                                                                    "summary" ? (
                                                                         <>
                                                                             {
                                                                                 item.title
@@ -2453,7 +2591,19 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     className="fixed left-4 top-[88px] z-30 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white shadow-md border border-[#e1e0e7] text-[#202126] lg:hidden"
                     aria-label="Buka konten kelas"
                 >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                    >
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="18" x2="21" y2="18" />
+                    </svg>
                 </button>
                 <section className="flex h-[calc(100vh-76px)] min-h-[calc(100vh-76px)] flex-col overflow-hidden">
                     <div
@@ -2483,7 +2633,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                         </p>
                                     ) : assessmentType === "kuis" &&
                                       activeQuizItemId &&
-                                      completedContentItemMap[activeQuizItemId] &&
+                                      completedContentItemMap[
+                                          activeQuizItemId
+                                      ] &&
                                       !activeQuizAllowMultipleAttempts ? (
                                         <div className="mx-auto mt-6 flex flex-col items-center gap-2">
                                             <span className="inline-flex items-center gap-2 rounded-xl bg-[#efe9ff] px-5 py-3 text-sm font-semibold text-[#7054dc]">
@@ -2491,7 +2643,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 Kuis sudah diselesaikan
                                             </span>
                                             <p className="text-xs text-[#8a8a96]">
-                                                Kuis ini hanya dapat dikerjakan satu kali.
+                                                Kuis ini hanya dapat dikerjakan
+                                                satu kali.
                                             </p>
                                         </div>
                                     ) : (
@@ -2502,28 +2655,28 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 if (
                                                     assessmentType === "pretest"
                                                 ) {
-                                                duration =
-                                                    getDurationForAssessment(
-                                                        modulDetail,
-                                                        "pretest",
-                                                    ) ?? 1800;
-                                                setIsPretestStarted(true);
-                                            } else if (
-                                                assessmentType ===
-                                                "posttest"
-                                            ) {
-                                                duration =
-                                                    getDurationForAssessment(
-                                                        modulDetail,
-                                                        "posttest",
-                                                    ) ?? 1800;
+                                                    duration =
+                                                        getDurationForAssessment(
+                                                            modulDetail,
+                                                            "pretest",
+                                                        ) ?? 1800;
+                                                    setIsPretestStarted(true);
+                                                } else if (
+                                                    assessmentType ===
+                                                    "posttest"
+                                                ) {
+                                                    duration =
+                                                        getDurationForAssessment(
+                                                            modulDetail,
+                                                            "posttest",
+                                                        ) ?? 1800;
                                                     setIsPosttestStarted(true);
                                                 } else {
-                                                duration =
-                                                    getDurationForQuiz(
-                                                        modulDetail,
-                                                        activeQuizItemId,
-                                                    ) ?? 1800;
+                                                    duration =
+                                                        getDurationForQuiz(
+                                                            modulDetail,
+                                                            activeQuizItemId,
+                                                        ) ?? 1800;
                                                 }
                                                 setWasTimeUp(false);
                                                 setRemainingSeconds(duration);
@@ -2551,20 +2704,27 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                         <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-2xl border border-[#e6e4ed] bg-white px-4 sm:px-6 py-4">
                                             <div className="flex flex-col gap-0.5">
                                                 <span className="text-sm font-semibold text-[#202126]">
-                                                    Soal {activeQuestionIndex + 1}{" "}
+                                                    Soal{" "}
+                                                    {activeQuestionIndex + 1}{" "}
                                                     dari {currentSoal.length}
                                                 </span>
                                                 {ctStoryGroups.length > 1 && (
                                                     <span className="text-xs font-medium text-[#7054dc]">
                                                         Soal CT ke{" "}
-                                                        {ctStoryGroups.indexOf(activeQuestion?.ceritaCT ?? '') + 1}{" "}
-                                                        dari {ctStoryGroups.length}
+                                                        {ctStoryGroups.indexOf(
+                                                            activeQuestion?.ceritaCT ??
+                                                                "",
+                                                        ) + 1}{" "}
+                                                        dari{" "}
+                                                        {ctStoryGroups.length}
                                                     </span>
                                                 )}
                                             </div>
                                             <div className="flex items-center gap-2 text-sm font-semibold text-[#7054dc]">
                                                 <FaRegClock size={14} />
-                                                <span className="text-xs font-normal text-[#8f95a3]">Sisa Waktu</span>
+                                                <span className="text-xs font-normal text-[#8f95a3]">
+                                                    Sisa Waktu
+                                                </span>
                                                 {formatRemainingTime(
                                                     remainingSeconds,
                                                 )}
@@ -2573,7 +2733,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
                                         <div className="rounded-2xl border border-[#e6e4ed] bg-white px-4 sm:px-6 py-8">
                                             {(() => {
-                                                const story = activeQuestion?.ceritaCT ?? null;
+                                                const story =
+                                                    activeQuestion?.ceritaCT ??
+                                                    null;
                                                 return story ? (
                                                     <div className="mb-5 rounded-xl border border-[#e6e4ed] bg-[#faf9ff] p-4 text-left text-sm leading-relaxed text-[#202126]">
                                                         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#7054dc]">
@@ -2581,7 +2743,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                         </p>
                                                         <div
                                                             className="text-sm leading-relaxed text-[#202126] prose prose-sm max-w-none [&_.katex]:font-normal"
-                                                            dangerouslySetInnerHTML={renderHtml(story)}
+                                                            dangerouslySetInnerHTML={renderHtml(
+                                                                story,
+                                                            )}
                                                         />
                                                     </div>
                                                 ) : null;
@@ -2607,7 +2771,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             )}
                                             <div
                                                 className="text-base font-semibold text-[#202126] prose prose-sm max-w-none [&_.katex]:font-normal"
-                                                dangerouslySetInnerHTML={renderHtml(activeQuestion.pertanyaan)}
+                                                dangerouslySetInnerHTML={renderHtml(
+                                                    activeQuestion.pertanyaan,
+                                                )}
                                             />
 
                                             <div className="mt-6 space-y-3">
@@ -2657,7 +2823,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                         </span>
                                                         <span
                                                             className="prose prose-sm max-w-none [&_img]:max-h-40 [&_img]:rounded-lg [&_img]:object-contain [&_.katex]:text-inherit"
-                                                            dangerouslySetInnerHTML={renderHtml(option)}
+                                                            dangerouslySetInnerHTML={renderHtml(
+                                                                option,
+                                                            )}
                                                         />
                                                     </button>
                                                 ))}
@@ -2771,13 +2939,107 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             </p>
                                             <p className="mt-2 text-2xl font-bold text-[#202126]">
                                                 {testResult?.totalBenar ??
-                                                    (assessmentType === "posttest"
-                                                        ? (progress?.posttestCorrectCount ?? (progress as any)?.post_test_correct_count ?? (progress as any)?.postTestCorrectCount)
-                                                        : (progress?.pretestCorrectCount ?? (progress as any)?.pre_test_correct_count ?? (progress as any)?.preTestCorrectCount)) ??
-                                                    ((assessmentType === "posttest" ? (progress?.posttestScore ?? (progress as any)?.post_test_score ?? (progress as any)?.postTestScore ?? (progress as any)?.finalScore) : (progress?.pretestScore ?? (progress as any)?.pre_test_score)) != null && (assessmentType === "posttest" ? posttestSoal.length : pretestSoal.length) > 0
-                                                        ? Math.round((((assessmentType === "posttest" ? (progress?.posttestScore ?? (progress as any)?.post_test_score ?? (progress as any)?.postTestScore ?? (progress as any)?.finalScore) : (progress?.pretestScore ?? (progress as any)?.pre_test_score)) as number) <= (assessmentType === "posttest" ? posttestSoal.length : pretestSoal.length)
-                                                            ? ((assessmentType === "posttest" ? (progress?.posttestScore ?? (progress as any)?.post_test_score ?? (progress as any)?.postTestScore ?? (progress as any)?.finalScore) : (progress?.pretestScore ?? (progress as any)?.pre_test_score)) as number)
-                                                            : (((assessmentType === "posttest" ? (progress?.posttestScore ?? (progress as any)?.post_test_score ?? (progress as any)?.postTestScore ?? (progress as any)?.finalScore) : (progress?.pretestScore ?? (progress as any)?.pre_test_score)) as number) / 100) * (assessmentType === "posttest" ? posttestSoal.length : pretestSoal.length)))
+                                                    (assessmentType ===
+                                                    "posttest"
+                                                        ? (progress?.posttestCorrectCount ??
+                                                          (progress as any)
+                                                              ?.post_test_correct_count ??
+                                                          (progress as any)
+                                                              ?.postTestCorrectCount)
+                                                        : (progress?.pretestCorrectCount ??
+                                                          (progress as any)
+                                                              ?.pre_test_correct_count ??
+                                                          (progress as any)
+                                                              ?.preTestCorrectCount)) ??
+                                                    ((assessmentType ===
+                                                    "posttest"
+                                                        ? (progress?.posttestScore ??
+                                                          (progress as any)
+                                                              ?.post_test_score ??
+                                                          (progress as any)
+                                                              ?.postTestScore ??
+                                                          (progress as any)
+                                                              ?.finalScore)
+                                                        : (progress?.pretestScore ??
+                                                          (progress as any)
+                                                              ?.pre_test_score)) !=
+                                                        null &&
+                                                    (assessmentType ===
+                                                    "posttest"
+                                                        ? posttestSoal.length
+                                                        : pretestSoal.length) >
+                                                        0
+                                                        ? Math.round(
+                                                              ((assessmentType ===
+                                                              "posttest"
+                                                                  ? (progress?.posttestScore ??
+                                                                    (
+                                                                        progress as any
+                                                                    )
+                                                                        ?.post_test_score ??
+                                                                    (
+                                                                        progress as any
+                                                                    )
+                                                                        ?.postTestScore ??
+                                                                    (
+                                                                        progress as any
+                                                                    )
+                                                                        ?.finalScore)
+                                                                  : (progress?.pretestScore ??
+                                                                    (
+                                                                        progress as any
+                                                                    )
+                                                                        ?.pre_test_score)) as number) <=
+                                                                  (assessmentType ===
+                                                                  "posttest"
+                                                                      ? posttestSoal.length
+                                                                      : pretestSoal.length)
+                                                                  ? ((assessmentType ===
+                                                                    "posttest"
+                                                                        ? (progress?.posttestScore ??
+                                                                          (
+                                                                              progress as any
+                                                                          )
+                                                                              ?.post_test_score ??
+                                                                          (
+                                                                              progress as any
+                                                                          )
+                                                                              ?.postTestScore ??
+                                                                          (
+                                                                              progress as any
+                                                                          )
+                                                                              ?.finalScore)
+                                                                        : (progress?.pretestScore ??
+                                                                          (
+                                                                              progress as any
+                                                                          )
+                                                                              ?.pre_test_score)) as number)
+                                                                  : (((assessmentType ===
+                                                                    "posttest"
+                                                                        ? (progress?.posttestScore ??
+                                                                          (
+                                                                              progress as any
+                                                                          )
+                                                                              ?.post_test_score ??
+                                                                          (
+                                                                              progress as any
+                                                                          )
+                                                                              ?.postTestScore ??
+                                                                          (
+                                                                              progress as any
+                                                                          )
+                                                                              ?.finalScore)
+                                                                        : (progress?.pretestScore ??
+                                                                          (
+                                                                              progress as any
+                                                                          )
+                                                                              ?.pre_test_score)) as number) /
+                                                                        100) *
+                                                                        (assessmentType ===
+                                                                        "posttest"
+                                                                            ? posttestSoal.length
+                                                                            : pretestSoal.length),
+                                                          )
                                                         : null) ??
                                                     "-"}
                                             </p>
@@ -2791,11 +3053,60 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             </p>
                                             <p className="mt-2 text-2xl font-bold text-[#202126]">
                                                 {testResult?.totalSalah ??
-                                                    (assessmentType === "posttest"
-                                                        ? (progress?.posttestWrongCount ?? (progress as any)?.post_test_wrong_count ?? (progress as any)?.postTestWrongCount)
-                                                        : (progress?.pretestWrongCount ?? (progress as any)?.pre_test_wrong_count ?? (progress as any)?.preTestWrongCount)) ??
-                                                    ((assessmentType === "posttest" ? posttestSoal.length : pretestSoal.length) > 0 && (assessmentType === "posttest" ? (progress?.posttestCorrectCount ?? (progress as any)?.post_test_correct_count ?? (progress as any)?.postTestCorrectCount) : (progress?.pretestCorrectCount ?? (progress as any)?.pre_test_correct_count ?? (progress as any)?.preTestCorrectCount)) != null
-                                                        ? (assessmentType === "posttest" ? posttestSoal.length : pretestSoal.length) - (assessmentType === "posttest" ? (progress?.posttestCorrectCount ?? (progress as any)?.post_test_correct_count ?? (progress as any)?.postTestCorrectCount) : (progress?.pretestCorrectCount ?? (progress as any)?.pre_test_correct_count ?? (progress as any)?.preTestCorrectCount))
+                                                    (assessmentType ===
+                                                    "posttest"
+                                                        ? (progress?.posttestWrongCount ??
+                                                          (progress as any)
+                                                              ?.post_test_wrong_count ??
+                                                          (progress as any)
+                                                              ?.postTestWrongCount)
+                                                        : (progress?.pretestWrongCount ??
+                                                          (progress as any)
+                                                              ?.pre_test_wrong_count ??
+                                                          (progress as any)
+                                                              ?.preTestWrongCount)) ??
+                                                    ((assessmentType ===
+                                                    "posttest"
+                                                        ? posttestSoal.length
+                                                        : pretestSoal.length) >
+                                                        0 &&
+                                                    (assessmentType ===
+                                                    "posttest"
+                                                        ? (progress?.posttestCorrectCount ??
+                                                          (progress as any)
+                                                              ?.post_test_correct_count ??
+                                                          (progress as any)
+                                                              ?.postTestCorrectCount)
+                                                        : (progress?.pretestCorrectCount ??
+                                                          (progress as any)
+                                                              ?.pre_test_correct_count ??
+                                                          (progress as any)
+                                                              ?.preTestCorrectCount)) !=
+                                                        null
+                                                        ? (assessmentType ===
+                                                          "posttest"
+                                                              ? posttestSoal.length
+                                                              : pretestSoal.length) -
+                                                          (assessmentType ===
+                                                          "posttest"
+                                                              ? (progress?.posttestCorrectCount ??
+                                                                (
+                                                                    progress as any
+                                                                )
+                                                                    ?.post_test_correct_count ??
+                                                                (
+                                                                    progress as any
+                                                                )
+                                                                    ?.postTestCorrectCount)
+                                                              : (progress?.pretestCorrectCount ??
+                                                                (
+                                                                    progress as any
+                                                                )
+                                                                    ?.pre_test_correct_count ??
+                                                                (
+                                                                    progress as any
+                                                                )
+                                                                    ?.preTestCorrectCount))
                                                         : "-")}
                                             </p>
                                         </div>
@@ -2807,20 +3118,61 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 </span>
                                             </p>
                                             <p className="mt-2 text-2xl font-bold text-[#202126]">
-                                                 {(testResult as any)?.timeSpent
-                                                     ? formatRemainingTime((testResult as any).timeSpent)
-                                                     : (assessmentType === "posttest"
-                                                           ? (progress?.posttestTimeSpent ?? (progress as any)?.post_test_time_spent ?? (progress as any)?.postTestTimeSpent)
-                                                           : (progress?.pretestTimeSpent ?? (progress as any)?.pre_test_time_spent ?? (progress as any)?.preTestTimeSpent))
-                                                       ? formatRemainingTime(
-                                                             (assessmentType === "posttest"
-                                                                 ? (progress?.posttestTimeSpent ?? (progress as any)?.post_test_time_spent ?? (progress as any)?.postTestTimeSpent)
-                                                                 : (progress?.pretestTimeSpent ?? (progress as any)?.pre_test_time_spent ?? (progress as any)?.preTestTimeSpent)) as number
-                                                         )
-                                                       : (finishedElapsedSeconds
-                                                             ? formatRemainingTime(finishedElapsedSeconds)
-                                                             : "—")}
-                                             </p>
+                                                {(testResult as any)?.timeSpent
+                                                    ? formatRemainingTime(
+                                                          (testResult as any)
+                                                              .timeSpent,
+                                                      )
+                                                    : (
+                                                            assessmentType ===
+                                                            "posttest"
+                                                                ? (progress?.posttestTimeSpent ??
+                                                                  (
+                                                                      progress as any
+                                                                  )
+                                                                      ?.post_test_time_spent ??
+                                                                  (
+                                                                      progress as any
+                                                                  )
+                                                                      ?.postTestTimeSpent)
+                                                                : (progress?.pretestTimeSpent ??
+                                                                  (
+                                                                      progress as any
+                                                                  )
+                                                                      ?.pre_test_time_spent ??
+                                                                  (
+                                                                      progress as any
+                                                                  )
+                                                                      ?.preTestTimeSpent)
+                                                        )
+                                                      ? formatRemainingTime(
+                                                            (assessmentType ===
+                                                            "posttest"
+                                                                ? (progress?.posttestTimeSpent ??
+                                                                  (
+                                                                      progress as any
+                                                                  )
+                                                                      ?.post_test_time_spent ??
+                                                                  (
+                                                                      progress as any
+                                                                  )
+                                                                      ?.postTestTimeSpent)
+                                                                : (progress?.pretestTimeSpent ??
+                                                                  (
+                                                                      progress as any
+                                                                  )
+                                                                      ?.pre_test_time_spent ??
+                                                                  (
+                                                                      progress as any
+                                                                  )
+                                                                      ?.preTestTimeSpent)) as number,
+                                                        )
+                                                      : finishedElapsedSeconds
+                                                        ? formatRemainingTime(
+                                                              finishedElapsedSeconds,
+                                                          )
+                                                        : "—"}
+                                            </p>
                                         </div>
                                         <div>
                                             <p className="inline-flex items-center gap-1 text-lg text-[#4f5565]">
@@ -2892,23 +3244,19 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 const nextItem =
                                                     sequence[nextIdx];
                                                 if (
-                                                    nextIdx <
-                                                        sequence.length &&
+                                                    nextIdx < sequence.length &&
                                                     (nextItem?.type ===
                                                         "quiz" ||
                                                         nextItem?.type ===
                                                             "quiz-ct")
                                                 ) {
-                                                    setCurrentSeqIndex(
-                                                        nextIdx,
-                                                    );
+                                                    setCurrentSeqIndex(nextIdx);
                                                     setAssessmentType("kuis");
                                                     setActiveQuizItemId(
                                                         nextItem.id,
                                                     );
                                                     setActiveCtSubIds(
-                                                        nextItem.ctSubIds ??
-                                                            [],
+                                                        nextItem.ctSubIds ?? [],
                                                     );
                                                     setCurrentView(
                                                         "pretest-intro",
@@ -2922,8 +3270,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                     setWasTimeUp(false);
                                                     setRemainingSeconds(900);
                                                 } else if (
-                                                    nextIdx <
-                                                        sequence.length &&
+                                                    nextIdx < sequence.length &&
                                                     nextItem?.type ===
                                                         "posttest"
                                                 ) {
@@ -2932,9 +3279,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                             modulDetail,
                                                             "posttest",
                                                         ) ?? 900;
-                                                    setCurrentSeqIndex(
-                                                        nextIdx,
-                                                    );
+                                                    setCurrentSeqIndex(nextIdx);
                                                     setAssessmentType(
                                                         "posttest",
                                                     );
@@ -2954,19 +3299,17 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                         duration,
                                                     );
                                                     setTestResult(null);
-                                                    setIsPosttestStarted(
-                                                        false,
-                                                    );
+                                                    setIsPosttestStarted(false);
                                                     setIsPosttestFinished(
                                                         false,
                                                     );
                                                 } else {
                                                     setCurrentView("materi");
                                                     setIsMaterialMode(true);
-                                                    setIsFinalSummaryView(
-                                                        nextItem?.type === "summary" || nextItem?.type === "rangkuman-akhir",
+                                                    setIsFinalSummaryView(false);
+                                                    setIsDescriptionExpanded(
+                                                        true,
                                                     );
-                                                    setIsDescriptionExpanded(true);
                                                     setActiveQuizItemId(null);
                                                     if (
                                                         nextIdx <
@@ -3016,7 +3359,9 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             currentSeqItem?.hasVideo &&
                                             currentSeqItem.videoUrl && (
                                                 <VideoEmbed
-                                                    url={currentSeqItem.videoUrl}
+                                                    url={
+                                                        currentSeqItem.videoUrl
+                                                    }
                                                 />
                                             )}
 
@@ -3049,29 +3394,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                         />
                                                     </button>
                                                 )}
-                                            </div>
-                                        )}
-
-                                        {isFinalSummaryView && (
-                                            <div className="mt-5 flex items-center justify-between gap-4">
-                                                <h2 className="text-2xl sm:text-3xl font-bold text-[#202126]">
-                                                    Rangkuman Akhir
-                                                </h2>
-                                            </div>
-                                        )}
+                                        </div>
 
                                         <div className="mt-4">
-                                            {currentSeqItem?.type ===
-                                                "summary" &&
-                                                summaryHighlightText && (
-                                                    <div className="mb-5 rounded-xl bg-[#f3dfc9] px-4 py-4 text-sm font-semibold leading-relaxed text-[#202126]">
-                                                        {summaryHighlightText}
-                                                    </div>
-                                                )}
-
                                             {currentSeqItem?.konten &&
-                                              (!currentSeqItem?.hasVideo ||
-                                                  isDescriptionExpanded) ? (
+                                            (!currentSeqItem?.hasVideo ||
+                                                isDescriptionExpanded) ? (
                                                 <div
                                                     className="mt-1 space-y-4 text-base leading-relaxed text-[#313644]"
                                                     dangerouslySetInnerHTML={{
@@ -3110,16 +3438,24 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 <p className="mt-4 text-2xl font-semibold text-[#8c92a0]">
                                                     Penilaian berhasil dikirim!
                                                 </p>
-                                                {modulDetail?.hasCertificate && certificate && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => router.push(`/modul/${modulId}/sertifikat`)}
-                                                        className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
-                                                    >
-                                                        Lihat Sertifikat Kelulusan
-                                                        <MdArrowForward size={16} />
-                                                    </button>
-                                                )}
+                                                {modulDetail?.hasCertificate &&
+                                                    certificate && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                router.push(
+                                                                    `/modul/${modulId}/sertifikat`,
+                                                                )
+                                                            }
+                                                            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#7054dc] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+                                                        >
+                                                            Lihat Sertifikat
+                                                            Kelulusan
+                                                            <MdArrowForward
+                                                                size={16}
+                                                            />
+                                                        </button>
+                                                    )}
                                             </div>
                                         ) : (
                                             <>
@@ -3212,10 +3548,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                 <button
                                     type="button"
                                     onClick={handleFooterPrevious}
-                                    disabled={
-                                        isNavigating ||
-                                        isFirstItem
-                                    }
+                                    disabled={isNavigating || isFirstItem}
                                     className="inline-flex items-center gap-2 rounded-lg border border-[#e0dfe6] px-4 py-2 text-sm font-medium text-[#202126] hover:bg-[#f7f6ff] disabled:opacity-40"
                                 >
                                     {isNavigating ? (
