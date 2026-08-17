@@ -19,10 +19,11 @@ import {
 import { MdTimer } from "react-icons/md";
 import SiswaHeader from "../../component/siswa/SiswaHeader";
 import AccordionMateri from "../../component/siswa/AccordionMateri";
-import { siswaModulApi } from "../../lib/api";
+import { siswaModulApi, siswaStudyRoomApi } from "../../lib/api";
 import type { ModuleDetailResponse } from "../../lib/types/siswa";
 import { ApiError } from "../../lib/types/umum";
 import { AxiosError } from "axios";
+import { recalculateProgress } from "../../lib/utils/buildSequence";
 
 function getAvatarUrl(seed: string) {
     return `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(seed)}`;
@@ -75,26 +76,55 @@ export default function ModulDetailPage({
     const [isEnrolling, setIsEnrolling] = useState(false);
     const [error, setError] = useState("");
     const [enrollError, setEnrollError] = useState("");
+    const [recalculatedPct, setRecalculatedPct] = useState<number | null>(null);
 
     useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
+        let isMounted = true;
+
+        const fetchData = async (showLoading = true) => {
+            if (showLoading) setIsLoading(true);
             setError("");
             try {
                 const res = await siswaModulApi.getById(id);
-                setModuleData(res);
+                if (isMounted) {
+                    setModuleData(res);
+
+                    // If enrolled, recalculate progress via study-room
+                    if (res.progress) {
+                        try {
+                            const studyRoom = await siswaStudyRoomApi.getByModul(res.id);
+                            const pct = recalculateProgress(studyRoom);
+                            if (isMounted) setRecalculatedPct(pct);
+                        } catch {
+                            // Fallback: keep backend value
+                        }
+                    }
+                }
             } catch (err: unknown) {
                 console.error("Modul detail fetch error:", err);
-                setError(
-                    err instanceof AxiosError
-                        ? err.message
-                        : "Gagal memuat detail modul",
-                );
+                if (isMounted && showLoading) {
+                    setError(
+                        err instanceof AxiosError
+                            ? err.message
+                            : "Gagal memuat detail modul",
+                    );
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted && showLoading) setIsLoading(false);
             }
         };
-        fetchData();
+
+        fetchData(true);
+
+        const handleFocus = () => {
+            fetchData(false);
+        };
+
+        window.addEventListener("focus", handleFocus);
+        return () => {
+            isMounted = false;
+            window.removeEventListener("focus", handleFocus);
+        };
     }, [id]);
 
     const totalTopiks = moduleData?.topiks.length ?? 0;
@@ -394,31 +424,37 @@ export default function ModulDetailPage({
                                     </a>
                                 )}
 
-                                {isEnrolled && moduleData.progress && (
-                                    <div className="mt-2 rounded-lg bg-[#f5f2ff] p-3">
-                                        <p className="text-xs font-semibold text-[#7054dc]">
-                                            Progress Kamu
-                                        </p>
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e5e2ec]">
-                                                <div
-                                                    className="h-full rounded-full bg-[#7054dc]"
-                                                    style={{
-                                                        width: `${moduleData.progress.progressPercentage ?? 0}%`,
-                                                    }}
-                                                />
+                                {isEnrolled && moduleData.progress && (() => {
+                                    const rawPct = recalculatedPct ?? moduleData.progress.progressPercentage ?? 0;
+                                    const hasNoActivity =
+                                        recalculatedPct == null &&
+                                        (!moduleData.progress.completedContentItems || moduleData.progress.completedContentItems.length === 0) &&
+                                        !moduleData.progress.isGraduated &&
+                                        moduleData.progress.status !== "COMPLETED" &&
+                                        moduleData.progress.pretestScore == null &&
+                                        moduleData.progress.posttestScore == null;
+                                    const displayPct = hasNoActivity ? 0 : Math.round(rawPct);
+                                    return (
+                                        <div className="mt-2 rounded-lg bg-[#f5f2ff] p-3">
+                                            <p className="text-xs font-semibold text-[#7054dc]">
+                                                Progress Kamu
+                                            </p>
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e5e2ec]">
+                                                    <div
+                                                        className="h-full rounded-full bg-[#7054dc]"
+                                                        style={{
+                                                            width: `${displayPct}%`,
+                                                        }}
+                                                    />
+                                                </div>
+                                                <span className="text-xs font-medium text-[#7054dc]">
+                                                    {displayPct}%
+                                                </span>
                                             </div>
-                                            <span className="text-xs font-medium text-[#7054dc]">
-                                                {Math.round(
-                                                    moduleData.progress
-                                                        .progressPercentage ??
-                                                        0,
-                                                )}
-                                                %
-                                            </span>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
                             </aside>
                         </div>
                     </div>

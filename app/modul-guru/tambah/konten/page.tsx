@@ -505,11 +505,16 @@ function TambahModulKontenPageContent() {
           const mappedQuizzes: typeof quizzes = [];
           const baseTs = Date.now();
 
-          // Build ordered groups by quizGroupId (preserve first-occurrence order)
+          // Build ordered groups by quizGroupId or ctGroupId (preserve first-occurrence order)
           const groupIndexMap1 = new Map<string, number>();
           const orderedGroups1: { gid: string; quizzes: any[] }[] = [];
           for (const rawQ of rawQuizzes) {
-            const gid = rawQ.quizGroupId ?? `__solo__${rawQ.id}`;
+            const gid =
+              rawQ.quizGroupId ??
+              rawQ.ctGroupId ??
+              (rawQ.quizType === "COMPUTATIONAL_THINKING"
+                ? `__ct_${rawQ.ctStory || rawQ.judul || "story"}`
+                : `__solo__${rawQ.id}`);
             if (!groupIndexMap1.has(gid)) {
               groupIndexMap1.set(gid, orderedGroups1.length);
               orderedGroups1.push({ gid, quizzes: [] });
@@ -1087,11 +1092,16 @@ function TambahModulKontenPageContent() {
     const mappedQuiz: typeof quizzes = [];
     const bTs = Date.now();
 
-    // Build ordered groups by quizGroupId (preserve first-occurrence order)
+    // Build ordered groups by quizGroupId or ctGroupId (preserve first-occurrence order)
     const groupIndexMap2 = new Map<string, number>();
     const orderedGroups2: { gid: string; quizzes: any[] }[] = [];
     for (const rawQ of rawTopikQuizzes) {
-      const gid = rawQ.quizGroupId ?? `__solo__${rawQ.id}`;
+      const gid =
+        rawQ.quizGroupId ??
+        rawQ.ctGroupId ??
+        (rawQ.quizType === "COMPUTATIONAL_THINKING"
+          ? `__ct_${rawQ.ctStory || rawQ.judul || "story"}`
+          : `__solo__${rawQ.id}`);
       if (!groupIndexMap2.has(gid)) {
         groupIndexMap2.set(gid, orderedGroups2.length);
         orderedGroups2.push({ gid, quizzes: [] });

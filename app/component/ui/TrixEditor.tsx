@@ -316,7 +316,7 @@ export default function TrixEditor({
             href: response.url,
             filename: file.name
           }).replace(/'/g, "&#39;");
-          const imgHtml = `<figure data-trix-attachment='${attachmentData}' data-trix-content-type="${file.type || 'image/jpeg'}" class="attachment attachment--preview"><img src="${response.url}"><figcaption class="attachment__caption"><span class="attachment__name">${file.name}</span></figcaption></figure>`;
+          const imgHtml = `<figure data-trix-attachment='${attachmentData}' data-trix-content-type="${file.type || 'image/jpeg'}" class="attachment attachment--preview"><img src="${response.url}"></figure>`;
           editorEl.editor.insertHTML(imgHtml);
         }
 

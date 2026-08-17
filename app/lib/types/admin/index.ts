@@ -381,6 +381,7 @@ export interface AdminModuleProgressItem {
 export interface AdminQuizRecord {
     topik: string;
     quizType: "REGULER" | "COMPUTATIONAL_THINKING";
+    activityType?: string;
     score: number;
     minScoreTreshold: number | null;
     status: "tuntas" | "di-bawah";

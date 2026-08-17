@@ -189,6 +189,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                     topikName: topik.nama,
                     ctSubIds: group.map((q) => q.id),
                 });
+                for (const q of group) handledCtIds.add(q.id);
             }
             ctJudulMap.clear();
         };
@@ -253,6 +254,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                             topikName: topik.nama,
                             ctSubIds: group.map((q) => q.id),
                         });
+                        for (const q of group) handledCtIds.add(q.id);
                     }
                 } else if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId) {
                     // Priority 2: CT group by ctGroupId (backward compat)
@@ -267,6 +269,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                             topikName: topik.nama,
                             ctSubIds: group.map((q) => q.id),
                         });
+                        for (const q of group) handledCtIds.add(q.id);
                     }
                 } else if (item.quizType === "COMPUTATIONAL_THINKING") {
                     // Fallback: group by judul across whole topik (no ctGroupId)
@@ -294,7 +297,7 @@ function buildSequence(modul: StudyRoomResponse): SequenceItem[] {
                     type: "summary",
                     topikId: topik.id,
                     topikName: topik.nama,
-                    konten: item.article ?? undefined,
+                    konten: item.article ?? topik.rangkumanTopik ?? undefined,
                 });
             }
         }
@@ -365,6 +368,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                     topikName: topik.nama,
                     ctSubIds: group.map((q) => q.id),
                 });
+                for (const q of group) handledCtIds.add(q.id);
             }
             ctJudulMap.clear();
         };
@@ -429,6 +433,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                             topikName: topik.nama,
                             ctSubIds: group.map((q) => q.id),
                         });
+                        for (const q of group) handledCtIds.add(q.id);
                     }
                 } else if (item.quizType === "COMPUTATIONAL_THINKING" && item.ctGroupId) {
                     // Priority 2: CT group by ctGroupId (backward compat)
@@ -443,6 +448,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                             topikName: topik.nama,
                             ctSubIds: group.map((q) => q.id),
                         });
+                        for (const q of group) handledCtIds.add(q.id);
                     }
                 } else if (item.quizType === "COMPUTATIONAL_THINKING") {
                     const key = item.judul || "Kuis CT";
@@ -469,7 +475,7 @@ function buildContentTree(modul: StudyRoomResponse): ContentSection[] {
                     type: "summary",
                     topikId: topik.id,
                     topikName: topik.nama,
-                    konten: item.article ?? undefined,
+                    konten: item.article ?? topik.rangkumanTopik ?? undefined,
                 });
             }
         }
@@ -916,14 +922,27 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     if (prog.posttestScore != null)
                         completedMap["posttest"] = true;
 
+                    // Mark parent sequence item IDs as completed ONLY if ALL subIds are completed
+                    seq.forEach((item) => {
+                        if (item.ctSubIds && item.ctSubIds.length > 0) {
+                            if (item.ctSubIds.every((subId) => completedMap[subId])) {
+                                completedMap[item.id] = true;
+                            }
+                        }
+                    });
+
+                    if (prog.status === "COMPLETED" || prog.isGraduated) {
+                        seq.forEach((item) => {
+                            completedMap[item.id] = true;
+                        });
+                    }
+
                     setCompletedContentItemMap(completedMap);
 
-                    // If pretest is finished OR if there is NO pretest, show materi
+                    // If pretest is finished OR if there is NO pretest, determine starting view
                     const hasPretest = !!res.curriculum.pretest;
                     if (!hasPretest || prog.pretestScore != null) {
                         if (hasPretest) setIsPretestFinished(true);
-                        setIsMaterialMode(true);
-                        setCurrentView("materi");
 
                         const firstUncompletedIdx = seq.findIndex(
                             (item) => !completedMap[item.id],
@@ -931,6 +950,25 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         const startIdx =
                             firstUncompletedIdx >= 0 ? firstUncompletedIdx : 0;
                         setCurrentSeqIndex(startIdx);
+
+                        const startItem = seq[startIdx];
+                        if (startItem?.type === "quiz" || startItem?.type === "quiz-ct") {
+                            setAssessmentType("kuis");
+                            setActiveQuizItemId(startItem.id);
+                            setActiveCtSubIds(startItem.ctSubIds ?? []);
+                            setCurrentView("pretest-intro");
+                            setIsMaterialMode(false);
+                        } else if (startItem?.type === "posttest") {
+                            setAssessmentType("posttest");
+                            setCurrentView("pretest-intro");
+                            setIsMaterialMode(false);
+                        } else if (startItem?.type === "rating") {
+                            setCurrentView("rating");
+                            setIsMaterialMode(false);
+                        } else {
+                            setIsMaterialMode(true);
+                            setCurrentView("materi");
+                        }
                     }
                 }
 
@@ -1130,11 +1168,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const isPosttestActive = isAssessmentView && assessmentType === "posttest";
     const isRatingView = currentView === "rating";
 
-    const summaryHighlightText =
-        currentSeqItem?.type === "summary"
-            ? "Rangkuman ini merangkum poin-poin penting dari topik yang telah dipelajari."
-            : undefined;
-
     // ─── Sequential unlock ─────────────────────────────────────────────────
     const isItemUnlockedByIndex = useCallback(
         (index: number): boolean => {
@@ -1143,6 +1176,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             const item = sequence[index];
             // Direct unlock: item was already completed
             if (completedContentItemMap[item.id]) return true;
+            if (item.ctSubIds && item.ctSubIds.length > 0 && item.ctSubIds.every((subId) => completedContentItemMap[subId])) return true;
             // Posttest: unlock when all real items (materi + quiz) are completed
             if (item.type === "posttest") {
                 return sequence
@@ -1150,8 +1184,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     .every((s) => completedContentItemMap[s.id]);
             }
             // Sequential unlock: previous item completed
-            const prevId = sequence[index - 1].id;
-            return completedContentItemMap[prevId] === true;
+            const prevItem = sequence[index - 1];
+            if (!prevItem) return true;
+            if (completedContentItemMap[prevItem.id] === true) return true;
+            if (prevItem.ctSubIds && prevItem.ctSubIds.length > 0 && prevItem.ctSubIds.every((subId) => completedContentItemMap[subId])) return true;
+            return false;
         },
         [sequence, completedContentItemMap],
     );
@@ -1183,6 +1220,40 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     // Nilai % dari server (formula kanonik backend — sinkron dengan tutor/admin)
     const progressPercent = Math.round(progress?.progressPercentage ?? 0);
 
+    const countableSequence = useMemo(() => {
+        return sequence.filter(
+            (item) =>
+                item.type !== "rating" &&
+                item.type !== "summary" &&
+                item.type !== "rangkuman-akhir" &&
+                !item.id.startsWith("summary-") &&
+                item.id !== "rangkuman-akhir" &&
+                item.id !== "rating",
+        );
+    }, [sequence]);
+
+    const totalSteps = countableSequence.length;
+
+    const completedSteps = useMemo(() => {
+        if (isModuleCompletedOrGraduated) return totalSteps;
+        return countableSequence.filter((item) => isItemDone(item)).length;
+    }, [isModuleCompletedOrGraduated, totalSteps, countableSequence, isItemDone]);
+
+    const calculatedProgress = useMemo(() => {
+        return calculateProgress(
+            sequence,
+            completedContentItemMap,
+            progress?.status,
+            progress?.isGraduated,
+        );
+    }, [sequence, completedContentItemMap, progress?.status, progress?.isGraduated]);
+
+    const progressPercent = useMemo(() => {
+        if (isModuleCompletedOrGraduated) return 100;
+        if (completedSteps === 0) return 0;
+        return calculatedProgress;
+    }, [isModuleCompletedOrGraduated, completedSteps, calculatedProgress]);
+
     const markContentItemAsCompleted = useCallback(
         async (itemId: string, itemType?: string) => {
             // Skip API call for synthetic items (not DB-backed)
@@ -1195,12 +1266,18 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             }
 
             // Optimistic update: mark completed immediately in local state
+            const targetSeqItem = sequence.find((s) => s.id === itemId);
             setCompletedContentItemMap((prev) => {
-                if (prev[itemId]) return prev;
-                return { ...prev, [itemId]: true };
+                const next = { ...prev, [itemId]: true };
+                if (targetSeqItem?.ctSubIds) {
+                    targetSeqItem.ctSubIds.forEach((subId) => {
+                        next[subId] = true;
+                    });
+                }
+                return next;
             });
 
-            const type =
+            let type =
                 itemType?.toUpperCase() ??
                 (itemId === "pretest"
                     ? "PRETEST"
@@ -1209,6 +1286,10 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                       : itemId === "rating"
                         ? "RATING"
                         : "MATERI");
+
+            if (type === "SUMMARY" || type === "RANGKUMAN-AKHIR" || type === "RANGKUMAN") {
+                type = "MATERI";
+            }
 
             try {
                 await siswaProgressApi.completeItem(itemId, type, modulId);
@@ -1221,7 +1302,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 );
             }
         },
-        [modulId],
+        [modulId, sequence],
     );
 
     const handleSubmitTest = async () => {
@@ -1344,15 +1425,31 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     setProgress(updated.progress);
                     // Rebuild completedContentItemMap so auto-unlocked materis
                     // (e.g. after pretest BKT) immediately appear unlocked in sidebar
-                    const newMap: Record<string, boolean> = {};
-                    (updated.progress.completedContentItems ?? []).forEach(
-                        (id) => { newMap[id] = true; },
-                    );
-                    if (updated.progress.pretestScore != null)
-                        newMap["pretest"] = true;
-                    if (updated.progress.posttestScore != null)
-                        newMap["posttest"] = true;
-                    setCompletedContentItemMap(newMap);
+                    setCompletedContentItemMap((prev) => {
+                        const newMap: Record<string, boolean> = { ...prev };
+                        (updated.progress?.completedContentItems ?? []).forEach(
+                            (id) => { newMap[id] = true; },
+                        );
+                        if (updated.progress?.pretestScore != null)
+                            newMap["pretest"] = true;
+                        if (updated.progress?.posttestScore != null)
+                            newMap["posttest"] = true;
+                        if (activeQuizItemId) {
+                            newMap[activeQuizItemId] = true;
+                        }
+                        if (activeCtSubIds && activeCtSubIds.length > 0) {
+                            activeCtSubIds.forEach((subId) => { newMap[subId] = true; });
+                        }
+                        sequence.forEach((item) => {
+                            if (item.ctSubIds && item.ctSubIds.length > 0) {
+                                if (newMap[item.id] || item.ctSubIds.some((subId) => newMap[subId])) {
+                                    newMap[item.id] = true;
+                                    item.ctSubIds.forEach((subId) => { newMap[subId] = true; });
+                                }
+                            }
+                        });
+                        return newMap;
+                    });
                 }
                 if (updated.certificate) setCertificate(updated.certificate);
             } catch {
@@ -1430,89 +1527,128 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     };
 
     const handleFooterNext = async () => {
-        if (currentView === "pretest-result") {
-            if (isLastItem) {
-                router.push(`/modul/${modulId}`);
-            } else {
+        if (isNavigating) return;
+        setIsNavigating(true);
+        try {
+            if (currentView === "pretest-result") {
                 const nextIdx = currentSeqIndex + 1;
-                const nextItem = sequence[nextIdx];
-                setCurrentSeqIndex(nextIdx);
-                if (nextItem?.type === "quiz" || nextItem?.type === "quiz-ct") {
-                    setAssessmentType("kuis");
-                    setActiveQuizItemId(nextItem.id);
-                    setActiveCtSubIds(nextItem.ctSubIds ?? []);
-                    setCurrentView("pretest-intro");
-                    setIsMaterialMode(false);
-                    setIsFinalSummaryView(false);
-                    setActiveQuestionIndex(0);
-                    setSelectedAnswers({});
-                    setWasTimeUp(false);
-                    setRemainingSeconds(900);
-                } else if (nextItem?.type === "posttest") {
-                    const duration = getDurationForAssessment(modulDetail, "posttest") ?? 900;
-                    setAssessmentType("posttest");
-                    setCurrentView("pretest-intro");
-                    setIsMaterialMode(false);
-                    setIsFinalSummaryView(false);
-                    setActiveQuestionIndex(0);
-                    setSelectedAnswers({});
-                    setRemainingSeconds(duration);
-                    setTestDurationSeconds(duration);
-                    setTestResult(null);
-                    setIsPosttestStarted(false);
-                    setIsPosttestFinished(false);
+                if (nextIdx < sequence.length) {
+                    const nextItem = sequence[nextIdx];
+                    setCurrentSeqIndex(nextIdx);
+                    if (nextItem?.type === "quiz" || nextItem?.type === "quiz-ct") {
+                        setAssessmentType("kuis");
+                        setActiveQuizItemId(nextItem.id);
+                        setActiveCtSubIds(nextItem.ctSubIds ?? []);
+                        setCurrentView("pretest-intro");
+                        setIsMaterialMode(false);
+                        setIsFinalSummaryView(false);
+                        setActiveQuestionIndex(0);
+                        setSelectedAnswers({});
+                        setWasTimeUp(false);
+                        setRemainingSeconds(900);
+                    } else if (nextItem?.type === "posttest") {
+                        const duration = getDurationForAssessment(modulDetail, "posttest") ?? 900;
+                        setAssessmentType("posttest");
+                        setCurrentView("pretest-intro");
+                        setIsMaterialMode(false);
+                        setIsFinalSummaryView(false);
+                        setActiveQuestionIndex(0);
+                        setSelectedAnswers({});
+                        setRemainingSeconds(duration);
+                        setTestDurationSeconds(duration);
+                        setTestResult(null);
+                        setIsPosttestStarted(false);
+                        setIsPosttestFinished(false);
+                    } else if (nextItem?.type === "rating") {
+                        setCurrentView("rating");
+                        setIsMaterialMode(false);
+                        setIsFinalSummaryView(false);
+                    } else {
+                        setCurrentView("materi");
+                        setIsMaterialMode(true);
+                        setIsFinalSummaryView(nextItem?.type === "summary" || nextItem?.type === "rangkuman-akhir");
+                        setIsDescriptionExpanded(true);
+                        setActiveQuizItemId(null);
+                    }
                 } else {
-                    setCurrentView("materi");
-                    setIsMaterialMode(true);
+                    router.push(`/modul/${modulId}`);
                 }
+                return;
             }
-            return;
-        }
-        if (currentView === "materi") {
-            if (currentSeqIndex >= 0 && currentSeqIndex < sequence.length) {
-                const item = sequence[currentSeqIndex];
-                await markContentItemAsCompleted(item.id, item.type);
-            }
-            if (isLastItem) {
-                // All items completed — navigate back to module detail page
-                router.push(`/modul/${modulId}`);
-            } else {
+
+            if (currentView === "materi") {
+                if (currentSeqIndex >= 0 && currentSeqIndex < sequence.length) {
+                    const item = sequence[currentSeqIndex];
+                    await markContentItemAsCompleted(item.id, item.type);
+                }
+
                 const nextIdx = currentSeqIndex + 1;
-                const nextItem = sequence[nextIdx];
-                setCurrentSeqIndex(nextIdx);
-                if (nextItem?.type === "quiz" || nextItem?.type === "quiz-ct") {
-                    setAssessmentType("kuis");
-                    setActiveQuizItemId(nextItem.id);
-                    setActiveCtSubIds(nextItem.ctSubIds ?? []);
-                    setCurrentView("pretest-intro");
-                    setIsMaterialMode(false);
-                    setIsFinalSummaryView(false);
-                    setActiveQuestionIndex(0);
-                    setSelectedAnswers({});
-                    setWasTimeUp(false);
-                    setRemainingSeconds(900);
-                } else if (nextItem?.type === "posttest") {
-                    const duration =
-                        getDurationForAssessment(modulDetail, "posttest") ??
-                        900;
-                    setAssessmentType("posttest");
-                    setCurrentView("pretest-intro");
-                    setIsMaterialMode(false);
-                    setIsFinalSummaryView(false);
-                    setActiveQuestionIndex(0);
-                    setSelectedAnswers({});
-                    setRemainingSeconds(duration);
-                    setTestDurationSeconds(duration);
-                    setTestResult(null);
-                    setIsPosttestStarted(false);
-                    setIsPosttestFinished(false);
+                if (nextIdx < sequence.length) {
+                    const nextItem = sequence[nextIdx];
+                    setCurrentSeqIndex(nextIdx);
+                    if (nextItem?.type === "quiz" || nextItem?.type === "quiz-ct") {
+                        setAssessmentType("kuis");
+                        setActiveQuizItemId(nextItem.id);
+                        setActiveCtSubIds(nextItem.ctSubIds ?? []);
+                        setCurrentView("pretest-intro");
+                        setIsMaterialMode(false);
+                        setIsFinalSummaryView(false);
+                        setActiveQuestionIndex(0);
+                        setSelectedAnswers({});
+                        setWasTimeUp(false);
+                        setRemainingSeconds(900);
+                    } else if (nextItem?.type === "posttest") {
+                        const duration =
+                            getDurationForAssessment(modulDetail, "posttest") ??
+                            900;
+                        setAssessmentType("posttest");
+                        setCurrentView("pretest-intro");
+                        setIsMaterialMode(false);
+                        setIsFinalSummaryView(false);
+                        setActiveQuestionIndex(0);
+                        setSelectedAnswers({});
+                        setRemainingSeconds(duration);
+                        setTestDurationSeconds(duration);
+                        setTestResult(null);
+                        setIsPosttestStarted(false);
+                        setIsPosttestFinished(false);
+                    } else if (nextItem?.type === "rating") {
+                        setCurrentView("rating");
+                        setIsMaterialMode(false);
+                        setIsFinalSummaryView(false);
+                    } else {
+                        setCurrentView("materi");
+                        setIsMaterialMode(true);
+                        setIsFinalSummaryView(
+                            nextItem?.type === "summary" || nextItem?.type === "rangkuman-akhir"
+                        );
+                        setIsDescriptionExpanded(true);
+                        setActiveQuizItemId(null);
+                    }
+                } else {
+                    // Refetch study room to sync progress state before returning
+                    try {
+                        const updated = await siswaStudyRoomApi.getByModul(modulId);
+                        if (updated.progress) setProgress(updated.progress);
+                    } catch {}
+                    router.push(`/modul/${modulId}`);
                 }
+                return;
             }
-            return;
+
+            if (currentView === "rating") {
+                router.push(`/modul/${modulId}`);
+                return;
+            }
+
+            setActiveQuestionIndex((prev) =>
+                Math.min(currentSoal.length - 1, prev + 1),
+            );
+        } catch (err) {
+            console.error("handleFooterNext error:", err);
+        } finally {
+            setIsNavigating(false);
         }
-        setActiveQuestionIndex((prev) =>
-            Math.min(currentSoal.length - 1, prev + 1),
-        );
     };
 
     const handleRatingSubmit = async () => {
@@ -1524,7 +1660,6 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 komentar: reviewText || undefined,
             });
             setIsRatingSubmitted(true);
-            // Optimistic: mark rating as completed immediately
             setCompletedContentItemMap((prev) => ({ ...prev, rating: true }));
             if (progress?.siswaId) {
                 localStorage.setItem(
@@ -1532,6 +1667,19 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     "true",
                 );
             }
+
+            // Auto claim certificate & automatically navigate to download certificate page
+            try {
+                const cert = await siswaCertificateApi.claim(modulId);
+                setCertificate(cert);
+            } catch (certErr) {
+                if (certErr instanceof ApiError && certErr.status === 409) {
+                    const certData = certErr.data as { certificate?: StudyRoomCertificate };
+                    if (certData?.certificate) setCertificate(certData.certificate);
+                }
+            }
+            router.push(`/modul/${modulId}/sertifikat`);
+            return;
         } catch (err) {
             // Hanya anggap "sudah dikirim" jika backend menolak karena rating
             // memang sudah ada (403). Error lain (network/500) berarti rating
@@ -2815,6 +2963,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                 } else {
                                                     setCurrentView("materi");
                                                     setIsMaterialMode(true);
+                                                    setIsFinalSummaryView(
+                                                        nextItem?.type === "summary" || nextItem?.type === "rangkuman-akhir",
+                                                    );
+                                                    setIsDescriptionExpanded(true);
+                                                    setActiveQuizItemId(null);
                                                     if (
                                                         nextIdx <
                                                         sequence.length
@@ -2896,7 +3049,16 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                         />
                                                     </button>
                                                 )}
-                                        </div>
+                                            </div>
+                                        )}
+
+                                        {isFinalSummaryView && (
+                                            <div className="mt-5 flex items-center justify-between gap-4">
+                                                <h2 className="text-2xl sm:text-3xl font-bold text-[#202126]">
+                                                    Rangkuman Akhir
+                                                </h2>
+                                            </div>
+                                        )}
 
                                         <div className="mt-4">
                                             {currentSeqItem?.type ===

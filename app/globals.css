@@ -89,3 +89,10 @@ body {
   font-size: 12px;
   overflow-x: auto;
 }
+
+/* Hide image attachment filename captions */
+.attachment__caption,
+.attachment__name,
+figcaption.attachment__caption {
+  display: none !important;
+}
