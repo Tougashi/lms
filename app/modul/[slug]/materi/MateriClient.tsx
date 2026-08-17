@@ -1565,13 +1565,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 currentSoal.reduce((acc, soal, idx) => {
                     const selectedIdx = selectedAnswers[idx] ?? -1;
                     if (selectedIdx === -1) return acc;
-                    const answerText =
-                        [
-                            soal.pilihan_a,
-                            soal.pilihan_b,
-                            soal.pilihan_c,
-                            soal.pilihan_d,
-                        ][selectedIdx] || "";
+                    if (!soal.kunci_jawaban) return acc;
+                    const opts = soal.options?.length
+                        ? soal.options
+                        : [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d];
+                    const answerText = opts[selectedIdx] ?? "";
                     return answerText === soal.kunci_jawaban ? acc + 1 : acc;
                 }, 0);
             const totalSalah =
@@ -1591,13 +1589,11 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             const correct = currentSoal.reduce((acc, soal, idx) => {
                 const selectedIdx = selectedAnswers[idx] ?? -1;
                 if (selectedIdx === -1) return acc;
-                const answerText =
-                    [
-                        soal.pilihan_a,
-                        soal.pilihan_b,
-                        soal.pilihan_c,
-                        soal.pilihan_d,
-                    ][selectedIdx] || "";
+                if (!soal.kunci_jawaban) return acc;
+                const opts = soal.options?.length
+                    ? soal.options
+                    : [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d];
+                const answerText = opts[selectedIdx] ?? "";
                 return answerText === soal.kunci_jawaban ? acc + 1 : acc;
             }, 0);
             const totalSalah = currentSoal.length - correct;
