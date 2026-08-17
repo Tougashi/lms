@@ -2134,7 +2134,7 @@ function PrePostTestPageContent() {
                             {/* Settings Modal */}
                             {isSettingsOpen && (
                                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                                    <div className="w-full max-w-[500px] rounded-2xl bg-white px-6 py-5 shadow-[0_12px_40px_rgba(0,0,0,0.12)]">
+                                    <div className="max-h-[90dvh] w-full max-w-[500px] overflow-y-auto rounded-2xl bg-white px-6 py-5 shadow-[0_12px_40px_rgba(0,0,0,0.12)]">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-[16px] font-semibold text-[#7054dc]">
                                                 Pengaturan Modul
@@ -2742,7 +2742,7 @@ function PrePostTestPageContent() {
                         {/* Settings Modal */}
                         {isSettingsOpen && (
                             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                                <div className="w-full max-w-[500px] rounded-2xl bg-white px-6 py-5 shadow-[0_12px_40px_rgba(0,0,0,0.12)]">
+                                <div className="max-h-[90dvh] w-full max-w-[500px] overflow-y-auto rounded-2xl bg-white px-6 py-5 shadow-[0_12px_40px_rgba(0,0,0,0.12)]">
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-[16px] font-semibold text-[#7054dc]">
                                             Pengaturan Modul

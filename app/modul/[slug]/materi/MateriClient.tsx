@@ -591,6 +591,7 @@ function mapAssessmentToSoal(
             pilihan_b: optB,
             pilihan_c: optC,
             pilihan_d: optD,
+            options: (q.options ?? []).map((o) => o.label),
             gambar_url: null,
             isComputationalThinking: q.isComputationalThinking,
             knowledgeComponentId: q.knowledgeComponentId ?? undefined,
@@ -1200,6 +1201,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         pilihan_b: it.quizAnswerOptions?.[1]?.option || "B",
                         pilihan_c: it.quizAnswerOptions?.[2]?.option || "C",
                         pilihan_d: it.quizAnswerOptions?.[3]?.option || "D",
+                        options: (it.quizAnswerOptions ?? []).map((o) => o.option),
                         kunci_jawaban: it.correctAnswer,
                         gambar_url: it.quizImgQuestionUrl || null,
                         ceritaCT: it.ctStory ?? null,
@@ -1227,6 +1229,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                         pilihan_b: item.quizAnswerOptions?.[1]?.option || "B",
                         pilihan_c: item.quizAnswerOptions?.[2]?.option || "C",
                         pilihan_d: item.quizAnswerOptions?.[3]?.option || "D",
+                        options: (item.quizAnswerOptions ?? []).map((o) => o.option),
                         kunci_jawaban: item.correctAnswer,
                         gambar_url: item.quizImgQuestionUrl || null,
                         ceritaCT: item.ctStory ?? null,
@@ -1410,13 +1413,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
         const answers = currentSoal.map((soal, idx) => {
             const selectedIdx = selectedAnswers[idx] ?? 0;
-            const answerText =
-                [
-                    soal.pilihan_a,
-                    soal.pilihan_b,
-                    soal.pilihan_c,
-                    soal.pilihan_d,
-                ][selectedIdx] || "";
+            const opts = soal.options ?? [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d];
+            const answerText = opts[selectedIdx] ?? "";
             return {
                 questionId: soal.id,
                 answer: answerText,
@@ -1478,13 +1476,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 const kuisResults = await Promise.all(
                     currentSoal.map(async (soal, idx) => {
                         const selectedIdx = selectedAnswers[idx] ?? 0;
-                        const answerText =
-                            [
-                                soal.pilihan_a,
-                                soal.pilihan_b,
-                                soal.pilihan_c,
-                                soal.pilihan_d,
-                            ][selectedIdx] || "";
+                        const opts = soal.options ?? [soal.pilihan_a, soal.pilihan_b, soal.pilihan_c, soal.pilihan_d];
+                        const answerText = opts[selectedIdx] ?? "";
                         try {
                             const res = await siswaKuisApi.submit({
                                 quizId: soal.id,
@@ -2777,12 +2770,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             />
 
                                             <div className="mt-6 space-y-3">
-                                                {[
+                                                {(activeQuestion.options ?? [
                                                     activeQuestion.pilihan_a,
                                                     activeQuestion.pilihan_b,
                                                     activeQuestion.pilihan_c,
                                                     activeQuestion.pilihan_d,
-                                                ].map((option, optIdx) => (
+                                                ]).map((option, optIdx) => (
                                                     <button
                                                         key={optIdx}
                                                         type="button"
@@ -2812,14 +2805,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                                                     : "border-[#d0cde0] text-[#8f95a3]"
                                                             }`}
                                                         >
-                                                            {
-                                                                [
-                                                                    "A",
-                                                                    "B",
-                                                                    "C",
-                                                                    "D",
-                                                                ][optIdx]
-                                                            }
+                                                            {String.fromCharCode(65 + optIdx)}
                                                         </span>
                                                         <span
                                                             className="prose prose-sm max-w-none [&_img]:max-h-40 [&_img]:rounded-lg [&_img]:object-contain [&_.katex]:text-inherit"

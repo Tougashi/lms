@@ -53,6 +53,7 @@ export interface SoalItem {
   pilihan_b: string;
   pilihan_c: string;
   pilihan_d: string;
+  options?: string[];
   kunci_jawaban?: string;
   gambar_url?: string | null;
   knowledgeComponentId?: string;
