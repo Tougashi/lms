@@ -4,14 +4,14 @@ export interface ProgressSequenceItem {
   ctSubIds?: string[];
 }
 
-/** Types excluded from progress counting: client-only / synthetic items (topik summaries, rangkumanAkhir, rating). */
-const CLIENT_ONLY_TYPES = new Set(["rating", "summary", "rangkuman-akhir"]);
+/** Types excluded from progress counting: client-only / synthetic items (rangkumanAkhir, rating). */
+const CLIENT_ONLY_TYPES = new Set(["rating", "rangkuman-akhir"]);
 
 /**
  * Compute progress percentage from local completion state.
  *
  * Mirrors backend getTotalSequenceSteps: excludes client-only items
- * (topik summaries, rangkumanAkhir, rating). Result is capped at 100.
+ * (rangkumanAkhir, rating). Result is capped at 100.
  */
 export function calculateProgress(
   sequence: ProgressSequenceItem[],
@@ -23,7 +23,6 @@ export function calculateProgress(
   const countable = sequence.filter(
     (item) =>
       !CLIENT_ONLY_TYPES.has(item.type) &&
-      !item.id.startsWith("summary-") &&
       item.id !== "rangkuman-akhir" &&
       item.id !== "rating"
   );
