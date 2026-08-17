@@ -1294,12 +1294,12 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             if (index === 0) return true;
             if (index >= sequence.length) return false;
             const item = sequence[index];
-            // Direct unlock: item was already completed
-            if (completedContentItemMap[item.id]) return true;
+            // Direct unlock: item was already completed or auto-unlocked
+            if (completedContentItemMap[item.id] || completedContentItemMap[`unlocked:${item.id}`]) return true;
             if (
                 item.ctSubIds &&
                 item.ctSubIds.length > 0 &&
-                item.ctSubIds.every((subId) => completedContentItemMap[subId])
+                item.ctSubIds.every((subId) => completedContentItemMap[subId] || completedContentItemMap[`unlocked:${subId}`])
             )
                 return true;
             // Posttest: unlock when all real items (materi + quiz) are completed
