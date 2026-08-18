@@ -765,6 +765,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const [isPosttestFinished, setIsPosttestFinished] = useState(false);
     const [testResult, setTestResult] = useState<TestSubmitResult | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSubmittingRef = useRef(false);
     const [isNavigating, setIsNavigating] = useState(false);
 
     const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
@@ -858,19 +859,22 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     }, [currentView]);
 
     useEffect(() => {
-        if (modulId && progress?.siswaId) {
+        if (progress?.hasRated) {
+            setIsRatingSubmitted(true);
+        } else if (modulId && progress?.siswaId) {
             try {
                 const stored = localStorage.getItem(
                     `rating_submitted_${modulId}_${progress.siswaId}`,
                 );
                 if (stored === "true") {
+                    // Fallback local storage, ideally the backend syncs it.
                     setIsRatingSubmitted(true);
                 }
             } catch {
                 /* ignore */
             }
         }
-    }, [modulId, progress?.siswaId]);
+    }, [modulId, progress?.siswaId, progress?.hasRated]);
 
     const [isModuleSidebarOpen, setIsModuleSidebarOpen] = useState(false);
 
@@ -1406,7 +1410,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     );
 
     const handleSubmitTest = async () => {
-        if (isSubmitting) return;
+        if (isSubmittingRef.current) return;
+        isSubmittingRef.current = true;
         setIsSubmitting(true);
         const elapsed = testDurationSeconds - remainingSeconds;
         setFinishedElapsedSeconds(elapsed);
@@ -1607,6 +1612,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
         } finally {
             setCurrentView("pretest-result");
             setIsSubmitting(false);
+            isSubmittingRef.current = false;
         }
     };
 

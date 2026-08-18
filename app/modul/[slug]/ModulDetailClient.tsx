@@ -19,7 +19,7 @@ import {
 import { MdTimer } from "react-icons/md";
 import SiswaHeader from "../../component/siswa/SiswaHeader";
 import AccordionMateri from "../../component/siswa/AccordionMateri";
-import { siswaModulApi, siswaStudyRoomApi } from "../../lib/api";
+import { siswaModulApi, siswaStudyRoomApi, guruModulApi } from "../../lib/api";
 import type { ModuleDetailResponse } from "../../lib/types/siswa";
 import { ApiError } from "../../lib/types/umum";
 import { AxiosError } from "axios";
@@ -85,7 +85,22 @@ export default function ModulDetailPage({
             if (showLoading) setIsLoading(true);
             setError("");
             try {
-                const res = await siswaModulApi.getById(id);
+                let res: ModuleDetailResponse;
+                try {
+                    res = await siswaModulApi.getById(id);
+                } catch (err: unknown) {
+                    if (
+                        err instanceof ApiError &&
+                        (err.status === 401 || err.status === 403)
+                    ) {
+                        res = (await guruModulApi.detail(
+                            id,
+                        )) as unknown as ModuleDetailResponse;
+                    } else {
+                        throw err;
+                    }
+                }
+
                 if (isMounted) {
                     setModuleData(res);
 

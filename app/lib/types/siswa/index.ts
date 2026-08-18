@@ -405,6 +405,7 @@ export interface StudyRoomProgress {
   finalScore: number | null;
   status: string;
   isGraduated: boolean;
+  hasRated?: boolean;
 }
 
 export interface StudyRoomCertificate {
