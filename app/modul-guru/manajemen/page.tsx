@@ -116,7 +116,7 @@ function ManajemenModulContent() {
 
             const materials = await guruMateriApi.getByModul(modulId);
             setMaterialCount(
-              materials.reduce((sum, topik) => sum + (topik.materis?.length ?? 0), 0),
+                materials.reduce((sum, topik) => sum + (topik.materis?.length ?? 0), 0),
             );
         } catch (err) {
             console.error("Load module detail error:", err);
@@ -172,7 +172,8 @@ function ManajemenModulContent() {
                     })(),
                     preTest: item.pretestScore ?? "-",
                     postTest: item.posttestScore ?? "-",
-                    rataKuis: item.averageQuizScore,
+                    rataKuis: item.averageQuizScore ?? "-",
+                    rataKuisCt: item.averageCtQuizScore ?? "-",
                     rekomendasi: rec,
                     reason,
                 };
@@ -406,12 +407,11 @@ function ManajemenModulContent() {
                                                                 false,
                                                             );
                                                         }}
-                                                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[12px] font-semibold transition-colors ${
-                                                            activeFilter ===
-                                                            type
+                                                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[12px] font-semibold transition-colors ${activeFilter ===
+                                                                type
                                                                 ? "bg-[#f0ecff] text-[#7054dc]"
                                                                 : "text-[#232530] hover:bg-[#f7f6ff]"
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {
                                                             rekomendasiConfig[
@@ -420,10 +420,10 @@ function ManajemenModulContent() {
                                                         }
                                                         {activeFilter ===
                                                             type && (
-                                                            <span className="text-[#7054dc]">
-                                                                ✓
-                                                            </span>
-                                                        )}
+                                                                <span className="text-[#7054dc]">
+                                                                    ✓
+                                                                </span>
+                                                            )}
                                                     </button>
                                                 ))}
                                             </div>
@@ -433,19 +433,22 @@ function ManajemenModulContent() {
                             </div>
 
                             {/* Table / List */}
-                            <div className="mt-4 overflow-x-auto rounded-2xl border border-[#e5e3ee] bg-white shadow-sm">
-                                <div className="min-w-[700px]">
-                                    <div className="grid grid-cols-[1.5fr_1.2fr_0.7fr_0.7fr_0.9fr_1fr] gap-4 bg-[#f0eff5] px-5 py-3 text-[12px] font-semibold text-[#232530]">
+                            <div className="mt-4 rounded-2xl border border-[#e5e3ee] bg-white shadow-sm w-full">
+                                <div className="w-full">
+                                    <div className="grid grid-cols-[1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr] gap-4 bg-[#f0eff5] px-5 py-3 text-[12px] font-semibold text-[#232530]">
                                         <span>Siswa</span>
                                         <span>Progres</span>
                                         <span className="text-center">
-                                            Pre-Test{isCTModule && ' (CT)'}
+                                            Pre-Test
                                         </span>
                                         <span className="text-center">
-                                            Post-Test{isCTModule && ' (CT)'}
+                                            Post-Test
                                         </span>
                                         <span className="text-center">
-                                            Rata-rata Kuis{isCTModule && ' (CT)'}
+                                            Rata Kuis Reg
+                                        </span>
+                                        <span className="text-center">
+                                            Rata Kuis CT
                                         </span>
                                         <span className="text-center">
                                             Rekomendasi
@@ -477,15 +480,15 @@ function ManajemenModulContent() {
                                         paginatedStudents.map((siswa) => {
                                             const cfg =
                                                 rekomendasiConfig[
-                                                    siswa.rekomendasi as
-                                                        | "penguatan"
-                                                        | "remedial"
-                                                        | "pengayaan"
+                                                siswa.rekomendasi as
+                                                | "penguatan"
+                                                | "remedial"
+                                                | "pengayaan"
                                                 ];
                                             return (
                                                 <div
                                                     key={siswa.id}
-                                                    className="grid grid-cols-[1.5fr_1.2fr_0.7fr_0.7fr_0.9fr_1fr] items-center gap-4 border-t border-[#f0eff5] px-5 py-3.5 text-[12px] text-[#232530] hover:bg-[#fcfcff] transition-colors"
+                                                    className="grid grid-cols-[1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr] items-center gap-4 border-t border-[#f0eff5] px-5 py-3.5 text-[12px] text-[#232530] hover:bg-[#fcfcff] transition-colors"
                                                 >
                                                     <div>
                                                         <Link
@@ -520,6 +523,9 @@ function ManajemenModulContent() {
                                                     </span>
                                                     <span className="text-center font-medium">
                                                         {siswa.rataKuis}
+                                                    </span>
+                                                    <span className="text-center font-medium">
+                                                        {siswa.rataKuisCt}
                                                     </span>
                                                     <div className="flex justify-center relative group">
                                                         <span
@@ -665,11 +671,10 @@ function ManajemenModulContent() {
                                         </td>
                                         <td className="px-5 py-4">
                                             <span
-                                                className={`inline-block rounded-full px-3 py-0.5 text-[11px] font-semibold ${
-                                                    modul.isDraft
+                                                className={`inline-block rounded-full px-3 py-0.5 text-[11px] font-semibold ${modul.isDraft
                                                         ? "bg-[#fef3e2] text-[#f39b39]"
                                                         : "bg-[#e6f7e6] text-[#2e9b4e]"
-                                                }`}
+                                                    }`}
                                             >
                                                 {modul.isDraft
                                                     ? "Draft"
