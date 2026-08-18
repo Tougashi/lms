@@ -120,7 +120,7 @@ export default function ModulDetailPage({
                 console.error("Modul detail fetch error:", err);
                 if (isMounted && showLoading) {
                     setError(
-                        err?.message || "Gagal memuat detail modul",
+                        err instanceof Error ? err.message : "Gagal memuat detail modul",
                     );
                 }
             } finally {
