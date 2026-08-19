@@ -408,9 +408,9 @@ function ManajemenModulContent() {
                                                             );
                                                         }}
                                                         className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-[12px] font-semibold transition-colors ${activeFilter ===
-                                                                type
-                                                                ? "bg-[#f0ecff] text-[#7054dc]"
-                                                                : "text-[#232530] hover:bg-[#f7f6ff]"
+                                                            type
+                                                            ? "bg-[#f0ecff] text-[#7054dc]"
+                                                            : "text-[#232530] hover:bg-[#f7f6ff]"
                                                             }`}
                                                     >
                                                         {
@@ -672,8 +672,8 @@ function ManajemenModulContent() {
                                         <td className="px-5 py-4">
                                             <span
                                                 className={`inline-block rounded-full px-3 py-0.5 text-[11px] font-semibold ${modul.isDraft
-                                                        ? "bg-[#fef3e2] text-[#f39b39]"
-                                                        : "bg-[#e6f7e6] text-[#2e9b4e]"
+                                                    ? "bg-[#fef3e2] text-[#f39b39]"
+                                                    : "bg-[#e6f7e6] text-[#2e9b4e]"
                                                     }`}
                                             >
                                                 {modul.isDraft
@@ -692,7 +692,7 @@ function ManajemenModulContent() {
                                                     </Link>
                                                 )}
                                                 <Link
-                                                    href={`/modul-guru/tambah/profil?modulId=${modul.id}`}
+                                                    href={`/modul/${modul.id}`}
                                                     className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold text-[#7557ea] transition-colors hover:bg-[#f0ebff]"
                                                 >
                                                     <FiEdit2 size={13} />
