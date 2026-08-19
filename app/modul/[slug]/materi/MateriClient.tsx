@@ -2734,6 +2734,27 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                             </div>
                                         </div>
 
+                                        {/* Soal Map */}
+                                        <div className="mb-4 rounded-2xl border border-[#e6e4ed] bg-white px-4 py-3">
+                                            <p className="mb-2 text-xs font-medium text-[#8a8a96]">Peta Soal</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {currentSoal.map((_, idx) => {
+                                                    const isAnswered = selectedAnswers[idx] !== undefined;
+                                                    const isCurrent = idx === activeQuestionIndex;
+                                                    return (
+                                                        <button
+                                                            key={idx}
+                                                            type="button"
+                                                            onClick={() => setActiveQuestionIndex(idx)}
+                                                            className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-all ${isCurrent ? "ring-2 ring-offset-1 ring-[#7054dc] " + (isAnswered ? "bg-[#7054dc] text-white" : "border border-[#7054dc] text-[#7054dc] bg-white") : isAnswered ? "bg-[#7054dc] text-white" : "border border-[#e0dfe6] bg-white text-[#8a8a96] hover:border-[#7054dc] hover:text-[#7054dc]"}`}
+                                                        >
+                                                            {idx + 1}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
                                         <div className="rounded-2xl border border-[#e6e4ed] bg-white px-4 sm:px-6 py-8">
                                             {(() => {
                                                 const story =
