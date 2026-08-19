@@ -1274,6 +1274,15 @@ export default function MateriClient({ modulId }: { modulId: string }) {
 
     const currentSeqItem = sequence[currentSeqIndex] ?? null;
 
+    // Auto-expand sidebar section when active item changes
+    useEffect(() => {
+        const topikId = currentSeqItem?.topikId;
+        if (!topikId || contentTree.length === 0) return;
+        setExpandedSections(
+            Object.fromEntries(contentTree.map((s) => [s.id, s.id === topikId]))
+        );
+    }, [currentSeqItem?.id, contentTree]);
+
     // Memoize hasil parsing slides agar iframe tidak dibuat ulang
     // pada setiap re-render (sumber kelap-kelip).
     const currentKontenHtml = useMemo(
