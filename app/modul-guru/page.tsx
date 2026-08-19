@@ -219,7 +219,7 @@ function ModulGuruPageContent() {
                                             </p>
                                             <div className="mt-3 flex flex-wrap items-center gap-2">
                                                 <Link
-                                                    href={`/modul/${modul.id}`}
+                                                    href={`/modul-guru/tambah/konten?modulId=${modul.id}`}
                                                     className="rounded-full border border-[#bdaef4] px-4 py-1.5 text-[12px] font-semibold text-[#7557ea] transition-colors hover:bg-[#f5f2ff] w-fit"
                                                 >
                                                     Preview Kelas
