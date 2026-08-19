@@ -17,14 +17,18 @@ import { adminModulApi, adminSiswaApi } from '../../../../lib/api';
 import type { AdminModulSiswaItem, AdminSiswaItem } from '../../../../lib/types/admin';
 
 /* ─── action menu ─── */
-function ActionMenu({ onKeluarkan }: { onKeluarkan: () => void }) {
+function ActionMenu({ onKeluarkan, onToggleActive, isActive }: {
+  onKeluarkan: () => void;
+  onToggleActive: () => void;
+  isActive: boolean;
+}) {
   return (
     <div className="absolute right-full mr-2 top-0 z-30 w-[140px] rounded-2xl border border-[#e6e8ef] bg-white p-2 shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
       <button onClick={onKeluarkan} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] text-[#7054dc] hover:bg-[#f7f6ff]">
         <FiUsers size={12} /> Keluarkan
       </button>
-      <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] text-[#60636d] hover:bg-[#f7f6ff]">
-        <FiCheckSquare size={12} /> Nonaktifkan
+      <button onClick={onToggleActive} className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] hover:bg-[#f7f6ff] ${isActive ? 'text-[#f36e65]' : 'text-[#22c55e]'}`}>
+        <FiCheckSquare size={12} /> {isActive ? 'Nonaktifkan' : 'Aktifkan'}
       </button>
     </div>
   );
@@ -234,6 +238,23 @@ function EditModulSiswaContent() {
     }
   }
 
+  async function handleToggleActive(siswaId: string, currentlyActive: boolean) {
+    setOpenActionMenuId(null);
+    try {
+      if (currentlyActive) {
+        await adminSiswaApi.deactivate(siswaId);
+        setSiswaList((prev) => prev.map((s) => s.siswaId === siswaId ? { ...s, isActive: false } : s));
+        showFeedback('Siswa berhasil dinonaktifkan', 'success');
+      } else {
+        await adminSiswaApi.activate(siswaId);
+        setSiswaList((prev) => prev.map((s) => s.siswaId === siswaId ? { ...s, isActive: true } : s));
+        showFeedback('Siswa berhasil diaktifkan', 'success');
+      }
+    } catch {
+      showFeedback('Gagal mengubah status siswa', 'error');
+    }
+  }
+
   function handleBulkRemove() {
     if (selectedCount === 0) { showFeedback('Pilih siswa terlebih dahulu', 'error'); return; }
     setRemoveTarget(null);
@@ -425,9 +446,14 @@ function EditModulSiswaContent() {
                         </button>
                       </td>
                       <td className="px-3 py-3 align-middle font-medium text-[#5a5f6a]">
-                        <Link href={`/admin/nilai-siswa?studentId=${row.id}`} className="hover:text-[#7054dc] hover:underline transition-colors">
-                          {row.nama_lengkap}
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/admin/nilai-siswa?studentId=${row.id}`} className="hover:text-[#7054dc] hover:underline transition-colors">
+                            {row.nama_lengkap}
+                          </Link>
+                          {!row.isActive && (
+                            <span className="rounded-full bg-[#fee2e2] px-1.5 py-0.5 text-[9px] font-semibold text-[#ef4444]">Nonaktif</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-3 align-middle">{row.kelas_sekolah ?? '-'}</td>
                       <td className="px-3 py-3 align-middle">{row.email}</td>
@@ -466,7 +492,11 @@ function EditModulSiswaContent() {
                             <MdMoreVert size={16} />
                           </button>
                           {openActionMenuId === row.id && (
-                            <ActionMenu onKeluarkan={() => handleRemoveFromActionMenu(row.id)} />
+                            <ActionMenu
+                              onKeluarkan={() => handleRemoveFromActionMenu(row.id)}
+                              onToggleActive={() => handleToggleActive(row.siswaId, row.isActive)}
+                              isActive={row.isActive}
+                            />
                           )}
                         </div>
                       </td>
