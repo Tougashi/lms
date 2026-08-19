@@ -35,6 +35,7 @@ export interface GuruModuleItem {
     createdAt?: string;
     updatedAt?: string;
     pretestPostTestEnabled?: boolean;
+    autoAccessEnabled?: boolean;
     pretest?: { id: string; pretestName?: string } | null;
     posttest?: { id: string } | null;
     progress?: any[];
@@ -77,6 +78,7 @@ export interface GuruModuleUpdatePayload {
     hasStudyGroup?: boolean;
     whatsappGroupUrl?: string | null;
     isTestComputationalThinking?: boolean;
+    autoAccessEnabled?: boolean;
     level?: string;
     class?: string;
     modulType?: string;

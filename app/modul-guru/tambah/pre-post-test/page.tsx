@@ -123,6 +123,7 @@ function PrePostTestPageContent() {
     const [isTestComputationalThinking, setIsTestComputationalThinking] =
         useState(false);
     const [initialCTMode, setInitialCTMode] = useState(false);
+    const [autoAccessEnabled, setAutoAccessEnabled] = useState(true);
 
     const activeBank = bank;
 
@@ -357,6 +358,9 @@ function PrePostTestPageContent() {
                     const ctMode = modulDetail.isTestComputationalThinking;
                     setIsTestComputationalThinking(ctMode);
                     setInitialCTMode(ctMode);
+                }
+                if (modulDetail?.autoAccessEnabled != null) {
+                    setAutoAccessEnabled(modulDetail.autoAccessEnabled);
                 }
             } catch {
                 /* ignore module detail load error */
@@ -993,6 +997,7 @@ function PrePostTestPageContent() {
             if (modulId) {
                 await guruModulApi.update(modulId, {
                     isTestComputationalThinking,
+                    autoAccessEnabled,
                 });
             }
 
@@ -1067,6 +1072,7 @@ function PrePostTestPageContent() {
         modulId,
         isTestComputationalThinking,
         initialCTMode,
+        autoAccessEnabled,
         bank,
         settingsDuration,
         settingsSoalTampil,
@@ -2307,11 +2313,20 @@ function PrePostTestPageContent() {
                                                     </div>
                                                 </div>
                                                 <div className="mt-4">
-                                                    <p className="text-[13px] font-semibold text-[#232530]">
-                                                        Atur Akses Materi
-                                                        Otomatis
-                                                    </p>
-                                                    <div className="mt-3 rounded-xl border border-dashed border-[#8e7bff] bg-[#fbfaff] px-4 py-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-[13px] font-semibold text-[#232530]">
+                                                            Atur Akses Materi
+                                                            Otomatis
+                                                        </p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setAutoAccessEnabled((prev) => !prev)}
+                                                            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${autoAccessEnabled ? "bg-[#7054dc]" : "bg-[#d1d5db]"}`}
+                                                        >
+                                                            <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${autoAccessEnabled ? "translate-x-6" : "translate-x-1"}`} />
+                                                        </button>
+                                                    </div>
+                                                    {autoAccessEnabled && <div className="mt-3 rounded-xl border border-dashed border-[#8e7bff] bg-[#fbfaff] px-4 py-4">
                                                         {aksesRules.map(
                                                             (rule) => (
                                                                 <div
@@ -2467,7 +2482,7 @@ function PrePostTestPageContent() {
                                                             Tambahkan aturan
                                                             lain &nbsp;+
                                                         </button>
-                                                    </div>
+                                                    </div>}
                                                 </div>
                                             </>
                                         )}
@@ -2906,10 +2921,19 @@ function PrePostTestPageContent() {
                                                 </div>
                                             </div>
                                             <div className="mt-4">
-                                                <p className="text-[13px] font-semibold text-[#232530]">
-                                                    Atur Akses Materi Otomatis
-                                                </p>
-                                                <div className="mt-3 rounded-xl border border-dashed border-[#8e7bff] bg-[#fbfaff] px-4 py-4">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[13px] font-semibold text-[#232530]">
+                                                        Atur Akses Materi Otomatis
+                                                    </p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAutoAccessEnabled((prev) => !prev)}
+                                                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${autoAccessEnabled ? "bg-[#7054dc]" : "bg-[#d1d5db]"}`}
+                                                    >
+                                                        <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${autoAccessEnabled ? "translate-x-6" : "translate-x-1"}`} />
+                                                    </button>
+                                                </div>
+                                                {autoAccessEnabled && <div className="mt-3 rounded-xl border border-dashed border-[#8e7bff] bg-[#fbfaff] px-4 py-4">
                                                     {posttestAksesRules.map((rule) => (
                                                         <div
                                                             key={rule.id}
@@ -3048,7 +3072,7 @@ function PrePostTestPageContent() {
                                                         Tambahkan aturan lain
                                                         &nbsp;+
                                                     </button>
-                                                </div>
+                                                </div>}
                                             </div>
                                         </>
                                     )}
