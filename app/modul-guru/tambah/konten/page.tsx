@@ -28,6 +28,8 @@ import {
   guruRangkumanApi,
   guruQuizGroupApi,
   oembedApi,
+  npStart,
+  npDone,
 } from "../../../lib/api";
 import { uploadToCloudinary } from "../../../lib/cloudinary-upload";
 import type { GuruTopikWithMateri } from "../../../lib/types/guru";
@@ -1572,15 +1574,18 @@ function TambahModulKontenPageContent() {
     const subIds = [...ctSubIds, ...regulerSubIds];
 
     showLoading("Menghapus kuis...");
+    npStart();
     try {
       if (apiId) await guruKuisApi.delete(apiId);
       for (const sid of subIds) await guruKuisApi.delete(sid);
     } catch (err) {
       console.error("Delete quiz error:", err);
       toast("Gagal menghapus kuis.", "error");
+      npDone();
       hideLoading();
       return;
     }
+    npDone();
     hideLoading();
     setQuizApiIds((prev) => {
       const next = { ...prev };
@@ -1764,6 +1769,7 @@ function TambahModulKontenPageContent() {
     }
 
     const failures: string[] = [];
+    npStart();
     try {
       // Resolve or create QuizGroup for this quiz card
       let groupId = quizGroupApiIds[quiz.id];
@@ -1970,12 +1976,14 @@ function TambahModulKontenPageContent() {
       }
     } catch (err) {
       console.error("Submit quiz error:", err);
+      npDone();
       return {
         success: false,
         error: silent ? "Gagal menyimpan kuis." : "Gagal menyimpan kuis.",
       };
     }
 
+    npDone();
     if (failures.length > 0) {
       return {
         success: false,

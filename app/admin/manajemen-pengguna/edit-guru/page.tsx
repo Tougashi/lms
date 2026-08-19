@@ -14,7 +14,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import AdminHeader from "../../../component/admin/AdminHeader";
-import { adminTutorApi, uploadApi } from "../../../lib/api";
+import { adminTutorApi, uploadApi, npStart, npDone } from "../../../lib/api";
 import type { AdminTutorUpdatePayload } from "../../../lib/types/admin";
 import {
   AdminToastContainer,
@@ -334,6 +334,7 @@ function EditGuruContent() {
   const handleSubmit = async () => {
     if (!validate() || !id) return;
     setIsSaving(true);
+    npStart();
     try {
       let finalPhotoUrl = photoUrl;
       if (!finalPhotoUrl && photoFileRef.current) {
@@ -374,6 +375,7 @@ function EditGuruContent() {
         err instanceof Error ? err.message : "Gagal memperbarui data guru.";
       showToast("error", msg);
     } finally {
+      npDone();
       setIsSaving(false);
     }
   };

@@ -13,7 +13,7 @@ import { FaBookOpen } from 'react-icons/fa';
 import { RiFileList3Fill } from 'react-icons/ri';
 import Header from '../component/Header';
 import { useAuth } from '../context/AuthContext';
-import { dashboardApi, siswaModulApi, siswaStudyRoomApi } from '../lib/api';
+import { dashboardApi, siswaModulApi, siswaStudyRoomApi, npStart, npDone } from '../lib/api';
 import { useRoleGuard } from '../lib/hooks/useRoleGuard';
 import type { SiswaDashboard, ProgressItem } from '../lib/types/siswa';
 import { recalculateProgress } from '../lib/utils/buildSequence';
@@ -34,6 +34,7 @@ export default function BerandaSiswaPage() {
 
     const fetchDashboard = async (showLoading = true) => {
       if (showLoading) setIsLoadingData(true);
+      npStart();
       try {
         const data = await dashboardApi.siswa();
         if (!isMounted) return;
@@ -107,6 +108,7 @@ export default function BerandaSiswaPage() {
         console.error('Dashboard fetch error:', err);
         if (isMounted && showLoading) setError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
       } finally {
+        npDone();
         if (isMounted && showLoading) setIsLoadingData(false);
       }
     };

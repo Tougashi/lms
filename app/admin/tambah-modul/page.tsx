@@ -14,7 +14,7 @@ import {
 import AdminHeader from "../../component/admin/AdminHeader";
 import AdminModuleSidebar from "../components/AdminModuleSidebar";
 import { AdminToastContainer, useAdminToast } from "../components/AdminToast";
-import { adminModulApi, adminTutorApi, uploadApi } from "../../lib/api";
+import { adminModulApi, adminTutorApi, uploadApi, npStart, npDone } from "../../lib/api";
 import type { AdminTutorItem } from "../../lib/types/admin";
 
 /* ─── Navigation-guard dialog ─── */
@@ -376,6 +376,7 @@ export default function TambahModulAdminPage() {
     }
     setErrors({});
     setIsSaving(true);
+    npStart();
 
     try {
       let moduleImgUrl = coverUrl;
@@ -413,6 +414,7 @@ export default function TambahModulAdminPage() {
       const msg = err instanceof Error ? err.message : "Gagal menyimpan modul.";
       showToast("error", msg);
     } finally {
+      npDone();
       setIsSaving(false);
     }
   };

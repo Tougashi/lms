@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { FaBell, FaEyeSlash, FaLock, FaSignOutAlt, FaRegEdit, FaUser, FaSpinner } from "react-icons/fa";
 import { MdVerified } from "react-icons/md";
 import AdminHeader from "../../component/admin/AdminHeader";
-import { adminProfileApi, uploadApi, authApi } from "../../lib/api";
+import { adminProfileApi, uploadApi, authApi, npStart, npDone } from "../../lib/api";
 import type { AdminProfile } from "../../lib/types/admin";
 import { AdminToastContainer, useAdminToast } from "../components/AdminToast";
 import Image from "next/image";
@@ -135,6 +135,7 @@ export default function AdminSettingPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploadingPhoto(true);
+    npStart();
     try {
       const uploadRes = await uploadApi.upload(file);
       await adminProfileApi.update({ profileImg: uploadRes.url });
@@ -143,6 +144,7 @@ export default function AdminSettingPage() {
     } catch (error: any) {
       showToast("error", "Gagal mengunggah foto profil.");
     } finally {
+      npDone();
       setIsUploadingPhoto(false);
     }
   };

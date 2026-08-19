@@ -21,6 +21,8 @@ import {
     guruTopikApi,
     guruMateriApi,
     guruProgressApi,
+    npStart,
+    npDone,
 } from "../../lib/api";
 import { useRoleGuard } from "../../lib/hooks/useRoleGuard";
 import { usePopup } from "../../component/ui/PopupProvider";
@@ -107,6 +109,7 @@ function ManajemenModulContent() {
         if (!modulId) return;
         setIsLoadingDetails(true);
         setErrorDetails("");
+        npStart();
         try {
             const detail = await guruModulApi.detail(modulId);
             setModuleDetail(detail);
@@ -122,6 +125,7 @@ function ManajemenModulContent() {
             console.error("Load module detail error:", err);
             setErrorDetails("Gagal memuat detail modul.");
         } finally {
+            npDone();
             setIsLoadingDetails(false);
         }
     }, [modulId]);

@@ -21,6 +21,8 @@ import {
   adminTopikKuisApi,
   uploadApi,
   guruMateriApi,
+  npStart,
+  npDone,
 } from "../../../lib/api";
 import type { GuruTopikWithMateri } from "../../../lib/types/guru";
 
@@ -1094,15 +1096,18 @@ function TambahModulKontenPageContent() {
     ) ?? [];
 
     showLoading("Menghapus kuis...");
+    npStart();
     try {
       if (apiId) await adminTopikKuisApi.delete(apiId);
       for (const sid of subIds) await adminTopikKuisApi.delete(sid);
     } catch (err) {
       console.error("Delete quiz error:", err);
       toast("Gagal menghapus kuis.", "error");
+      npDone();
       hideLoading();
       return;
     }
+    npDone();
     hideLoading();
     setQuizApiIds((prev) => {
       const next = { ...prev };
@@ -1237,6 +1242,7 @@ function TambahModulKontenPageContent() {
     }
 
     const failures: string[] = [];
+    npStart();
     try {
       if (quiz.ctMode) {
         let firstSaved = false;
@@ -1416,12 +1422,14 @@ function TambahModulKontenPageContent() {
       }
     } catch (err) {
       console.error("Submit quiz error:", err);
+      npDone();
       return {
         success: false,
         error: silent ? "Gagal menyimpan kuis." : "Gagal menyimpan kuis.",
       };
     }
 
+    npDone();
     if (failures.length > 0) {
       return {
         success: false,
