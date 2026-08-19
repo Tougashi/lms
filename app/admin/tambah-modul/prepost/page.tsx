@@ -106,71 +106,68 @@ function AdminPrePostPageContent() {
     if (!modulId) { setIsLoading(false); return; }
     const load = async () => {
       try {
-        // Load module CT flag
-        try {
-          const modul = await adminModulApi.getById(modulId);
-          setIsTestComputationalThinking((modul as any).isTestComputationalThinking ?? false);
-        } catch { /* ignore */ }
+        const [modulResult, pretestResult, posttestResult] = await Promise.all([
+          adminModulApi.getById(modulId).catch(() => null),
+          adminPretestApi.getByModul(modulId).catch(() => null),
+          adminPosttestApi.getByModul(modulId).catch(() => null),
+        ]);
 
-        try {
-          const pretest = await adminPretestApi.getByModul(modulId);
-          if (pretest?.id) {
-            const questions = (pretest.pretestQuestions || [])
-              .filter((q: any) => !q.ctGroupId)
-              .map((q: any, idx: number) => ({
-                id: Date.now() + idx, apiSoalId: q.id,
-                pertanyaan: q.pertanyaan, isExpanded: false, skor: q.skor || 10,
-                answers: (q.answerOptions || []).map((opt: any, aidx: number) => ({
-                  id: Date.now() + idx * 100 + aidx, text: opt.option,
-                  isCorrect: opt.option === q.correctAnswer,
-                })),
-              }));
+        // Process module CT flag
+        if (modulResult) {
+          setIsTestComputationalThinking((modulResult as any).isTestComputationalThinking ?? false);
+        }
 
-            // Group CT questions by ctGroupId
-            const ctGroups: Record<string, any[]> = {};
-            (pretest.pretestQuestions || [])
-              .filter((q: any) => q.ctGroupId)
-              .forEach((q: any) => {
-                if (!ctGroups[q.ctGroupId]) ctGroups[q.ctGroupId] = [];
-                ctGroups[q.ctGroupId].push(q);
-              });
-
-            const ctStories: LocalCTStory[] = Object.entries(ctGroups).map(([gid, qs], si) => ({
-              id: Date.now() + 10000 + si,
-              groupId: gid,
-              cerita: qs[0]?.ctStory || '',
-              isExpanded: false,
-              subQuestions: qs.map((q: any, qi: number) => ({
-                id: Date.now() + 10000 + si * 100 + qi,
-                apiSoalId: q.id,
-                ctAspect: (q.ctAspect || CT_ASPECTS[qi % CT_ASPECTS.length]) as CTAspect,
-                label: q.pertanyaan || `Soal ${q.ctAspect || qi + 1}`,
-                skor: q.skor || 10,
-                answers: (q.answerOptions || []).map((opt: any, aidx: number) => ({
-                  id: Date.now() + 10000 + si * 1000 + qi * 10 + aidx,
-                  text: opt.option,
-                  isCorrect: opt.option === q.correctAnswer,
-                })),
+        // Process pretest
+        if (pretestResult?.id) {
+          const pretest = pretestResult;
+          const questions = (pretest.pretestQuestions || [])
+            .filter((q: any) => !q.ctGroupId)
+            .map((q: any, idx: number) => ({
+              id: Date.now() + idx, apiSoalId: q.id,
+              pertanyaan: q.pertanyaan, isExpanded: false, skor: q.skor || 10,
+              answers: (q.answerOptions || []).map((opt: any, aidx: number) => ({
+                id: Date.now() + idx * 100 + aidx, text: opt.option,
+                isCorrect: opt.option === q.correctAnswer,
               })),
             }));
 
-            setBank({
-              id: Date.now(), name: pretest.pretestName || 'Pre Test',
-              apiId: pretest.id, questions, ctStories,
+          const ctGroups: Record<string, any[]> = {};
+          (pretest.pretestQuestions || [])
+            .filter((q: any) => q.ctGroupId)
+            .forEach((q: any) => {
+              if (!ctGroups[q.ctGroupId]) ctGroups[q.ctGroupId] = [];
+              ctGroups[q.ctGroupId].push(q);
             });
-            const settings = pretest.pretestSettings;
-            if (settings?.length) {
-              setSettingsDuration(settings[0].duration ?? 90);
-              setSettingsSoalTampil(settings[0].countShownQuestions ?? 30);
-            }
-          } else {
-            const created = await adminPretestApi.create({ modul_id: modulId });
-            setBank({
-              id: Date.now(), name: 'Pre Test',
-              apiId: created.id, questions: [], ctStories: [],
-            });
+
+          const ctStories: LocalCTStory[] = Object.entries(ctGroups).map(([gid, qs], si) => ({
+            id: Date.now() + 10000 + si,
+            groupId: gid,
+            cerita: qs[0]?.ctStory || '',
+            isExpanded: false,
+            subQuestions: qs.map((q: any, qi: number) => ({
+              id: Date.now() + 10000 + si * 100 + qi,
+              apiSoalId: q.id,
+              ctAspect: (q.ctAspect || CT_ASPECTS[qi % CT_ASPECTS.length]) as CTAspect,
+              label: q.pertanyaan || `Soal ${q.ctAspect || qi + 1}`,
+              skor: q.skor || 10,
+              answers: (q.answerOptions || []).map((opt: any, aidx: number) => ({
+                id: Date.now() + 10000 + si * 1000 + qi * 10 + aidx,
+                text: opt.option,
+                isCorrect: opt.option === q.correctAnswer,
+              })),
+            })),
+          }));
+
+          setBank({
+            id: Date.now(), name: pretest.pretestName || 'Pre Test',
+            apiId: pretest.id, questions, ctStories,
+          });
+          const settings = pretest.pretestSettings;
+          if (settings?.length) {
+            setSettingsDuration(settings[0].duration ?? 90);
+            setSettingsSoalTampil(settings[0].countShownQuestions ?? 30);
           }
-        } catch {
+        } else {
           try {
             const created = await adminPretestApi.create({ modul_id: modulId });
             setBank({
@@ -180,18 +177,15 @@ function AdminPrePostPageContent() {
           } catch { /* ignore */ }
         }
 
-        // Load posttest for settings
-        try {
-          const posttest = await adminPosttestApi.getByModul(modulId);
-          if (posttest?.id) {
-            setPosttestId(posttest.id);
-            const ptSettings = posttest.posttestSettings;
-            if (ptSettings?.length) {
-              setSettingsPosttestDuration(ptSettings[0].duration ?? 90);
-              setSettingsPosttestSoalTampil(ptSettings[0].countShownQuestions ?? 30);
-            }
+        // Process posttest
+        if (posttestResult?.id) {
+          setPosttestId(posttestResult.id);
+          const ptSettings = (posttestResult as any).posttestSettings;
+          if (ptSettings?.length) {
+            setSettingsPosttestDuration(ptSettings[0].duration ?? 90);
+            setSettingsPosttestSoalTampil(ptSettings[0].countShownQuestions ?? 30);
           }
-        } catch { /* no posttest yet */ }
+        }
 
       } finally { setIsLoading(false); }
     };
@@ -491,10 +485,10 @@ function AdminPrePostPageContent() {
     if (!bank?.apiId) { setIsSettingsOpen(false); return; }
     setIsSaving(true);
     try {
-      await adminPretestApi.updateSettings(bank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil });
-      if (posttestId) {
-        await adminPosttestApi.updateSettings(posttestId, { duration: settingsPosttestDuration, countShownQuestions: settingsPosttestSoalTampil });
-      }
+      await Promise.all([
+        adminPretestApi.updateSettings(bank.apiId, { duration: settingsDuration, countShownQuestions: settingsSoalTampil }),
+        posttestId ? adminPosttestApi.updateSettings(posttestId, { duration: settingsPosttestDuration, countShownQuestions: settingsPosttestSoalTampil }) : Promise.resolve(),
+      ]);
       toast('Pengaturan berhasil disimpan!', 'success');
       setIsSettingsOpen(false);
     } catch (err: unknown) {

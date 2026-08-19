@@ -186,12 +186,13 @@ function PrePostTestPageContent() {
         }
         const load = async () => {
             try {
-                let pretest;
-                try {
-                    pretest = await guruPretestApi.getByModul(modulId);
-                } catch {
-                    pretest = null;
-                }
+                const [pretestRaw, posttestRaw] = await Promise.all([
+                    guruPretestApi.getByModul(modulId).catch(() => null),
+                    guruPosttestApi.getByModul(modulId).catch(() => null),
+                ]);
+
+                // Process pretest
+                let pretest = pretestRaw;
                 if (!pretest || !pretest.id) {
                     try {
                         await guruPretestApi.create({ modul_id: modulId });
@@ -307,12 +308,8 @@ function PrePostTestPageContent() {
                     }
                 }
 
-                let posttest;
-                try {
-                    posttest = await guruPosttestApi.getByModul(modulId);
-                } catch {
-                    posttest = null;
-                }
+                // Process posttest (already fetched in parallel above)
+                let posttest = posttestRaw;
                 if (!posttest || !posttest.id) {
                     try {
                         await guruPosttestApi.create({ modul_id: modulId });
