@@ -250,6 +250,15 @@ export function recalculateProgress(studyRoom: StudyRoomResponse): number {
             completedMap[id] = true;
         }
     }
+    
+    // Backend computes pretest & posttest completion by checking if score is not null.
+    // Sync that behavior here so frontend progress hits 100%.
+    if (studyRoom.progress?.pretestScore != null) {
+        completedMap["pretest"] = true;
+    }
+    if (studyRoom.progress?.posttestScore != null) {
+        completedMap["posttest"] = true;
+    }
     return calculateProgress(
         seq,
         completedMap,

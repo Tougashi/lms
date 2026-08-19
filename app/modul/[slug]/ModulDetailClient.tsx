@@ -18,8 +18,10 @@ import {
 } from "react-icons/fa";
 import { MdTimer } from "react-icons/md";
 import SiswaHeader from "../../component/siswa/SiswaHeader";
+import GuruHeader from "../../component/guru/GuruHeader";
 import AccordionMateri from "../../component/siswa/AccordionMateri";
-import { siswaModulApi, siswaStudyRoomApi } from "../../lib/api";
+import { useAuth } from "../../context/AuthContext";
+import { siswaModulApi, siswaStudyRoomApi, guruModulApi } from "../../lib/api";
 import type { ModuleDetailResponse } from "../../lib/types/siswa";
 import { ApiError } from "../../lib/types/umum";
 import { AxiosError } from "axios";
@@ -71,6 +73,7 @@ export default function ModulDetailPage({
     const [moduleData, setModuleData] = useState<ModuleDetailResponse | null>(
         null,
     );
+    const { user } = useAuth();
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isEnrolling, setIsEnrolling] = useState(false);
@@ -85,7 +88,20 @@ export default function ModulDetailPage({
             if (showLoading) setIsLoading(true);
             setError("");
             try {
-                const res = await siswaModulApi.getById(id);
+                let res: ModuleDetailResponse;
+                try {
+                    res = await siswaModulApi.getById(id);
+                } catch (err: any) {
+                    const status = err?.status || err?.response?.status;
+                    if (status === 401 || status === 403) {
+                        res = (await guruModulApi.detail(
+                            id,
+                        )) as unknown as ModuleDetailResponse;
+                    } else {
+                        throw err;
+                    }
+                }
+
                 if (isMounted) {
                     setModuleData(res);
 
@@ -104,9 +120,7 @@ export default function ModulDetailPage({
                 console.error("Modul detail fetch error:", err);
                 if (isMounted && showLoading) {
                     setError(
-                        err instanceof AxiosError
-                            ? err.message
-                            : "Gagal memuat detail modul",
+                        err instanceof Error ? err.message : "Gagal memuat detail modul",
                     );
                 }
             } finally {
@@ -151,13 +165,14 @@ export default function ModulDetailPage({
             .then(() => {
                 window.location.href = `/modul/${id}/materi`;
             })
-            .catch(async (err: unknown) => {
-                if (err instanceof ApiError && err.status === 409) {
+            .catch(async (err: any) => {
+                const status = err?.status || err?.response?.status;
+                if (status === 409) {
                     window.location.href = `/modul/${id}/materi`;
                     return;
                 }
 
-                if (err instanceof ApiError && err.status === 403) {
+                if (status === 403) {
                     window.location.href = `/pembayaran/${id}`;
                     return;
                 }
@@ -187,7 +202,7 @@ export default function ModulDetailPage({
     if (isLoading) {
         return (
             <div className="min-h-screen bg-[#ffffff] text-[#202126]">
-                <SiswaHeader />
+                {user?.role === "tutor" ? <GuruHeader /> : <SiswaHeader />}
                 <div className="flex items-center justify-center py-32">
                     <div className="flex flex-col items-center gap-4">
                         <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#7054dc] border-t-transparent" />
@@ -203,7 +218,7 @@ export default function ModulDetailPage({
     if (error || !moduleData) {
         return (
             <div className="min-h-screen bg-[#ffffff] text-[#202126]">
-                <SiswaHeader />
+                {user?.role === "tutor" ? <GuruHeader /> : <SiswaHeader />}
                 <div className="flex items-center justify-center py-32">
                     <div className="text-center">
                         <p className="text-red-500">
@@ -223,7 +238,7 @@ export default function ModulDetailPage({
 
     return (
         <div className="min-h-screen bg-[#ffffff] text-[#202126]">
-            <SiswaHeader />
+            {user?.role === "tutor" ? <GuruHeader /> : <SiswaHeader />}
 
             <main className="pb-8 sm:pb-12">
                 <section className="rounded-b-[40px] bg-[#E7E1FE]">
@@ -388,12 +403,20 @@ export default function ModulDetailPage({
                                     >
                                         Lanjutkan Belajar
                                     </Link>
+                                ) : user?.role === "tutor" ? (
+                                    <button
+                                        type="button"
+                                        disabled
+                                        className="w-full rounded-lg bg-[#7054dc] px-3 py-2.5 text-sm font-semibold text-white opacity-60 cursor-not-allowed"
+                                    >
+                                        Pratinjau Guru
+                                    </button>
                                 ) : priceLabel ? (
                                     <button
                                         type="button"
                                         onClick={handleEnroll}
                                         disabled={isEnrolling}
-                                        className="w-full rounded-lg bg-[#7054dc] px-3 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                                        className="w-full rounded-lg bg-[#7054dc] px-3 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
                                     >
                                         {isEnrolling
                                             ? "Memproses..."
@@ -404,7 +427,7 @@ export default function ModulDetailPage({
                                         type="button"
                                         onClick={handleEnroll}
                                         disabled={isEnrolling}
-                                        className="w-full rounded-lg bg-[#7054dc] px-3 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                                        className="w-full rounded-lg bg-[#7054dc] px-3 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
                                     >
                                         {isEnrolling
                                             ? "Memproses..."

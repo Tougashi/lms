@@ -506,6 +506,7 @@ export interface GuruModuleProgressItem {
     pretestScore?: number | null;
     posttestScore?: number | null;
     averageQuizScore: number;
+    averageCtQuizScore?: number | null;
     progressPercentage: number;
     status: string;
     isGraduated: boolean;
