@@ -764,7 +764,6 @@ function TambahModulKontenPageContent() {
     const apiId = materialApiIds[materialId];
     if (apiId) {
       setIsDeletingMaterial(materialId);
-      showLoading("Menghapus materi...");
       try {
         await guruMateriApi.delete(apiId);
         setMaterialApiIds((prev) => {
@@ -781,11 +780,9 @@ function TambahModulKontenPageContent() {
       } catch (err) {
         console.error("Delete material error:", err);
         toast("Gagal menghapus materi.", "error");
-        hideLoading();
         setIsDeletingMaterial(null);
         return;
       } finally {
-        hideLoading();
         setIsDeletingMaterial(null);
       }
     }
@@ -867,7 +864,6 @@ function TambahModulKontenPageContent() {
     const isVideo = newMaterialType === "video";
 
     // Create in API first
-    showLoading("Menambahkan materi...");
     try {
       const created = await guruMateriApi.create({
         topik_id: topicId,
@@ -903,10 +899,8 @@ function TambahModulKontenPageContent() {
     } catch (err) {
       console.error("Create material error:", err);
       toast("Gagal membuat materi. Pastikan topik sudah tersimpan.", "error");
-      hideLoading();
       return;
     } finally {
-      hideLoading();
     }
 
     setMaterials((prev) => [
@@ -944,7 +938,6 @@ function TambahModulKontenPageContent() {
     const apiId = materialApiIds[materialId];
     if (material && apiId) {
       setIsSavingMaterial(materialId);
-      showLoading("Menyimpan materi...");
       try {
         await guruMateriApi.update(apiId, {
           judul: material.title,
@@ -962,11 +955,9 @@ function TambahModulKontenPageContent() {
       } catch (err) {
         console.error("Save material error:", err);
         toast("Gagal menyimpan materi.", "error");
-        hideLoading();
         setIsSavingMaterial(null);
         return;
       } finally {
-        hideLoading();
         setIsSavingMaterial(null);
       }
     }
@@ -976,7 +967,7 @@ function TambahModulKontenPageContent() {
           ? {
               ...item,
               isSaved: true,
-              isExpanded: false,
+              isExpanded: true,
               _editSnapshot: undefined,
             }
           : item,
@@ -1254,7 +1245,6 @@ function TambahModulKontenPageContent() {
 
     // Create quiz in API
     setIsSavingQuiz(true);
-    showLoading("Membuat kuis...");
     try {
       const created = await guruKuisApi.create({
         quiz: {
@@ -1278,11 +1268,9 @@ function TambahModulKontenPageContent() {
     } catch (err) {
       console.error("Create quiz error:", err);
       toast("Gagal membuat kuis.", "error");
-      hideLoading();
       setIsSavingQuiz(false);
       return;
     } finally {
-      hideLoading();
       setIsSavingQuiz(false);
     }
 
@@ -1319,7 +1307,6 @@ function TambahModulKontenPageContent() {
       return;
     }
     const nextId = Date.now();
-    showLoading("Menambahkan rangkuman...");
     try {
       const created = await guruRangkumanApi.create({ topik_id: topicId, judul: "Rangkuman", konten: "" });
       setRangkumanApiIds((prev) => ({ ...prev, [nextId]: created.id }));
@@ -1328,7 +1315,6 @@ function TambahModulKontenPageContent() {
       console.error("Create rangkuman error:", err);
       toast("Gagal membuat rangkuman.", "error");
     } finally {
-      hideLoading();
     }
   };
 
@@ -1341,7 +1327,7 @@ function TambahModulKontenPageContent() {
       await guruRangkumanApi.update(apiId, { judul: r.title, konten: r.konten });
       toast("Rangkuman berhasil disimpan.", "success");
       setRangkumans((prev) =>
-        prev.map((r) => (r.id === rangkumanId ? { ...r, isExpanded: false } : r)),
+        prev.map((r) => (r.id === rangkumanId ? { ...r, isExpanded: true } : r)),
       );
     } catch (err) {
       console.error("Save rangkuman error:", err);
@@ -1573,7 +1559,6 @@ function TambahModulKontenPageContent() {
       : [];
     const subIds = [...ctSubIds, ...regulerSubIds];
 
-    showLoading("Menghapus kuis...");
     npStart();
     try {
       if (apiId) await guruKuisApi.delete(apiId);
@@ -1582,11 +1567,9 @@ function TambahModulKontenPageContent() {
       console.error("Delete quiz error:", err);
       toast("Gagal menghapus kuis.", "error");
       npDone();
-      hideLoading();
       return;
     }
     npDone();
-    hideLoading();
     setQuizApiIds((prev) => {
       const next = { ...prev };
       delete next[quizId];
@@ -1610,7 +1593,6 @@ function TambahModulKontenPageContent() {
       .filter(Boolean);
 
     if (subIds.length > 0) {
-      showLoading("Menghapus soal CT...");
       try {
         for (const sid of subIds) {
           await guruKuisApi.delete(sid);
@@ -1618,10 +1600,8 @@ function TambahModulKontenPageContent() {
       } catch (err) {
         console.error("Delete CT story error:", err);
         toast("Gagal menghapus soal CT.", "error");
-        hideLoading();
         return;
       }
-      hideLoading();
       
       setSubQuizApiIds((prev) => {
         const next = { ...prev };
@@ -1997,17 +1977,15 @@ function TambahModulKontenPageContent() {
     const quiz = quizzes.find((q) => q.id === quizId);
     if (!quiz || !topicId) return;
     setIsSavingQuiz(true);
-    showLoading("Menyimpan kuis...");
     const result = await persistQuiz(quiz, topicId);
     if (result.success) {
       toast("Kuis berhasil disimpan.", "success");
       setQuizzes((prev) =>
-        prev.map((q) => (q.id === quizId ? { ...q, isExpanded: false } : q)),
+        prev.map((q) => (q.id === quizId ? { ...q, isExpanded: true } : q)),
       );
     } else {
       toast(result.error || "Gagal menyimpan kuis.", "error");
     }
-    hideLoading();
     setIsSavingQuiz(false);
   };
 
@@ -2033,7 +2011,6 @@ function TambahModulKontenPageContent() {
     }
     setIsCreatingTopic(true);
     setTopicError("");
-    showLoading("Membuat topik...");
     try {
       // Flush pending quiz edits before leaving the current topik
       const flushed = await flushPendingQuizzes();
@@ -2066,7 +2043,6 @@ function TambahModulKontenPageContent() {
         err instanceof Error ? err.message : "Gagal membuat topik.",
       );
     } finally {
-      hideLoading();
       setIsCreatingTopic(false);
     }
   }, [topicTitle, modulId, flushPendingQuizzes, toast]);
@@ -2074,7 +2050,6 @@ function TambahModulKontenPageContent() {
   // Edit topic via API
   const handleSaveEditTopic = useCallback(async () => {
     if (!topicId || editTopicTitle.trim().length === 0) return;
-    showLoading("Menyimpan perubahan topik...");
     try {
       await guruTopikApi.update(topicId, { nama: editTopicTitle.trim() });
       setTopicTitle(editTopicTitle.trim());
@@ -2091,7 +2066,6 @@ function TambahModulKontenPageContent() {
         "error",
       );
     } finally {
-      hideLoading();
     }
   }, [topicId, editTopicTitle]);
 
@@ -2105,7 +2079,6 @@ function TambahModulKontenPageContent() {
       confirmText: "Hapus",
     });
     if (!ok) return;
-    showLoading("Menghapus topik...");
     try {
       await guruTopikApi.delete(targetId);
       setTopicTitle("");
@@ -2122,7 +2095,6 @@ function TambahModulKontenPageContent() {
         "error",
       );
     } finally {
-      hideLoading();
     }
   }, [topicId]);
 
@@ -3065,12 +3037,7 @@ function TambahModulKontenPageContent() {
                                         ? "bg-[#7054dc] hover:bg-[#5f46cc]"
                                         : "cursor-not-allowed bg-[#c9cbd3]"
                                     }`}
-                                    onClick={() =>
-                                      handleSaveMaterialContent(material.id)
-                                    }
-                                  >
-                                    Simpan
-                                  </button>
+                                    onClick={() => handleSaveMaterialContent(material.id)}> {isSavingMaterial === material.id ? "Menyimpan..." : "Simpan"}</button>
                                 </div>
                               )}
                             </div>
@@ -3200,11 +3167,7 @@ function TambahModulKontenPageContent() {
                             {quiz.isExpanded && (
                               <button
                                 type="button"
-                                onClick={() => handleSubmitQuiz(quiz.id)}
-                                className="inline-flex h-[26px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-3 text-[11px] font-semibold text-white hover:bg-[#5f46cc]"
-                              >
-                                Simpan
-                              </button>
+                                onClick={() => handleSubmitQuiz(quiz.id)} disabled={isSavingQuiz} className="inline-flex h-[26px] cursor-pointer items-center justify-center rounded-lg bg-[#7054dc] px-3 text-[11px] font-semibold text-white hover:bg-[#5f46cc] disabled:opacity-50"> {isSavingQuiz ? "Menyimpan..." : "Simpan"}</button>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
@@ -4017,3 +3980,5 @@ export default function TambahModulKontenPage() {
     </Suspense>
   );
 }
+
+
