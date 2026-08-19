@@ -29,6 +29,8 @@ import {
     siswaCertificateApi,
     siswaKuisApi,
     siswaModulApi,
+    npStart,
+    npDone,
 } from "../../../lib/api";
 import type {
     SoalItem,
@@ -1408,6 +1410,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const handleSubmitTest = async () => {
         if (isSubmitting) return;
         setIsSubmitting(true);
+        npStart();
         const elapsed = testDurationSeconds - remainingSeconds;
         setFinishedElapsedSeconds(elapsed);
 
@@ -1605,6 +1608,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             if (assessmentType === "pretest") setIsPretestFinished(true);
             if (assessmentType === "posttest") setIsPosttestFinished(true);
         } finally {
+            npDone();
             setCurrentView("pretest-result");
             setIsSubmitting(false);
         }

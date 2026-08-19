@@ -114,11 +114,11 @@ const API_BASE =
         : process.env.NEXT_PUBLIC_API_URL || "";
 
 let _pendingReqs = 0;
-function npStart() {
+export function npStart() {
     if (typeof window === "undefined") return;
     if (_pendingReqs++ === 0) NProgress.start();
 }
-function npDone() {
+export function npDone() {
     if (typeof window === "undefined") return;
     if (--_pendingReqs <= 0) { _pendingReqs = 0; NProgress.done(); }
 }
