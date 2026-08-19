@@ -3222,6 +3222,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                                     </div>
 
                                     {assessmentType === "pretest" &&
+                                        modulDetail?.autoAccessEnabled !== false &&
                                         testResult?.unlocked_count != null && (
                                             <div className="mx-auto mt-6 max-w-[540px] rounded-xl border border-[#e0d5ff] bg-[#f8f6ff] px-4 py-3 text-sm text-[#4f5565]">
                                                 <span className="font-semibold text-[#7054dc]">
