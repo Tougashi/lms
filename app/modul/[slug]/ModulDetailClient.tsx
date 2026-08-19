@@ -21,7 +21,7 @@ import SiswaHeader from "../../component/siswa/SiswaHeader";
 import GuruHeader from "../../component/guru/GuruHeader";
 import AccordionMateri from "../../component/siswa/AccordionMateri";
 import { useAuth } from "../../context/AuthContext";
-import { siswaModulApi, siswaStudyRoomApi, guruModulApi } from "../../lib/api";
+import { siswaModulApi, siswaStudyRoomApi, guruModulApi, npStart, npDone } from "../../lib/api";
 import type { ModuleDetailResponse } from "../../lib/types/siswa";
 import { ApiError } from "../../lib/types/umum";
 import { AxiosError } from "axios";
@@ -87,6 +87,7 @@ export default function ModulDetailPage({
         const fetchData = async (showLoading = true) => {
             if (showLoading) setIsLoading(true);
             setError("");
+            npStart();
             try {
                 let res: ModuleDetailResponse;
                 try {
@@ -124,6 +125,7 @@ export default function ModulDetailPage({
                     );
                 }
             } finally {
+                npDone();
                 if (isMounted && showLoading) setIsLoading(false);
             }
         };

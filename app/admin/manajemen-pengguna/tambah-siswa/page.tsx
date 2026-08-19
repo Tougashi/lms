@@ -13,7 +13,7 @@ import {
   FiUser,
 } from "react-icons/fi";
 import AdminHeader from "../../../component/admin/AdminHeader";
-import { adminSiswaApi, uploadApi } from "../../../lib/api";
+import { adminSiswaApi, uploadApi, npStart, npDone } from "../../../lib/api";
 import {
   AdminToastContainer,
   useAdminToast,
@@ -182,6 +182,7 @@ export default function TambahSiswaPage() {
   const handleSubmit = async () => {
     if (!validate()) return;
     setIsSaving(true);
+    npStart();
     try {
       let finalPhotoUrl = photoUrl;
       if (!finalPhotoUrl && photoFile) {
@@ -204,6 +205,7 @@ export default function TambahSiswaPage() {
         err instanceof Error ? err.message : "Gagal menambahkan siswa.";
       showToast("error", msg);
     } finally {
+      npDone();
       setIsSaving(false);
     }
   };

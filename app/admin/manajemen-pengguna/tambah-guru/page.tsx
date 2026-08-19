@@ -16,7 +16,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import AdminHeader from "../../../component/admin/AdminHeader";
-import { adminTutorApi, uploadApi } from "../../../lib/api";
+import { adminTutorApi, uploadApi, npStart, npDone } from "../../../lib/api";
 import {
   AdminToastContainer,
   useAdminToast,
@@ -258,6 +258,7 @@ export default function TambahGuruPage() {
   const handleSubmit = async () => {
     if (!validate()) return;
     setIsSaving(true);
+    npStart();
     try {
       /* upload photo */
       let finalPhotoUrl = photoUrl;
@@ -294,6 +295,7 @@ export default function TambahGuruPage() {
         err instanceof Error ? err.message : "Gagal menambahkan guru.";
       showToast("error", msg);
     } finally {
+      npDone();
       setIsSaving(false);
     }
   };

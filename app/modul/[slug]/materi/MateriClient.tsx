@@ -1406,6 +1406,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                 type = "MATERI";
             }
 
+            npStart();
             try {
                 await siswaProgressApi.completeItem(itemId, type, modulId);
                 const updated = await siswaStudyRoomApi.getByModul(modulId);
@@ -1415,6 +1416,8 @@ export default function MateriClient({ modulId }: { modulId: string }) {
                     `[MateriClient] Failed to persist completion (${itemId}):`,
                     err,
                 );
+            } finally {
+                npDone();
             }
         },
         [modulId, sequence],
@@ -1780,6 +1783,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
     const handleRatingSubmit = async () => {
         if (selectedRating === 0 || isRatingSubmitting) return;
         setIsRatingSubmitting(true);
+        npStart();
         try {
             await siswaRatingApi.rate(modulId, {
                 rating: selectedRating,
@@ -1826,6 +1830,7 @@ export default function MateriClient({ modulId }: { modulId: string }) {
             }
             console.error("Rating submit error:", err);
         } finally {
+            npDone();
             setIsRatingSubmitting(false);
         }
     };

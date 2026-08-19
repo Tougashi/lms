@@ -9,7 +9,7 @@ import {
 import AdminHeader from '../../../component/admin/AdminHeader';
 import AdminModuleSidebar from '../../components/AdminModuleSidebar';
 import { AdminToastContainer, useAdminToast } from '../../components/AdminToast';
-import { adminModulApi, adminTutorApi, uploadApi } from '../../../lib/api';
+import { adminModulApi, adminTutorApi, uploadApi, npStart, npDone } from '../../../lib/api';
 import type { AdminTutorItem } from '../../../lib/types/admin';
 
 /* ─── style constants (identical to tambah-modul) ─── */
@@ -309,6 +309,7 @@ function EditModulContent() {
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     setErrors({});
     setIsSaving(true);
+    npStart();
 
     try {
       let moduleImgUrl: string | null = coverUrl;
@@ -342,6 +343,7 @@ function EditModulContent() {
       const msg = err instanceof Error ? err.message : 'Gagal memperbarui modul.';
       showToast('error', msg);
     } finally {
+      npDone();
       setIsSaving(false);
     }
   };
