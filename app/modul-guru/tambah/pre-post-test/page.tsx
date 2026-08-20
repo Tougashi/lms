@@ -390,7 +390,7 @@ function PrePostTestPageContent() {
             setBank(null);
             return;
         }
-        showLoading("Menghapus bank soal...");
+        // showLoading("Menghapus bank soal...");
         try {
             await guruPretestApi.delete(bank.apiId);
         } catch (err: unknown) {
@@ -401,10 +401,10 @@ function PrePostTestPageContent() {
                     : "Gagal menghapus bank soal.",
                 "error",
             );
-            hideLoading();
+            // hideLoading();
             return;
         }
-        hideLoading();
+        // hideLoading();
         setBank(null);
     }, [bank]);
 
@@ -484,7 +484,7 @@ function PrePostTestPageContent() {
 
             const question = activeBank.questions.find((q) => q.id === qId);
             if (question?.apiSoalId) {
-                showLoading("Menghapus soal...");
+                // showLoading("Menghapus soal...");
                 try {
                     await guruPretestApi.deleteSoal(question.apiSoalId);
                 } catch (err: unknown) {
@@ -495,10 +495,10 @@ function PrePostTestPageContent() {
                             : "Gagal menghapus soal.",
                         "error",
                     );
-                    hideLoading();
+                    // hideLoading();
                     return;
                 }
-                hideLoading();
+                // hideLoading();
             }
             setBank((prev) =>
                 prev
@@ -529,7 +529,7 @@ function PrePostTestPageContent() {
                 .filter((id): id is string => Boolean(id));
 
             if (apiSoalIds.length > 0) {
-                showLoading("Menghapus soal CT...");
+                // showLoading("Menghapus soal CT...");
                 try {
                     for (const apiId of apiSoalIds) {
                         await guruPretestApi.deleteSoal(apiId);
@@ -542,10 +542,10 @@ function PrePostTestPageContent() {
                             : "Gagal menghapus soal CT.",
                         "error",
                     );
-                    hideLoading();
+                    // hideLoading();
                     return;
                 }
-                hideLoading();
+                // hideLoading();
             }
 
             setBank((prev) =>
@@ -696,7 +696,7 @@ function PrePostTestPageContent() {
             }
 
             setIsSaving(true);
-            showLoading("Menyimpan soal...");
+            // // showLoading("Menyimpan soal...");
             try {
                 const payload = {
                     pertanyaan: question.pertanyaan,
@@ -738,7 +738,7 @@ function PrePostTestPageContent() {
                     "error",
                 );
             } finally {
-                hideLoading();
+                // hideLoading();
                 setIsSaving(false);
             }
         },
@@ -775,7 +775,7 @@ function PrePostTestPageContent() {
             }
 
             setIsSaving(true);
-            showLoading("Menyimpan soal CT...");
+            // // showLoading("Menyimpan soal CT...");
             try {
                 const api = guruPretestApi;
                 const updatedSubIds: Record<number, string> = {};
@@ -857,7 +857,7 @@ function PrePostTestPageContent() {
                     "error",
                 );
             } finally {
-                hideLoading();
+                // hideLoading();
                 setIsSaving(false);
             }
         },
@@ -886,7 +886,7 @@ function PrePostTestPageContent() {
                     setIsTestComputationalThinking(initialCTMode);
                     return;
                 }
-                showLoading("Menghapus soal...");
+                // showLoading("Menghapus soal...");
                 if (targetBank.apiId) {
                     await guruPretestApi.deleteAllQuestions(targetBank.apiId);
                 }
@@ -973,7 +973,7 @@ function PrePostTestPageContent() {
                     );
                 }
                 setInitialCTMode(isTestComputationalThinking);
-                hideLoading();
+                // hideLoading();
             }
         }
 
@@ -989,7 +989,7 @@ function PrePostTestPageContent() {
         }
 
         setIsSaving(true);
-        showLoading("Menyimpan pengaturan...");
+        // // showLoading("Menyimpan pengaturan...");
         try {
             if (modulId) {
                 await guruModulApi.update(modulId, {
@@ -1062,7 +1062,7 @@ function PrePostTestPageContent() {
                 "error",
             );
         } finally {
-            hideLoading();
+            // hideLoading();
             setIsSaving(false);
         }
     }, [
@@ -1096,7 +1096,7 @@ function PrePostTestPageContent() {
             confirmText: "Terbitkan",
         });
         if (!ok) return;
-        showLoading("Menerbitkan modul...");
+        // showLoading("Menerbitkan modul...");
         try {
             await guruModulApi.update(modulId, { isDraft: false });
             router.push("/modul-guru?tab=published");
@@ -1106,7 +1106,7 @@ function PrePostTestPageContent() {
                 "error",
             );
         } finally {
-            hideLoading();
+            // hideLoading();
         }
     }, [modulId, router]);
 
@@ -3185,3 +3185,5 @@ export default function PrePostTestPage() {
         </Suspense>
     );
 }
+
+
