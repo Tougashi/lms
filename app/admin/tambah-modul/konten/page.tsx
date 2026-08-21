@@ -1082,8 +1082,45 @@ function TambahModulKontenPageContent() {
       ctMode: boolean;
     },
   ) => {
+    // Jika beralih dari CT ke Reguler, hapus sub-soal CT lama dari API
+    const quizToUpdate = quizzes.find((q) => q.id === quizId);
+    if (quizToUpdate && quizToUpdate.ctMode && !settings.ctMode) {
+      const subIdsToDelete = quizToUpdate.ctStories.flatMap((s) =>
+        s.subQuestions
+          .map((sq) => subQuizApiIds[sq.id])
+          .filter(Boolean),
+      );
+      for (const sid of subIdsToDelete) {
+        adminTopikKuisApi.delete(sid).catch((err) =>
+          console.error("Delete CT sub-quiz on mode switch:", err),
+        );
+      }
+      setSubQuizApiIds((prev) => {
+        const next = { ...prev };
+        quizToUpdate.ctStories.forEach((s) =>
+          s.subQuestions.forEach((sq) => delete next[sq.id]),
+        );
+        return next;
+      });
+    }
+
     setQuizzes((prev) =>
-      prev.map((q) => (q.id === quizId ? { ...q, ...settings } : q)),
+      prev.map((q) => {
+        if (q.id !== quizId) return q;
+        const updated = { ...q, ...settings };
+        if (!settings.ctMode && q.ctMode && updated.questions.length === 0) {
+          const t = Date.now();
+          updated.questions = [{
+            id: t,
+            label: "",
+            answers: [
+              { id: t + 10, text: "", isCorrect: false },
+              { id: t + 11, text: "", isCorrect: false },
+            ],
+          }];
+        }
+        return updated;
+      }),
     );
     setIsQuizSettingsOpen(false);
   };
