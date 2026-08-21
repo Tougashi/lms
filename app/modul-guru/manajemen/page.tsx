@@ -469,7 +469,8 @@ function ManajemenModulContent() {
                             {/* Table / List */}
                             <div className="mt-4 rounded-2xl border border-[#e5e3ee] bg-white shadow-sm w-full">
                                 <div className="w-full">
-                                    <div className="grid grid-cols-[1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr] gap-4 bg-[#f0eff5] px-5 py-3 text-[12px] font-semibold text-[#232530]">
+                                    <div className="grid grid-cols-[0.3fr_1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr] gap-4 bg-[#f0eff5] px-5 py-3 text-[12px] font-semibold text-[#232530]">
+                                        <span className="text-center">No</span>
                                         <span>Siswa</span>
                                         <span>Progres</span>
                                         <span className="text-center">
@@ -511,7 +512,8 @@ function ManajemenModulContent() {
                                             </p>
                                         </div>
                                     ) : (
-                                        paginatedStudents.map((siswa) => {
+                                        paginatedStudents.map((siswa, index) => {
+                                            const globalIndex = (studentPage - 1) * 10 + index + 1;
                                             const cfg =
                                                 rekomendasiConfig[
                                                 siswa.rekomendasi as
@@ -522,8 +524,11 @@ function ManajemenModulContent() {
                                             return (
                                                 <div
                                                     key={siswa.id}
-                                                    className="grid grid-cols-[1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr] items-center gap-4 border-t border-[#f0eff5] px-5 py-3.5 text-[12px] text-[#232530] hover:bg-[#fcfcff] transition-colors"
+                                                    className="grid grid-cols-[0.3fr_1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr] items-center gap-4 border-t border-[#f0eff5] px-5 py-3.5 text-[12px] text-[#232530] hover:bg-[#fcfcff] transition-colors"
                                                 >
+                                                    <div className="text-center font-medium text-[#7a7e8a]">
+                                                        {globalIndex}
+                                                    </div>
                                                     <div>
                                                         <Link
                                                             href={`/modul-guru/manajemen/siswa?studentId=${siswa.id}&modulId=${modulId}`}
