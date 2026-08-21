@@ -11,6 +11,7 @@ import {
     FiTrash2,
     FiFilter,
     FiArrowLeft,
+    FiDownload,
 } from "react-icons/fi";
 import CursorPagination from "../../component/ui/CursorPagination";
 
@@ -213,6 +214,29 @@ function ManajemenModulContent() {
         return filteredStudents.slice(start, start + STUDENTS_PER_PAGE);
     }, [filteredStudents, studentPage]);
 
+    const handleExportXLSX = async () => {
+        const XLSX = (await import("xlsx")).default;
+        const rekLabels: Record<string, string> = {
+            pengayaan: "Siap Pengayaan",
+            remedial: "Perlu Remedial",
+            penguatan: "Perlu Penguatan",
+        };
+        const rows = enrolledStudents.map((s) => ({
+            "Nama Siswa": s.name,
+            "Email": s.email,
+            "Progress (%)": s.progress,
+            "Nilai Pretest": s.preTest,
+            "Nilai Posttest": s.postTest,
+            "Rata-rata Kuis": s.rataKuis,
+            "Rata-rata Kuis CT": s.rataKuisCt,
+            "Rekomendasi": rekLabels[s.rekomendasi] ?? s.rekomendasi,
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Nilai Siswa");
+        XLSX.writeFile(wb, `nilai-siswa-${modulId ?? "modul"}.xlsx`);
+    };
+
     const rekomendasiConfig = {
         penguatan: {
             label: "Perlu Penguatan",
@@ -352,6 +376,15 @@ function ManajemenModulContent() {
                                             className="text-[#9aa0ad]"
                                         />
                                     </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleExportXLSX}
+                                        disabled={enrolledStudents.length === 0}
+                                        className="inline-flex h-[40px] cursor-pointer items-center gap-2 rounded-xl border border-[#7054dc] px-4 text-[12px] font-semibold text-[#7054dc] hover:bg-[#f5f4fb] disabled:cursor-not-allowed disabled:opacity-40 shadow-sm transition-colors"
+                                    >
+                                        <FiDownload size={14} />
+                                        Export
+                                    </button>
                                     <div className="relative">
                                         <button
                                             type="button"

@@ -947,7 +947,7 @@ function EditModulKontenPageContent() {
             });
             setQuizzes(mappedQuiz);
             setQuizApiIds(quizIds);
-            setSubQuizApiIds((prev) => ({ ...prev, ...newSubQuizIds }));
+            setSubQuizApiIds(newSubQuizIds);
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
@@ -1215,7 +1215,22 @@ function EditModulKontenPageContent() {
         },
     ) => {
         setQuizzes((prev) =>
-            prev.map((q) => (q.id === quizId ? { ...q, ...settings } : q)),
+            prev.map((q) => {
+                if (q.id !== quizId) return q;
+                const updated = { ...q, ...settings };
+                if (!settings.ctMode && q.ctMode && updated.questions.length === 0) {
+                    const t = Date.now();
+                    updated.questions = [{
+                        id: t,
+                        label: "",
+                        answers: [
+                            { id: t + 10, text: "", isCorrect: false },
+                            { id: t + 11, text: "", isCorrect: false },
+                        ],
+                    }];
+                }
+                return updated;
+            }),
         );
         setIsQuizSettingsOpen(false);
     };
@@ -1515,6 +1530,12 @@ function EditModulKontenPageContent() {
                     minScoreTreshold: quiz.minScore,
                     standardScorePerQuestion: quiz.scorePerQuestion,
                 };
+
+                if (quiz.questions.length === 0) {
+                    warn("Tambahkan minimal 1 soal sebelum menyimpan.");
+                    npDone();
+                    return { success: false, error: "Tambahkan minimal 1 soal sebelum menyimpan." };
+                }
 
                 for (let qIdx = 0; qIdx < quiz.questions.length; qIdx++) {
                     const qn = quiz.questions[qIdx];
