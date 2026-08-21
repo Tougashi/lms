@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { FaSearch } from "react-icons/fa";
-import { FiEdit2, FiMoreVertical, FiPlus, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiMoreVertical, FiPlus, FiTrash2, FiUpload } from "react-icons/fi";
 import { MdKeyboardArrowLeft, MdKeyboardArrowRight } from "react-icons/md";
 
 import GuruHeader from "../component/guru/GuruHeader";
@@ -13,6 +13,7 @@ import { useGuruModules } from "./hooks/useGuruModules";
 import { guruModulApi } from "../lib/api";
 import { useRoleGuard } from "../lib/hooks/useRoleGuard";
 import { usePopup } from "../component/ui/PopupProvider";
+import ImportModulModal from "./components/ImportModulModal";
 
 function ModulGuruPageContent() {
     const { isAuthorized } = useRoleGuard(["tutor"]);
@@ -21,6 +22,7 @@ function ModulGuruPageContent() {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [isImportOpen, setIsImportOpen] = useState(false);
     const { toast, confirm, showLoading, hideLoading } = usePopup();
 
     const isDraftTab = tabParam === "draft";
@@ -153,6 +155,15 @@ function ModulGuruPageContent() {
                                 className="shrink-0 text-[#8a8d98]"
                             />
                         </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setIsImportOpen(true)}
+                            className="inline-flex h-[44px] items-center gap-2 rounded-full border border-[#7557ea] px-5 text-[13px] font-semibold text-[#7557ea] transition-colors hover:bg-[#f0ebff]"
+                        >
+                            <FiUpload size={16} />
+                            Import Modul
+                        </button>
 
                         <Link
                             href="/modul-guru/tambah"
@@ -320,6 +331,12 @@ function ModulGuruPageContent() {
                     </>
                 )}
             </main>
+
+            <ImportModulModal
+                isOpen={isImportOpen}
+                onClose={() => setIsImportOpen(false)}
+                onSuccess={() => { loadModules(); }}
+            />
         </div>
     );
 }

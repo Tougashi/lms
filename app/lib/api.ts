@@ -1166,6 +1166,42 @@ export const guruQuizGroupApi = {
 };
 
 // ---------------------------------------------------------------------------
+// Guru / Tutor – Import Modul endpoint
+// ---------------------------------------------------------------------------
+
+export interface ImportModulSummary {
+    topik: number;
+    materi: number;
+    rangkuman: number;
+    quizGroup: number;
+    quiz: number;
+    pretestSoal: number;
+}
+
+export interface ImportModulResult {
+    modulId: string;
+    summary: ImportModulSummary;
+}
+
+export interface ImportValidationError {
+    sheet: string;
+    row: number;
+    field: string;
+    message: string;
+}
+
+export const guruImportApi = {
+    importModul(file: File): Promise<ImportModulResult> {
+        const fd = new FormData();
+        fd.append("file", file);
+        return apiUpload<ImportModulResult>("/tutor/import/modul", fd);
+    },
+    get templateUrl(): string {
+        return `${API_BASE}/tutor/import/template`;
+    },
+};
+
+// ---------------------------------------------------------------------------
 // Upload endpoint
 // ---------------------------------------------------------------------------
 // NOTE: We call /api/upload (Next.js route handler) instead of going through
