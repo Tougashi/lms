@@ -215,7 +215,8 @@ function ManajemenModulContent() {
     }, [filteredStudents, studentPage]);
 
     const handleExportXLSX = async () => {
-        const XLSX = (await import("xlsx")).default;
+        const xlsxModule = await import("xlsx");
+        const XLSX = xlsxModule.default || xlsxModule;
         const rekLabels: Record<string, string> = {
             pengayaan: "Siap Pengayaan",
             remedial: "Perlu Remedial",
@@ -791,3 +792,4 @@ export default function ManajemenModulPage() {
         </Suspense>
     );
 }
+
