@@ -1519,7 +1519,7 @@ function TambahModulKontenPageContent() {
   };
 
   const activeTopik = topiks.find(t => t.id === activeTopikId);
-  const isTopicCT = isModuleCT || (activeTopik?.isComputationalThinking ?? false);
+  const isTopicCT = activeTopik?.isComputationalThinking ?? false;
 
   const handleToggleCTMode = (quizId: number, enabled: boolean) => {
     if (isTopicCT) return;
@@ -1537,7 +1537,7 @@ function TambahModulKontenPageContent() {
       ctMode: boolean;
     },
   ) => {
-    // Jika beralih dari CT ke Reguler, hapus sub-soal CT lama dari API
+    // Jika beralih dari CT ke Reguler, hapus sub-soal CT lama dari API untuk kuis ini saja
     const quizToUpdate = quizzes.find((q) => q.id === quizId);
     if (quizToUpdate && quizToUpdate.ctMode && !settings.ctMode) {
       const subIdsToDelete = quizToUpdate.ctStories.flatMap((s) =>
@@ -1563,16 +1563,24 @@ function TambahModulKontenPageContent() {
       prev.map((q) => {
         if (q.id !== quizId) return q;
         const updated = { ...q, ...settings };
-        if (!settings.ctMode && q.ctMode && updated.questions.length === 0) {
+        if (!settings.ctMode && q.ctMode) {
           const t = Date.now();
-          updated.questions = [{
-            id: t,
-            label: "",
-            answers: [
-              { id: t + 10, text: "", isCorrect: false },
-              { id: t + 11, text: "", isCorrect: false },
-            ],
-          }];
+          updated.ctStories = [];
+          if (updated.questions.length === 0) {
+            updated.questions = [{
+              id: t,
+              label: "",
+              answers: [
+                { id: t + 10, text: "", isCorrect: false },
+                { id: t + 11, text: "", isCorrect: false },
+              ],
+            }];
+          }
+        } else if (settings.ctMode && !q.ctMode) {
+          updated.questions = [];
+          if (updated.ctStories.length === 0) {
+            updated.ctStories = [makeCTStory()];
+          }
         }
         return updated;
       }),
@@ -3884,102 +3892,19 @@ function TambahModulKontenPageContent() {
                         const ok = await confirm({
                           title: "Ubah Mode Kuis",
                           message: tempCTMode
-                            ? "Mengubah ke mode CT akan menghapus soal reguler yang sudah ada dan membuat 4 soal CT otomatis. Lanjutkan?"
+                            ? "Mengubah ke mode CT akan menghapus soal reguler yang sudah ada. Lanjutkan?"
                             : "Mengubah ke mode Reguler akan menghapus soal CT yang sudah ada. Lanjutkan?",
                           confirmText: "Ya, Ubah",
                         });
                         if (!ok) return;
                       }
 
-                      if (modeChanged) {
-                        const apiId = quizApiIds[quiz.id];
-
-                        if (tempCTMode) {
-                          // REGULER → CT
-                          if (apiId) {
-                            await guruKuisApi.update(apiId, {
-                              quizType: "COMPUTATIONAL_THINKING",
-                              answerOptions: [],
-                            });
-                          }
-                          setQuizzes((prev) =>
-                            prev.map((q) =>
-                              q.id === quiz.id
-                                ? {
-                                    ...q,
-                                    duration: dur,
-                                    minScore: min,
-                                    scorePerQuestion: sps,
-                                    ctMode: true,
-                                    questions: [],
-                                    ctStories: [makeCTStory()],
-                                  }
-                                : q,
-                            ),
-                          );
-                        } else {
-                          // CT → REGULER
-                          const subIds = Object.values(subQuizApiIds);
-                          for (const sid of subIds) {
-                            await guruKuisApi.delete(sid);
-                          }
-                          setSubQuizApiIds({});
-                          if (apiId) {
-                            await guruKuisApi.update(apiId, {
-                              quizType: "REGULER",
-                              answerOptions: [
-                                { option: "A" },
-                                { option: "B" },
-                                { option: "C" },
-                              ],
-                            });
-                          }
-                          setQuizzes((prev) =>
-                            prev.map((q) =>
-                              q.id === quiz.id
-                                ? {
-                                    ...q,
-                                    duration: dur,
-                                    minScore: min,
-                                    scorePerQuestion: sps,
-                                    ctMode: false,
-                                    ctStories: [],
-                                    questions: [
-                                      {
-                                        id: Date.now(),
-                                        label: "",
-                                        answers: [
-                                          {
-                                            id: Date.now() + 1,
-                                            text: "",
-                                            isCorrect: false,
-                                          },
-                                          {
-                                            id: Date.now() + 2,
-                                            text: "",
-                                            isCorrect: false,
-                                          },
-                                          {
-                                            id: Date.now() + 3,
-                                            text: "",
-                                            isCorrect: false,
-                                          },
-                                        ],
-                                      },
-                                    ],
-                                  }
-                                : q,
-                            ),
-                          );
-                        }
-                      } else {
-                        handleSaveQuizSettings(quiz.id, {
-                          duration: dur,
-                          minScore: min,
-                          scorePerQuestion: sps,
-                          ctMode: quiz.ctMode,
-                        });
-                      }
+                      handleSaveQuizSettings(quiz.id, {
+                        duration: dur,
+                        minScore: min,
+                        scorePerQuestion: sps,
+                        ctMode: tempCTMode,
+                      });
 
                       setIsQuizSettingsOpen(false);
                     }}
