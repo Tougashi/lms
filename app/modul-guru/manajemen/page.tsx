@@ -159,6 +159,7 @@ function ManajemenModulContent() {
                     id: item.siswaId,
                     name: item.siswaName,
                     email: item.email,
+                    quizBreakdown: item.quizBreakdown ?? [],
                     progress: (() => {
                         const raw = Math.round(Number(item.progressPercentage) || 0);
                         // Sanity check: if no evidence of activity, clamp to 0
@@ -222,20 +223,30 @@ function ManajemenModulContent() {
             remedial: "Perlu Remedial",
             penguatan: "Perlu Penguatan",
         };
-        const rows = enrolledStudents.map((s) => ({
-            "Nama Siswa": s.name,
-            "Email": s.email,
-            "Progress (%)": s.progress,
-            "Nilai Pretest": s.preTest,
-            "Nilai Posttest": s.postTest,
-            "Rata-rata Kuis": s.rataKuis,
-            "Rata-rata Kuis CT": s.rataKuisCt,
-            "Rekomendasi": rekLabels[s.rekomendasi] ?? s.rekomendasi,
-        }));
+        const rows = enrolledStudents.map((s) => {
+            const base: Record<string, string | number> = {
+                "Nama Siswa": s.name,
+                "Email": s.email,
+                "Progress (%)": s.progress,
+                "Nilai Pretest": s.preTest,
+                "Nilai Posttest": s.postTest,
+                "Rata-rata Kuis": s.rataKuis,
+                "Rata-rata Kuis CT": s.rataKuisCt,
+                "Rekomendasi": rekLabels[s.rekomendasi] ?? s.rekomendasi,
+            };
+            for (const qb of (s.quizBreakdown ?? [])) {
+                base[qb.label] = qb.score ?? "-";
+            }
+            return base;
+        });
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Nilai Siswa");
-        XLSX.writeFile(wb, `nilai-siswa-${modulId ?? "modul"}.xlsx`);
+        const moduleName = moduleDetail?.moduleName ?? "modul";
+        const safeModuleName = moduleName.replace(/[\\/:*?"<>|]/g, "-");
+        const now = new Date();
+        const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}`;
+        XLSX.writeFile(wb, `${safeModuleName}_${timestamp}.xlsx`);
     };
 
     const rekomendasiConfig = {
