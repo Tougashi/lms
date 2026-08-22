@@ -946,8 +946,8 @@ function EditModulKontenPageContent() {
                 }
             });
             setQuizzes(mappedQuiz);
-            setQuizApiIds(quizIds);
-            setSubQuizApiIds(newSubQuizIds);
+            setQuizApiIds((prev) => ({ ...prev, ...quizIds }));
+            setSubQuizApiIds((prev) => ({ ...prev, ...newSubQuizIds }));
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
@@ -1214,6 +1214,28 @@ function EditModulKontenPageContent() {
             ctMode: boolean;
         },
     ) => {
+        // Jika beralih dari CT ke Reguler, hapus sub-soal CT lama dari API
+        const quizToUpdate = quizzes.find((q) => q.id === quizId);
+        if (quizToUpdate && quizToUpdate.ctMode && !settings.ctMode) {
+            const subIdsToDelete = quizToUpdate.ctStories.flatMap((s) =>
+                s.subQuestions
+                    .map((sq) => subQuizApiIds[sq.id])
+                    .filter(Boolean),
+            );
+            for (const sid of subIdsToDelete) {
+                adminTopikKuisApi.delete(sid).catch((err) =>
+                    console.error("Delete CT sub-quiz on mode switch:", err),
+                );
+            }
+            setSubQuizApiIds((prev) => {
+                const next = { ...prev };
+                quizToUpdate.ctStories.forEach((s) =>
+                    s.subQuestions.forEach((sq) => delete next[sq.id]),
+                );
+                return next;
+            });
+        }
+
         setQuizzes((prev) =>
             prev.map((q) => {
                 if (q.id !== quizId) return q;
@@ -1649,10 +1671,19 @@ function EditModulKontenPageContent() {
         const result = await persistQuiz(quiz, topicId);
         if (result.success) {
             toast("Kuis berhasil disimpan.", "success");
-            setQuizzes((prev) =>
-                prev.map((q) => (q.id === quizId ? { ...q, isExpanded: false } : q)),
-            );
-            setTimeout(() => window.location.reload(), 1500);
+            // Reload data topik aktif dari API tanpa full page reload
+            // agar mapping quizApiIds/subQuizApiIds tidak hilang
+            try {
+                const freshItems = await adminMateriApi.getByModul(modulId!);
+                setTopiks(freshItems);
+                const freshTopik = freshItems.find((t: any) => t.id === topicId);
+                if (freshTopik) loadTopicData(freshTopik);
+            } catch {
+                // Fallback: just collapse the quiz
+                setQuizzes((prev) =>
+                    prev.map((q) => (q.id === quizId ? { ...q, isExpanded: false } : q)),
+                );
+            }
         } else {
             toast(result.error || "Gagal menyimpan kuis.", "error");
         }
