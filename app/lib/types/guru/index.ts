@@ -516,6 +516,20 @@ export interface GuruModuleProgressItem {
     recommendation: string;
 }
 
+export interface ModuleExportDetail {
+    students: Array<{
+        siswaId: string;
+        siswaName: string;
+        pretestScore?: number | null;
+        posttestScore?: number | null;
+        pretestAnswers: Record<string, boolean>;
+        quizAnswers: Record<string, boolean>;
+    }>;
+    pretestGroups: Array<{ label: string; questions: Array<{ id: string; ctAspect: string | null }> }>;
+    regulerQuizGroups: Array<{ label: string; questions: Array<{ id: string }> }>;
+    ctQuizGroups: Array<{ label: string; questions: Array<{ id: string; ctAspect: string | null }> }>;
+}
+
 export interface TopikCTAnalysisItem {
     topikId: string;
     topikName: string;

@@ -218,12 +218,23 @@ function ManajemenModulContent() {
     const handleExportXLSX = async () => {
         const xlsxModule = await import("xlsx");
         const XLSX = xlsxModule.default || xlsxModule;
+
+        const CT_ABBREV: Record<string, string> = {
+            decomposition: "D", pattern_recognition: "P", patternrecognition: "P",
+            abstraction: "A", algorithm: "AL",
+        };
+        const ctAbbr = (a: string | null | undefined) => CT_ABBREV[a?.toLowerCase() ?? ""] ?? a ?? "?";
+        const CT_ASPECTS = ["D", "P", "A", "AL"];
+
+        const wb = XLSX.utils.book_new();
+
+        // Sheet 1: Ringkasan
         const rekLabels: Record<string, string> = {
             pengayaan: "Siap Pengayaan",
             remedial: "Perlu Remedial",
             penguatan: "Perlu Penguatan",
         };
-        const rows = enrolledStudents.map((s) => {
+        const ringkasanRows = enrolledStudents.map((s) => {
             const base: Record<string, string | number> = {
                 "Nama Siswa": s.name,
                 "Email": s.email,
@@ -239,9 +250,85 @@ function ManajemenModulContent() {
             }
             return base;
         });
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Nilai Siswa");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ringkasanRows), "Ringkasan");
+
+        // Fetch per-question detail from backend
+        if (modulId) {
+            const detail = await guruProgressApi.getExportDetail(modulId);
+
+            // Sheet: Pretest
+            if (detail.pretestGroups.length > 0) {
+                const pretestRows = detail.students.map((s) => {
+                    const row: Record<string, string | number> = { "Siswa": s.siswaName };
+                    const aspectCounts: Record<string, number> = { D: 0, P: 0, A: 0, AL: 0 };
+                    let totalBenar = 0;
+                    let totalSoal = 0;
+                    for (const group of detail.pretestGroups) {
+                        for (const q of group.questions) {
+                            const abbr = ctAbbr(q.ctAspect);
+                            const colKey = `${group.label}-${abbr}`;
+                            const correct = s.pretestAnswers[q.id] ? 1 : 0;
+                            row[colKey] = correct;
+                            if (CT_ASPECTS.includes(abbr)) aspectCounts[abbr] = (aspectCounts[abbr] ?? 0) + correct;
+                            totalBenar += correct;
+                            totalSoal++;
+                        }
+                    }
+                    for (const asp of CT_ASPECTS) row[`${asp} Benar`] = aspectCounts[asp] ?? 0;
+                    row["Total Benar"] = totalBenar;
+                    row["Nilai"] = totalSoal > 0 ? Math.round((totalBenar / totalSoal) * 100) : 0;
+                    return row;
+                });
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pretestRows), "Pretest");
+            }
+
+            // Sheets: Kuis CT {n}
+            for (const group of detail.ctQuizGroups) {
+                const rows = detail.students.map((s) => {
+                    const row: Record<string, string | number> = { "Siswa": s.siswaName };
+                    const aspectCounts: Record<string, number> = { D: 0, P: 0, A: 0, AL: 0 };
+                    let totalBenar = 0;
+                    let totalSoal = 0;
+                    for (const q of group.questions) {
+                        const abbr = ctAbbr(q.ctAspect);
+                        const colKey = `${group.label}-${abbr}`;
+                        const correct = s.quizAnswers[q.id] ? 1 : 0;
+                        row[colKey] = correct;
+                        if (CT_ASPECTS.includes(abbr)) aspectCounts[abbr] = (aspectCounts[abbr] ?? 0) + correct;
+                        totalBenar += correct;
+                        totalSoal++;
+                    }
+                    for (const asp of CT_ASPECTS) row[`${asp} Benar`] = aspectCounts[asp] ?? 0;
+                    row["Total Benar"] = totalBenar;
+                    row["Nilai"] = totalSoal > 0 ? Math.round((totalBenar / totalSoal) * 100) : 0;
+                    return row;
+                });
+                const sheetName = `Kuis CT ${group.label.replace("K", "")}`;
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), sheetName);
+            }
+
+            // Sheets: Kuis Reguler {n}
+            for (const group of detail.regulerQuizGroups) {
+                const rows = detail.students.map((s) => {
+                    const row: Record<string, string | number> = { "Siswa": s.siswaName };
+                    let totalBenar = 0;
+                    let totalSoal = 0;
+                    group.questions.forEach((q, idx) => {
+                        const colKey = `${group.label}-S${idx + 1}`;
+                        const correct = s.quizAnswers[q.id] ? 1 : 0;
+                        row[colKey] = correct;
+                        totalBenar += correct;
+                        totalSoal++;
+                    });
+                    row["Total Benar"] = totalBenar;
+                    row["Nilai"] = totalSoal > 0 ? Math.round((totalBenar / totalSoal) * 100) : 0;
+                    return row;
+                });
+                const sheetName = `Kuis Reguler ${group.label.replace("KR", "")}`;
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), sheetName);
+            }
+        }
+
         const moduleName = moduleDetail?.moduleName ?? "modul";
         const safeModuleName = moduleName.replace(/[\\/:*?"<>|]/g, "-");
         const now = new Date();

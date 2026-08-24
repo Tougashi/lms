@@ -62,6 +62,7 @@ import type {
     TutorProgressByStudent,
     TutorProgressPaginatedResponse,
     GuruModuleProgressItem,
+    ModuleExportDetail,
     CTAnalysisResponse,
     GuruRangkumanItem,
     GuruRangkumanCreatePayload,
@@ -1323,6 +1324,10 @@ export const guruProgressApi = {
         return apiFetch<GuruModuleProgressItem[]>(
             `/tutor/progress/module/${modulId}`,
         );
+    },
+
+    getExportDetail(modulId: string) {
+        return apiFetch<ModuleExportDetail>(`/tutor/progress/module/${modulId}/export`);
     },
 
     getByStudent(studentId: string) {
