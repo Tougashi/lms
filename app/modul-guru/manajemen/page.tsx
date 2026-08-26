@@ -12,6 +12,7 @@ import {
     FiFilter,
     FiArrowLeft,
     FiDownload,
+    FiFileText,
 } from "react-icons/fi";
 import CursorPagination from "../../component/ui/CursorPagination";
 
@@ -276,11 +277,39 @@ function ManajemenModulContent() {
                     }
                     for (const asp of CT_ASPECTS) row[`${asp} Benar`] = aspectCounts[asp] ?? 0;
                     row["Total Benar"] = totalBenar;
-                    row["Nilai"] = totalSoal > 0 ? Math.round((totalBenar / totalSoal) * 100) : 0;
-                    return row;
-                });
-                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pretestRows), "Pretest");
-            }
+                row["Nilai"] = totalSoal > 0 ? Math.round((totalBenar / totalSoal) * 100) : 0;
+                return row;
+            });
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pretestRows), "Pre-Test");
+        }
+
+        // Sheet: Posttest
+        if (detail.posttestGroups && detail.posttestGroups.length > 0) {
+            const posttestRows = detail.students.map((s) => {
+                const row: Record<string, string | number> = { "Siswa": s.siswaName };
+                const aspectCounts: Record<string, number> = { D: 0, P: 0, A: 0, AL: 0 };
+                let totalBenar = 0;
+                let totalSoal = 0;
+                let qIdx = 1;
+                for (const group of detail.posttestGroups) {
+                    for (const q of group.questions) {
+                        const abbr = ctAbbr(q.ctAspect);
+                        const colKey = `S-${qIdx} (${abbr})`;
+                        const correct = s.posttestAnswers[q.id] ? 1 : 0;
+                        row[colKey] = correct;
+                        if (CT_ASPECTS.includes(abbr)) aspectCounts[abbr] = (aspectCounts[abbr] ?? 0) + correct;
+                        totalBenar += correct;
+                        totalSoal++;
+                        qIdx++;
+                    }
+                }
+                for (const asp of CT_ASPECTS) row[`${asp} Benar`] = aspectCounts[asp] ?? 0;
+                row["Total Benar"] = totalBenar;
+                row["Nilai"] = totalSoal > 0 ? Math.round((totalBenar / totalSoal) * 100) : 0;
+                return row;
+            });
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(posttestRows), "Post-Test");
+        }
 
             // Sheets: Kuis CT {n}
             for (const group of detail.ctQuizGroups) {
@@ -289,21 +318,23 @@ function ManajemenModulContent() {
                     const aspectCounts: Record<string, number> = { D: 0, P: 0, A: 0, AL: 0 };
                     let totalBenar = 0;
                     let totalSoal = 0;
+                    let qIdx = 1;
                     for (const q of group.questions) {
                         const abbr = ctAbbr(q.ctAspect);
-                        const colKey = `${group.label}-${abbr}`;
+                        const colKey = `S-${qIdx} (${abbr})`;
                         const correct = s.quizAnswers[q.id] ? 1 : 0;
                         row[colKey] = correct;
                         if (CT_ASPECTS.includes(abbr)) aspectCounts[abbr] = (aspectCounts[abbr] ?? 0) + correct;
                         totalBenar += correct;
                         totalSoal++;
+                        qIdx++;
                     }
                     for (const asp of CT_ASPECTS) row[`${asp} Benar`] = aspectCounts[asp] ?? 0;
                     row["Total Benar"] = totalBenar;
                     row["Nilai"] = totalSoal > 0 ? Math.round((totalBenar / totalSoal) * 100) : 0;
                     return row;
                 });
-                const sheetName = `Kuis CT ${group.label.replace("K", "")}`;
+                const sheetName = group.label.substring(0, 31); // max 31 chars
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), sheetName);
             }
 
@@ -314,7 +345,7 @@ function ManajemenModulContent() {
                     let totalBenar = 0;
                     let totalSoal = 0;
                     group.questions.forEach((q, idx) => {
-                        const colKey = `${group.label}-S${idx + 1}`;
+                        const colKey = `S-${idx + 1}`;
                         const correct = s.quizAnswers[q.id] ? 1 : 0;
                         row[colKey] = correct;
                         totalBenar += correct;
@@ -324,7 +355,7 @@ function ManajemenModulContent() {
                     row["Nilai"] = totalSoal > 0 ? Math.round((totalBenar / totalSoal) * 100) : 0;
                     return row;
                 });
-                const sheetName = `Kuis Reguler ${group.label.replace("KR", "")}`;
+                const sheetName = group.label.substring(0, 31); // max 31 chars
                 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), sheetName);
             }
         }
@@ -453,10 +484,8 @@ function ManajemenModulContent() {
 
                             {/* Controls bar */}
                             <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
-                                <p className="max-w-[320px] text-[12px] leading-[1.6] text-[#7a7e8a]">
-                                    Klik nama siswa untuk melihat rincian nilai
-                                    kuis per topik dan progres belajar secara
-                                    mendalam.
+                                <p className="max-w-[420px] text-[12px] leading-[1.6] text-[#7a7e8a]">
+                                    <strong className="text-[#232530] font-semibold">Catatan:</strong> Nilai kuis (Reguler maupun CT) yang ditampilkan pada tabel di bawah ini hanyalah <strong>nilai rata-rata</strong> keseluruhan. Untuk melihat rincian skor per kuis secara lengkap, silakan tekan tombol <strong>Detail</strong>.
                                 </p>
                                 <div className="flex items-center gap-3">
                                     <div className="flex h-[40px] w-full items-center gap-2 rounded-xl border border-[#e5e3ee] bg-white px-4 sm:w-auto shadow-sm">
@@ -475,6 +504,13 @@ function ManajemenModulContent() {
                                             className="text-[#9aa0ad]"
                                         />
                                     </div>
+                                    <Link
+                                        href={`/modul-guru/manajemen/rekap-kelas?modulId=${modulId}`}
+                                        className="inline-flex h-[40px] cursor-pointer items-center gap-2 rounded-xl border border-[#7054dc] px-4 text-[12px] font-semibold text-[#7054dc] hover:bg-[#f5f4fb] shadow-sm transition-colors"
+                                    >
+                                        <FiFileText size={14} />
+                                        Rekap Matriks Kelas
+                                    </Link>
                                     <button
                                         type="button"
                                         onClick={handleExportXLSX}
@@ -567,7 +603,7 @@ function ManajemenModulContent() {
                             {/* Table / List */}
                             <div className="mt-4 rounded-2xl border border-[#e5e3ee] bg-white shadow-sm w-full">
                                 <div className="w-full">
-                                    <div className="grid grid-cols-[0.3fr_1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr] gap-4 bg-[#f0eff5] px-5 py-3 text-[12px] font-semibold text-[#232530]">
+                                    <div className="grid grid-cols-[0.3fr_1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr_0.5fr] gap-4 bg-[#f0eff5] px-5 py-3 text-[12px] font-semibold text-[#232530]">
                                         <span className="text-center">No</span>
                                         <span>Siswa</span>
                                         <span>Progres</span>
@@ -585,6 +621,9 @@ function ManajemenModulContent() {
                                         </span>
                                         <span className="text-center">
                                             Rekomendasi
+                                        </span>
+                                        <span className="text-center">
+                                            Aksi
                                         </span>
                                     </div>
 
@@ -622,14 +661,14 @@ function ManajemenModulContent() {
                                             return (
                                                 <div
                                                     key={siswa.id}
-                                                    className="grid grid-cols-[0.3fr_1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr] items-center gap-4 border-t border-[#f0eff5] px-5 py-3.5 text-[12px] text-[#232530] hover:bg-[#fcfcff] transition-colors"
+                                                    className="grid grid-cols-[0.3fr_1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_1fr_0.5fr] items-center gap-4 border-t border-[#f0eff5] px-5 py-3.5 text-[12px] text-[#232530] hover:bg-[#fcfcff] transition-colors"
                                                 >
                                                     <div className="text-center font-medium text-[#7a7e8a]">
                                                         {globalIndex}
                                                     </div>
                                                     <div>
                                                         <Link
-                                                            href={`/modul-guru/manajemen/siswa?studentId=${siswa.id}&modulId=${modulId}`}
+                                                            href={`/modul-guru/manajemen/detail-jawaban?studentId=${siswa.id}&modulId=${modulId}`}
                                                             className="font-semibold text-[#232530] hover:text-[#7054dc] transition-colors"
                                                         >
                                                             {siswa.name}
@@ -670,12 +709,20 @@ function ManajemenModulContent() {
                                                         >
                                                             {cfg.icon}{" "}
                                                             {cfg.label}
+                                                            {/* Premium short reason tooltip */}
+                                                            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-[240px] -translate-x-1/2 rounded-lg bg-[#232530] p-2 text-center text-[10px] text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 z-30">
+                                                                {siswa.reason}
+                                                                <div className="absolute top-full left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 bg-[#232530]"></div>
+                                                            </div>
                                                         </span>
-                                                        {/* Premium short reason tooltip */}
-                                                        <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-[240px] -translate-x-1/2 rounded-lg bg-[#232530] p-2 text-center text-[10px] text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 z-30">
-                                                            {siswa.reason}
-                                                            <div className="absolute top-full left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 bg-[#232530]"></div>
-                                                        </div>
+                                                    </div>
+                                                    <div className="flex justify-center">
+                                                        <Link
+                                                            href={`/modul-guru/manajemen/detail-jawaban?studentId=${siswa.id}&modulId=${modulId}`}
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#e5e3ee] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#7a7e8a] hover:bg-[#f5f4fb] hover:text-[#7054dc] hover:border-[#7054dc] transition-all shadow-sm"
+                                                        >
+                                                            Detail
+                                                        </Link>
                                                     </div>
                                                 </div>
                                             );

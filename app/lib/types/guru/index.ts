@@ -523,9 +523,11 @@ export interface ModuleExportDetail {
         pretestScore?: number | null;
         posttestScore?: number | null;
         pretestAnswers: Record<string, boolean>;
+        posttestAnswers: Record<string, boolean>;
         quizAnswers: Record<string, boolean>;
     }>;
     pretestGroups: Array<{ label: string; questions: Array<{ id: string; ctAspect: string | null }> }>;
+    posttestGroups: Array<{ label: string; questions: Array<{ id: string; ctAspect: string | null }> }>;
     regulerQuizGroups: Array<{ label: string; questions: Array<{ id: string }> }>;
     ctQuizGroups: Array<{ label: string; questions: Array<{ id: string; ctAspect: string | null }> }>;
 }
@@ -574,4 +576,9 @@ export interface CTAnalysisResponse {
     recommendation: string;
     totalTopics: number;
     completedTopics: number;
+    matrixData?: {
+        pretest: { headers: { id: string; label: string; pillar: string }[]; answers: Record<string, 0|1> };
+        posttest: { headers: { id: string; label: string; pillar: string }[]; answers: Record<string, 0|1> };
+        quizzes: { headers: { id: string; label: string; pillar: string }[]; answers: Record<string, 0|1> };
+    };
 }
