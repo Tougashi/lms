@@ -137,20 +137,19 @@ function ManajemenModulContent() {
 
             const enrolled = data.map((item) => {
                 let rec: "pengayaan" | "remedial" | "penguatan" = "penguatan";
-                let reason = "";
+                if (item.recommendation === "Pengayaan") rec = "pengayaan";
+                if (item.recommendation === "Remedial") rec = "remedial";
 
-                if (item.recommendation === "Siap Pengayaan") {
-                    rec = "pengayaan";
+                let reason = "Skor siswa belum mencapai batas tuntas.";
+                if (rec === "pengayaan") {
                     reason = item.posttestScore
                         ? `Nilai Post-Test sangat baik (${item.posttestScore}), siap untuk materi lanjutan.`
                         : `Progres belajar sangat baik (${Math.round(item.progressPercentage)}%), hampir menyelesaikan modul.`;
-                } else if (item.recommendation === "Perlu Remedial") {
-                    rec = "remedial";
+                } else if (rec === "remedial") {
                     reason = item.posttestScore
                         ? `Nilai Post-Test (${item.posttestScore}) di bawah standar kelulusan (60), perlu bimbingan ulang.`
                         : `Nilai Pre-Test rendah (${item.pretestScore}) dan belum menyelesaikan Post-Test.`;
                 } else {
-                    rec = "penguatan";
                     reason = item.posttestScore
                         ? `Nilai Post-Test cukup (${item.posttestScore}), perlu pemantapan materi.`
                         : `Progres belajar sedang berjalan (${Math.round(item.progressPercentage)}%), perlu pengerjaan materi berkelanjutan.`;
@@ -218,6 +217,15 @@ function ManajemenModulContent() {
         return filteredStudents.slice(start, start + STUDENTS_PER_PAGE);
     }, [filteredStudents, studentPage]);
 
+    const hasCT = moduleDetail?.isTestComputationalThinking ?? enrolledStudents.some(s => s.rataKuisCt !== "-");
+    const hasReguler = enrolledStudents.some(s => s.rataKuis !== "-" || s.preTest !== "-" || s.postTest !== "-");
+    const gridColsString = [
+        '0.3fr', '1.5fr', '1.1fr', '0.6fr', '0.6fr', '0.8fr', '0.8fr',
+        ...(hasReguler ? ['0.9fr'] : []),
+        ...(hasCT ? ['0.9fr'] : []),
+        '0.5fr'
+    ].join(' ');
+
     const handleExportXLSX = async () => {
         const xlsxModule = await import("xlsx");
         const XLSX = xlsxModule.default || xlsxModule;
@@ -233,9 +241,9 @@ function ManajemenModulContent() {
 
         // Sheet 1: Ringkasan
         const rekLabels: Record<string, string> = {
-            pengayaan: "Siap Pengayaan",
-            remedial: "Perlu Remedial",
-            penguatan: "Perlu Penguatan",
+            pengayaan: "Pengayaan",
+            remedial: "Remedial",
+            penguatan: "Penguatan",
         };
         const ringkasanRows = enrolledStudents.map((s) => {
             const kategoriPenguasaan = s.bktMastery >= 0.8 ? 'Tinggi' : s.bktMastery >= 0.5 ? 'Sedang' : 'Rendah';
@@ -373,22 +381,22 @@ function ManajemenModulContent() {
 
     const rekomendasiConfig = {
         penguatan: {
-            label: "Perlu Penguatan",
+            label: "Penguatan",
             bg: "bg-[#e8f4fc]",
             text: "text-[#2a7fbf]",
-            icon: "📘",
+            icon: "💪",
         },
         remedial: {
-            label: "Perlu Remedial",
+            label: "Remedial",
             bg: "bg-[#fdeaea]",
             text: "text-[#d63c3c]",
-            icon: "🔴",
+            icon: "🚨",
         },
         pengayaan: {
-            label: "Siap Pengayaan",
+            label: "Pengayaan",
             bg: "bg-[#e6f9ed]",
             text: "text-[#2a9d5c]",
-            icon: "💚",
+            icon: "🌟",
         },
     };
 
@@ -605,7 +613,7 @@ function ManajemenModulContent() {
                             {/* Table / List */}
                             <div className="mt-4 rounded-2xl border border-[#e5e3ee] bg-white shadow-sm w-full">
                                 <div className="w-full">
-                                    <div className="grid grid-cols-[0.3fr_1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_0.9fr_0.9fr_0.5fr] gap-4 bg-[#f0eff5] px-5 py-3 text-[12px] font-semibold text-[#232530]">
+                                    <div className="grid gap-4 bg-[#f0eff5] px-5 py-3 text-[12px] font-semibold text-[#232530]" style={{ gridTemplateColumns: gridColsString }}>
                                         <span className="text-center">No</span>
                                         <span>Siswa</span>
                                         <span>Progres</span>
@@ -616,17 +624,21 @@ function ManajemenModulContent() {
                                             Post-Test
                                         </span>
                                         <span className="text-center">
-                                            Rata Kuis
+                                            Rata2 Kuis
                                         </span>
                                         <span className="text-center">
-                                            Rata Kuis CT
+                                            Rata2 CT
                                         </span>
-                                        <span className="text-center">
-                                            Kategori Penguasaan
-                                        </span>
-                                        <span className="text-center">
-                                            Rekomendasi BKT
-                                        </span>
+                                        {hasReguler && (
+                                            <span className="text-center">
+                                                Rekomendasi Pengetahuan
+                                            </span>
+                                        )}
+                                        {hasCT && (
+                                            <span className="text-center">
+                                                Rekomendasi BKT
+                                            </span>
+                                        )}
                                         <span className="text-center">
                                             Aksi
                                         </span>
@@ -658,8 +670,6 @@ function ManajemenModulContent() {
                                             const globalIndex = (studentPage - 1) * 10 + index + 1;
                                             const cfg = rekomendasiConfig[siswa.rekomendasi as "penguatan" | "remedial" | "pengayaan"];
                                             const bktLabel = siswa.bktRecommendation;
-                                            const bktValue = Number(siswa.bktMastery);
-                                            const kategori = bktValue >= 0.8 ? 'Tinggi' : bktValue >= 0.5 ? 'Sedang' : 'Rendah';
                                             
                                             let bktBg = 'bg-[#fdeaea]';
                                             let bktText = 'text-[#d63c3c]';
@@ -671,20 +681,11 @@ function ManajemenModulContent() {
                                                 bktText = 'text-[#2a7fbf]';
                                             }
                                             
-                                            let katBg = 'bg-[#fdeaea]';
-                                            let katText = 'text-[#d63c3c]';
-                                            if (kategori === 'Tinggi') {
-                                                katBg = 'bg-[#edfbf1]';
-                                                katText = 'text-[#31a04e]';
-                                            } else if (kategori === 'Sedang') {
-                                                katBg = 'bg-[#e8f4fc]';
-                                                katText = 'text-[#2a7fbf]';
-                                            }
-                                            
                                             return (
                                                 <div
                                                     key={siswa.id}
-                                                    className="grid grid-cols-[0.3fr_1.5fr_1.1fr_0.6fr_0.6fr_0.8fr_0.8fr_0.9fr_0.9fr_0.5fr] items-center gap-4 border-t border-[#f0eff5] px-5 py-3.5 text-[12px] text-[#232530] hover:bg-[#fcfcff] transition-colors"
+                                                    className="grid items-center gap-4 border-t border-[#f0eff5] px-5 py-3.5 text-[12px] text-[#232530] hover:bg-[#fcfcff] transition-colors"
+                                                    style={{ gridTemplateColumns: gridColsString }}
                                                 >
                                                     <div className="text-center font-medium text-[#7a7e8a]">
                                                         {globalIndex}
@@ -723,23 +724,34 @@ function ManajemenModulContent() {
                                                     <span className="text-center font-medium">
                                                         {siswa.rataKuis}
                                                     </span>
-                                                    <span className="text-center font-medium">
-                                                        {siswa.rataKuisCt}
-                                                    </span>
-                                                    <div className="flex justify-center relative group">
-                                                        <span className={`inline-flex items-center justify-center text-center rounded-full px-3 py-1 text-[11px] font-semibold ${katBg} ${katText} shadow-sm`}>
-                                                            {kategori}
+                                                    <div className="flex justify-center text-center font-medium">
+                                                        <span className="rounded-lg bg-[#f0eff5] px-3 py-1">
+                                                            {siswa.rataKuisCt}
                                                         </span>
                                                     </div>
-                                                    <div className="flex justify-center relative group">
-                                                        <span className={`inline-flex items-center justify-center text-center rounded-full px-3 py-1 text-[11px] font-semibold ${bktBg} ${bktText} shadow-sm cursor-help`}>
-                                                            {bktLabel}
-                                                            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-[180px] -translate-x-1/2 rounded-lg bg-[#232530] p-2 text-center text-[10px] text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 z-30">
-                                                                Nilai Mastery BKT: {Number(siswa.bktMastery).toFixed(2)}
-                                                                <div className="absolute top-full left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 bg-[#232530]"></div>
+
+                                                    {hasReguler && (
+                                                        <div className="flex justify-center">
+                                                            <div
+                                                                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold ${cfg.bg} ${cfg.text}`}
+                                                            >
+                                                                <span>{cfg.label}</span>
                                                             </div>
-                                                        </span>
-                                                    </div>
+                                                        </div>
+                                                    )}
+
+                                                    {hasCT && (
+                                                        <div className="flex justify-center">
+                                                            <div className={`inline-flex items-center justify-center rounded-full px-3 py-1 font-semibold ${bktBg} ${bktText} group relative`}>
+                                                                {bktLabel}
+                                                                <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-[180px] -translate-x-1/2 rounded-lg bg-[#232530] p-2 text-center text-[10px] text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 z-30">
+                                                                    Nilai Mastery BKT: {Number(siswa.bktMastery).toFixed(2)}
+                                                                    <div className="absolute top-full left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 bg-[#232530]"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
                                                     <div className="flex justify-center">
                                                         <Link
                                                             href={`/modul-guru/manajemen/siswa?studentId=${siswa.id}&modulId=${modulId}`}
