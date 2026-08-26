@@ -31,26 +31,26 @@ const PILLAR_META: Record<CTKey, { label: string; subLabel: string; color: strin
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  'Siap Pengayaan': '#22c55e',
-  'Perlu Penguatan': '#e8963a',
-  'Perlu Remedial':  '#d63c3c',
+  'Pengayaan': '#22c55e',
+  'Penguatan': '#e8963a',
+  'Remedial':  '#d63c3c',
 };
 
 function getLabel(score: number): { grade: string; gradeColor: string } {
-  if (score >= 80) return { grade: 'Siap Pengayaan', gradeColor: '#22c55e' };
-  if (score >= 50) return { grade: 'Perlu Penguatan', gradeColor: '#e8963a' };
-  return           { grade: 'Perlu Remedial',  gradeColor: '#d63c3c' };
+  if (score >= 80) return { grade: 'Pengayaan', gradeColor: '#22c55e' };
+  if (score >= 50) return { grade: 'Penguatan', gradeColor: '#e8963a' };
+  return           { grade: 'Remedial',  gradeColor: '#d63c3c' };
 }
 
 function getRecStyle(rec: string) {
-  if (rec === 'Siap Pengayaan') return { bg: 'bg-[#e6f9ed]', text: 'text-[#2a9d5c]', icon: <FaHandsClapping size={18} className="text-[#2a9d5c]" /> };
-  if (rec === 'Perlu Remedial') return { bg: 'bg-[#fdeaea]', text: 'text-[#d63c3c]', icon: <FaHandsClapping size={18} className="text-[#d63c3c]" /> };
+  if (rec === 'Pengayaan') return { bg: 'bg-[#e6f9ed]', text: 'text-[#2a9d5c]', icon: <FaHandsClapping size={18} className="text-[#2a9d5c]" /> };
+  if (rec === 'Remedial') return { bg: 'bg-[#fdeaea]', text: 'text-[#d63c3c]', icon: <FaHandsClapping size={18} className="text-[#d63c3c]" /> };
   return { bg: 'bg-[#e8f4fc]', text: 'text-[#2a7fbf]', icon: <FaHandsClapping size={18} className="text-[#2a7fbf]" /> };
 }
 
 function getRecDesc(rec: string): string {
-  if (rec === 'Siap Pengayaan') return 'Siswa menunjukkan pemahaman yang sangat baik pada semua topik.';
-  if (rec === 'Perlu Remedial')  return 'Siswa perlu mengulang beberapa topik untuk memperkuat pemahaman.';
+  if (rec === 'Pengayaan') return 'Siswa menunjukkan pemahaman yang sangat baik pada semua topik.';
+  if (rec === 'Remedial')  return 'Siswa perlu mengulang beberapa topik untuk memperkuat pemahaman.';
   return 'Siswa menunjukkan pemahaman yang baik pada sebagian besar topik, namun perlu mengulas kembali topik tertentu karena skor kuis di bawah ambang batas.';
 }
 
