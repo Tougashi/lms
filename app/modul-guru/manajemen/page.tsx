@@ -624,10 +624,10 @@ function ManajemenModulContent() {
                                             Post-Test
                                         </span>
                                         <span className="text-center">
-                                            Rata2 Kuis
+                                            Rata2 Kuis Reg
                                         </span>
                                         <span className="text-center">
-                                            Rata2 CT
+                                            Rata2 Kuis CT
                                         </span>
                                         {hasReguler && (
                                             <span className="text-center">
