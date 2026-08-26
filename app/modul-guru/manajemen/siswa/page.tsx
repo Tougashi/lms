@@ -8,6 +8,7 @@ import { FiArrowLeft } from 'react-icons/fi';
 import { HiCheckCircle, HiExclamationCircle } from 'react-icons/hi2';
 import { IoPersonCircle } from 'react-icons/io5';
 import { FaHandsClapping } from 'react-icons/fa6';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Tooltip, ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Bar, Cell } from 'recharts';
 
 import GuruHeader from '../../../component/guru/GuruHeader';
 import CursorPagination from '../../../component/ui/CursorPagination';
@@ -30,17 +31,15 @@ const PILLAR_META: Record<CTKey, { label: string; subLabel: string; color: strin
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  'Sangat Baik':       '#22c55e',
-  'Baik':              '#22c55e',
-  'Perlu Penguatan':   '#e8963a',
-  'Butuh Intervensi':  '#d63c3c',
+  'Siap Pengayaan': '#22c55e',
+  'Perlu Penguatan': '#e8963a',
+  'Perlu Remedial':  '#d63c3c',
 };
 
 function getLabel(score: number): { grade: string; gradeColor: string } {
-  if (score >= 85) return { grade: 'Sangat Baik',      gradeColor: '#22c55e' };
-  if (score >= 70) return { grade: 'Baik',             gradeColor: '#22c55e' };
-  if (score >= 50) return { grade: 'Perlu Penguatan',  gradeColor: '#e8963a' };
-  return              { grade: 'Butuh Intervensi',     gradeColor: '#d63c3c' };
+  if (score >= 80) return { grade: 'Siap Pengayaan', gradeColor: '#22c55e' };
+  if (score >= 50) return { grade: 'Perlu Penguatan', gradeColor: '#e8963a' };
+  return           { grade: 'Perlu Remedial',  gradeColor: '#d63c3c' };
 }
 
 function getRecStyle(rec: string) {
@@ -55,43 +54,71 @@ function getRecDesc(rec: string): string {
   return 'Siswa menunjukkan pemahaman yang baik pada sebagian besar topik, namun perlu mengulas kembali topik tertentu karena skor kuis di bawah ambang batas.';
 }
 
-/* ─── Pie Chart ─── */
+/* 🔥🔥🔥 Radar & Bar Chart 🔥🔥🔥 */
 
-function PieChart({ data, size = 240 }: { data: CTAnalysisResponse['computationalThinking'] | null; size?: number }) {
-  if (!data) return <div className="flex items-center justify-center rounded-full border-4 border-dashed border-[#e5e3ee]" style={{ width: size, height: size }}><p className="text-[12px] text-[#8a8d98]">Belum ada data</p></div>;
+const CustomTick = ({ payload, x, y, textAnchor }: any) => {
+  const words = payload.value.split(' ');
+  return (
+    <text x={x} y={y} textAnchor={textAnchor} fill="#555968" fontSize={10}>
+      {words.map((word: string, index: number) => (
+        <tspan key={index} x={x} dy={index === 0 ? (y < 150 ? -10 : 0) : 12}>
+          {word}
+        </tspan>
+      ))}
+    </text>
+  );
+};
 
-  const entries = Object.entries(data) as [CTKey, { score: number }][];
-  const sum = entries.reduce((a, [, v]) => a + v.score, 0);
+function CustomRadarChart({ data, size = 350 }: { data: CTAnalysisResponse['computationalThinking'] | null; size?: number }) {
+  if (!data) return <div className="flex items-center justify-center rounded-full border-4 border-dashed border-[#e5e3ee]" style={{ width: '100%', height: size }}><p className="text-[12px] text-[#8a8d98]">Belum ada data</p></div>;
 
-  if (sum === 0) return <div className="flex items-center justify-center rounded-full border-4 border-dashed border-[#e5e3ee]" style={{ width: size, height: size }}><p className="text-[12px] text-[#8a8d98]">Belum ada data CT</p></div>;
+  const chartData = Object.keys(PILLAR_META).map(key => ({
+    subject: PILLAR_META[key as CTKey].label,
+    score: data[key as CTKey]?.score || 0,
+    fullMark: 100,
+  }));
 
-  const cx = size / 2;
-  const cy = size / 2;
-  const radius = size * 0.42;
-  let cumulative = 0;
+  return (
+    <div style={{ width: '100%', height: size }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <RadarChart cx="50%" cy="50%" outerRadius="50%" data={chartData}>
+          <PolarGrid />
+          <PolarAngleAxis dataKey="subject" tick={CustomTick} />
+          <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+          <Radar name="Skor CT" dataKey="score" stroke="#7054dc" fill="#7054dc" fillOpacity={0.5} />
+          <Tooltip />
+        </RadarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
-  const slices = entries.map(([key, val]) => {
-    const startAngle = (cumulative / sum) * 360;
-    cumulative += val.score;
-    const endAngle = (cumulative / sum) * 360;
-    const startRad = ((startAngle - 90) * Math.PI) / 180;
-    const endRad = ((endAngle - 90) * Math.PI) / 180;
-    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-    const x1 = cx + radius * Math.cos(startRad);
-    const y1 = cy + radius * Math.sin(startRad);
-    const x2 = cx + radius * Math.cos(endRad);
-    const y2 = cy + radius * Math.sin(endRad);
-    const midAngle = ((startAngle + endAngle) / 2 - 90) * (Math.PI / 180);
-    const labelR = radius * 0.6;
-    return (
-      <g key={key}>
-        <path d={`M${cx},${cy} L${x1},${y1} A${radius},${radius} 0 ${largeArc},1 ${x2},${y2} Z`} fill={PILLAR_META[key].color} stroke="white" strokeWidth="3" />
-        <text x={cx + Math.cos(midAngle) * labelR} y={cy + Math.sin(midAngle) * labelR} textAnchor="middle" dominantBaseline="central" fill="white" fontSize={size * 0.058} fontWeight="700">{val.score}%</text>
-      </g>
-    );
-  });
+function CustomBarChart({ data }: { data: CTAnalysisResponse['computationalThinking'] | null }) {
+  if (!data) return null;
 
-  return <svg viewBox={`0 0 ${size} ${size}`} style={{ width: size, height: size }} className="shrink-0">{slices}</svg>;
+  const chartData = Object.keys(PILLAR_META).map(key => ({
+    name: PILLAR_META[key as CTKey].label,
+    score: data[key as CTKey]?.score || 0,
+    color: PILLAR_META[key as CTKey].color
+  }));
+
+  return (
+    <div className="w-full h-[240px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e3ee" />
+          <XAxis dataKey="name" tick={{ fill: '#555968', fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis domain={[0, 100]} tick={{ fill: '#8a8d98', fontSize: 11 }} axisLine={false} tickLine={false} />
+          <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: '1px solid #e5e3ee', fontSize: '12px', zIndex: 50 }} />
+          <Bar dataKey="score" radius={[4, 4, 0, 0]}>
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
 }
 
 /* ─── Comparison Bar ─── */
@@ -185,9 +212,9 @@ function SiswaDetailPageContent() {
   if (isLoading) return (
     <div className="min-h-screen bg-[#f7f6fb]">
       <GuruHeader />
-      <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-6 sm:px-6">
+      <main className="mx-auto w-full max-w-[1200px] px-4 pb-10 pt-6 sm:px-6">
         <div className="h-5 w-40 animate-pulse rounded-lg bg-[#e8e6f0]" />
-        <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_250px]">
+        <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">
             <div className="h-16 animate-pulse rounded-2xl bg-[#e8e6f0]" />
             <div className="flex gap-3"><div className="h-16 w-36 animate-pulse rounded-2xl bg-[#e8e6f0]" /><div className="h-16 w-36 animate-pulse rounded-2xl bg-[#e8e6f0]" /><div className="h-16 flex-1 animate-pulse rounded-2xl bg-[#e8e6f0]" /></div>
@@ -202,7 +229,7 @@ function SiswaDetailPageContent() {
   if (error) return (
     <div className="min-h-screen bg-[#f7f6fb]">
       <GuruHeader />
-      <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-6 sm:px-6">
+      <main className="mx-auto w-full max-w-[1200px] px-4 pb-10 pt-6 sm:px-6">
         <div className="flex flex-col items-center gap-4 pt-20 text-center">
           <HiExclamationCircle size={48} className="text-[#f36e65]" />
           <p className="text-[14px] text-red-500">{error}</p>
@@ -216,7 +243,7 @@ function SiswaDetailPageContent() {
     <div className="min-h-screen bg-[#f7f6fb] text-[#232530]">
       <GuruHeader />
 
-      <main className="mx-auto w-full max-w-[1060px] px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
+      <main className="mx-auto w-full max-w-[1200px] px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
         {/* Back link */}
         <Link
           href={modulId ? `/modul-guru/manajemen?modulId=${modulId}` : '/modul-guru/manajemen'}
@@ -226,7 +253,7 @@ function SiswaDetailPageContent() {
           Kembali ke Daftar Siswa
         </Link>
 
-        <div className="mt-5 grid gap-8 lg:grid-cols-[1fr_250px]">
+        <div className="mt-5 grid gap-8 lg:grid-cols-[1fr_320px]">
           {/* ── LEFT COLUMN ── */}
           <div>
             {/* Module info */}
@@ -305,13 +332,14 @@ function SiswaDetailPageContent() {
               </button>
             </div>
 
-            {/* ── VIEW: CT Analysis ── */}
+            {/* 🔥🔥🔥 VIEW: CT Analysis 🔥🔥🔥 */}
             {activeView === 'ct-analysis' && isCT && (
               <div className="mt-6">
                 <h2 className="text-[16px] font-bold text-[#232530]">Analisis Computational Thinking</h2>
-                <div className="mt-4 flex flex-col items-center gap-8 sm:flex-row sm:items-start">
-                  <PieChart data={ct} />
-                  <div className="flex-1 space-y-5 pt-1">
+                <div className="mt-4 flex flex-col gap-8">
+                  <CustomBarChart data={ct} />
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {ct && (Object.entries(ct) as [CTKey, { score: number; label: string }][]).map(([key, val]) => {
                       const meta = PILLAR_META[key];
                       const color = STATUS_COLORS[val.label] || meta.color;
@@ -392,7 +420,7 @@ function SiswaDetailPageContent() {
                               {(Object.keys(PILLAR_META) as CTKey[]).map((key) => {
                                 const pillar = t.computationalThinking[key];
                                 const sc = pillar.score;
-                                const gradeColor = sc >= 85 ? '#22c55e' : sc >= 70 ? '#22c55e' : sc >= 50 ? '#e8963a' : '#d63c3c';
+                                const gradeColor = STATUS_COLORS[pillar.label] || '#555968';
                                 return (
                                   <td key={key} className="px-4 py-4 text-center">
                                     <span className="text-[15px] font-bold" style={{ color: gradeColor }}>{sc}</span>
@@ -496,15 +524,15 @@ function SiswaDetailPageContent() {
               {isCT && ct && (
                 <div className="mt-5 w-full">
                   <p className="mb-2 text-center text-[12px] font-semibold text-[#555968]">Skor CT Keseluruhan</p>
-                  <div className="flex justify-center">
-                    <PieChart data={ct} size={160} />
+                  <div className="flex justify-center h-[350px]">
+                    <CustomRadarChart data={ct} size={350} />
                   </div>
                 </div>
               )}
 
               {/* Context card */}
-              <div className={`mt-6 w-full rounded-2xl border border-[#e8e6f0] px-5 py-5 text-center ${activeView === 'quiz-table' ? recStyle.bg : 'bg-[#fafafe]'}`}>
-                {activeView === 'quiz-table' ? (
+              <div className={`mt-6 w-full rounded-2xl border border-[#e8e6f0] px-5 py-5 text-center ${activeView === 'quiz-table' || activeView === 'ct-topik-summary' ? recStyle.bg : 'bg-[#fafafe]'}`}>
+                {activeView === 'quiz-table' || activeView === 'ct-topik-summary' ? (
                   <>
                     <div className="mb-3 flex items-center justify-center gap-2">
                       {recStyle.icon}
@@ -516,10 +544,6 @@ function SiswaDetailPageContent() {
                   <p className="text-[13px] leading-[1.7] text-[#555968]">
                     Analisis Computational Thinking pada Modul {mod?.moduleName ?? ''}
                   </p>
-                ) : activeView === 'ct-topik-summary' ? (
-                  <p className="text-[13px] leading-[1.7] text-[#555968]">
-                    Rincian skor CT per topik untuk melihat pilar mana yang perlu dikuatkan pada setiap topik
-                  </p>
                 ) : (
                   <p className="text-[13px] leading-[1.7] text-[#555968]">
                     Perbandingan skor Pre-Test dan Post-Test untuk setiap pilar CT
@@ -528,25 +552,6 @@ function SiswaDetailPageContent() {
               </div>
             </div>
 
-            {/* View switcher (sidebar) */}
-            <div className="mt-8 flex flex-col gap-2">
-              {isCT && (
-                <>
-                  <button type="button" onClick={() => setActiveView('ct-analysis')} className={`w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors ${activeView === 'ct-analysis' ? 'bg-[#7054dc] text-white' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}>
-                    Analisis CT
-                  </button>
-                  <button type="button" onClick={() => setActiveView('ct-comparison')} className={`w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors ${activeView === 'ct-comparison' ? 'bg-[#7054dc] text-white' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}>
-                    Perbandingan CT
-                  </button>
-                  <button type="button" onClick={() => setActiveView('ct-topik-summary')} className={`w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors ${activeView === 'ct-topik-summary' ? 'bg-[#7054dc] text-white' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}>
-                    Ringkasan per Topik
-                  </button>
-                </>
-              )}
-              <button type="button" onClick={() => setActiveView('quiz-table')} className={`w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors ${activeView === 'quiz-table' ? 'bg-[#7054dc] text-white' : 'border border-[#d8d3f0] bg-white text-[#7054dc] hover:bg-[#f5f2ff]'}`}>
-                Rincian Nilai Kuis
-              </button>
-            </div>
           </aside>
         </div>
       </main>
