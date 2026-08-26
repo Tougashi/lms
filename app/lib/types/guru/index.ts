@@ -514,6 +514,8 @@ export interface GuruModuleProgressItem {
     status: string;
     isGraduated: boolean;
     recommendation: string;
+    bktMastery?: number;
+    bktRecommendation?: string;
 }
 
 export interface ModuleExportDetail {

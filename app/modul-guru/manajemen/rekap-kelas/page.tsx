@@ -356,6 +356,24 @@ function RekapKelasContent() {
           </button>
         </div>
 
+        <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-[#e8e6f0] bg-white px-5 py-3 text-[12px] text-[#7a7e8a] shadow-sm">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="font-semibold text-[#232530]">Aspek CT:</span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span><strong className="text-[#5bb3f0]">D</strong> = Dekomposisi</span>
+              <span><strong className="text-[#c565d4]">P</strong> = Pengenalan Pola</span>
+              <span><strong className="text-[#4b7bf5]">A</strong> = Abstraksi</span>
+              <span><strong className="text-[#f5a623]">AL</strong> = Algoritmik</span>
+            </div>
+          </div>
+          <div className="h-4 w-px bg-[#e8e6f0] hidden sm:block"></div>
+          <div className="flex items-center gap-3">
+            <span className="font-semibold text-[#232530]">Nilai Jawaban:</span>
+            <span><strong>1</strong> = Benar</span>
+            <span><strong>0</strong> = Salah</span>
+          </div>
+        </div>
+
         {data ? (
           <div className="mt-4 pb-10 space-y-10">
             {/* PRE-TEST */}
