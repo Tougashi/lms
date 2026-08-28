@@ -519,6 +519,7 @@ export interface GuruModuleProgressItem {
 }
 
 export interface ModuleExportDetail {
+    isCTModule?: boolean;
     students: Array<{
         siswaId: string;
         siswaName: string;

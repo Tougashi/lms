@@ -110,11 +110,15 @@ function CTGlobalTable({
 function RegulerGlobalTable({ 
   title, 
   group, 
-  students 
+  students,
+  isPretest,
+  isPosttest
 }: { 
   title: string, 
   group: { label: string; questions: Array<{ id: string }> }, 
-  students: ModuleExportDetail['students'] 
+  students: ModuleExportDetail['students'],
+  isPretest?: boolean,
+  isPosttest?: boolean
 }) {
   if (group.questions.length === 0) return null;
 
@@ -138,7 +142,7 @@ function RegulerGlobalTable({
           </thead>
           <tbody>
             {students.map((siswa, sIdx) => {
-              const answersMap = siswa.quizAnswers;
+              const answersMap = isPretest ? siswa.pretestAnswers : isPosttest ? siswa.posttestAnswers : siswa.quizAnswers;
               let totalBenar = 0;
 
               group.questions.forEach(q => {
@@ -153,7 +157,7 @@ function RegulerGlobalTable({
                     <td key={q.id} className="border-r border-[#e8e6f0] px-3 py-3 text-center">{answersMap[q.id] ? 1 : 0}</td>
                   ))}
                   <td className="border-r border-[#e8e6f0] px-3 py-3 text-center font-semibold">{totalBenar}</td>
-                  <td className="px-4 py-3 text-center font-bold text-[#7054dc]">{Math.round((totalBenar / group.questions.length) * 100)}</td>
+                  <td className="px-4 py-3 text-center font-bold text-[#7054dc]">{isPretest ? (siswa.pretestScore ?? 0) : isPosttest ? (siswa.posttestScore ?? 0) : Math.round((totalBenar / group.questions.length) * 100)}</td>
                 </tr>
               );
             })}
@@ -235,14 +239,16 @@ function RekapKelasContent() {
         let qIdx = 1;
         for (const q of flatPretestQuestions) {
           const abbr = ctAbbr(q.ctAspect);
-          const colKey = `S-${qIdx} (${abbr})`;
+          const colKey = data.isCTModule ? `S-${qIdx} (${abbr})` : `S-${qIdx}`;
           const correct = s.pretestAnswers[q.id] ? 1 : 0;
           row[colKey] = correct;
-          if (CT_ASPECTS.includes(abbr)) aspectCounts[abbr] = (aspectCounts[abbr] ?? 0) + correct;
+          if (data.isCTModule && CT_ASPECTS.includes(abbr)) aspectCounts[abbr] = (aspectCounts[abbr] ?? 0) + correct;
           totalBenar += correct;
           qIdx++;
         }
-        for (const asp of CT_ASPECTS) row[`${asp} Benar`] = aspectCounts[asp] ?? 0;
+        if (data.isCTModule) {
+            for (const asp of CT_ASPECTS) row[`${asp} Benar`] = aspectCounts[asp] ?? 0;
+        }
         row["Total Benar"] = totalBenar;
         row["Nilai"] = s.pretestScore ?? 0;
         return row;
@@ -259,14 +265,16 @@ function RekapKelasContent() {
         let qIdx = 1;
         for (const q of flatPosttestQuestions) {
           const abbr = ctAbbr(q.ctAspect);
-          const colKey = `S-${qIdx} (${abbr})`;
+          const colKey = data.isCTModule ? `S-${qIdx} (${abbr})` : `S-${qIdx}`;
           const correct = s.posttestAnswers[q.id] ? 1 : 0;
           row[colKey] = correct;
-          if (CT_ASPECTS.includes(abbr)) aspectCounts[abbr] = (aspectCounts[abbr] ?? 0) + correct;
+          if (data.isCTModule && CT_ASPECTS.includes(abbr)) aspectCounts[abbr] = (aspectCounts[abbr] ?? 0) + correct;
           totalBenar += correct;
           qIdx++;
         }
-        for (const asp of CT_ASPECTS) row[`${asp} Benar`] = aspectCounts[asp] ?? 0;
+        if (data.isCTModule) {
+            for (const asp of CT_ASPECTS) row[`${asp} Benar`] = aspectCounts[asp] ?? 0;
+        }
         row["Total Benar"] = totalBenar;
         row["Nilai"] = s.posttestScore ?? 0;
         return row;
@@ -356,44 +364,74 @@ function RekapKelasContent() {
           </button>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-[#e8e6f0] bg-white px-5 py-3 text-[12px] text-[#7a7e8a] shadow-sm">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="font-semibold text-[#232530]">Aspek CT:</span>
+        {data?.isCTModule && (
+          <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-[#e8e6f0] bg-white px-5 py-3 text-[12px] text-[#7a7e8a] shadow-sm">
             <div className="flex items-center gap-3 flex-wrap">
-              <span><strong className="text-[#5bb3f0]">D</strong> = Dekomposisi</span>
-              <span><strong className="text-[#c565d4]">P</strong> = Pengenalan Pola</span>
-              <span><strong className="text-[#4b7bf5]">A</strong> = Abstraksi</span>
-              <span><strong className="text-[#f5a623]">AL</strong> = Algoritmik</span>
+              <span className="font-semibold text-[#232530]">Aspek CT:</span>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span><strong className="text-[#5bb3f0]">D</strong> = Dekomposisi</span>
+                <span><strong className="text-[#c565d4]">P</strong> = Pengenalan Pola</span>
+                <span><strong className="text-[#4b7bf5]">A</strong> = Abstraksi</span>
+                <span><strong className="text-[#f5a623]">AL</strong> = Algoritmik</span>
+              </div>
+            </div>
+            <div className="h-4 w-px bg-[#e8e6f0] hidden sm:block"></div>
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-[#232530]">Nilai Jawaban:</span>
+              <span><strong>1</strong> = Benar</span>
+              <span><strong>0</strong> = Salah</span>
             </div>
           </div>
-          <div className="h-4 w-px bg-[#e8e6f0] hidden sm:block"></div>
-          <div className="flex items-center gap-3">
-            <span className="font-semibold text-[#232530]">Nilai Jawaban:</span>
-            <span><strong>1</strong> = Benar</span>
-            <span><strong>0</strong> = Salah</span>
+        )}
+
+        {!data?.isCTModule && data && (
+          <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-[#e8e6f0] bg-white px-5 py-3 text-[12px] text-[#7a7e8a] shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-[#232530]">Nilai Jawaban:</span>
+              <span><strong>1</strong> = Benar</span>
+              <span><strong>0</strong> = Salah</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {data ? (
           <div className="mt-4 pb-10 space-y-10">
             {/* PRE-TEST */}
             {flatPretestQuestions.length > 0 && (
-              <CTGlobalTable 
-                title="Pre-Test" 
-                group={{ label: 'Pre-Test', questions: flatPretestQuestions }} 
-                students={data.students} 
-                isPretest 
-              />
+              data.isCTModule ? (
+                <CTGlobalTable 
+                  title="Pre-Test" 
+                  group={{ label: 'Pre-Test', questions: flatPretestQuestions }} 
+                  students={data.students} 
+                  isPretest 
+                />
+              ) : (
+                <RegulerGlobalTable 
+                  title="Pre-Test" 
+                  group={{ label: 'Pre-Test', questions: flatPretestQuestions }} 
+                  students={data.students} 
+                  isPretest 
+                />
+              )
             )}
 
             {/* POST-TEST */}
             {flatPosttestQuestions.length > 0 && (
-              <CTGlobalTable 
-                title="Post-Test" 
-                group={{ label: 'Post-Test', questions: flatPosttestQuestions }} 
-                students={data.students} 
-                isPosttest 
-              />
+              data.isCTModule ? (
+                <CTGlobalTable 
+                  title="Post-Test" 
+                  group={{ label: 'Post-Test', questions: flatPosttestQuestions }} 
+                  students={data.students} 
+                  isPosttest 
+                />
+              ) : (
+                <RegulerGlobalTable 
+                  title="Post-Test" 
+                  group={{ label: 'Post-Test', questions: flatPosttestQuestions }} 
+                  students={data.students} 
+                  isPosttest 
+                />
+              )
             )}
 
             {/* KUIS PER TOPIK */}

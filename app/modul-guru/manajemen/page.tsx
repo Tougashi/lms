@@ -217,8 +217,8 @@ function ManajemenModulContent() {
         return filteredStudents.slice(start, start + STUDENTS_PER_PAGE);
     }, [filteredStudents, studentPage]);
 
-    const hasCT = moduleDetail?.isTestComputationalThinking ?? enrolledStudents.some(s => s.rataKuisCt !== "-");
-    const hasReguler = enrolledStudents.some(s => s.rataKuis !== "-" || s.preTest !== "-" || s.postTest !== "-");
+    const hasCT = moduleDetail?.isTestComputationalThinking ?? false;
+    const hasReguler = !hasCT;
     const gridColsString = [
         '0.3fr', '1.5fr', '1.1fr', '0.6fr', '0.6fr', '0.8fr', '0.8fr',
         ...(hasReguler ? ['0.9fr'] : []),
