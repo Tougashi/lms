@@ -220,8 +220,8 @@ function ManajemenModulContent() {
     const isMainModeCT = moduleDetail?.isTestComputationalThinking === true;
     const isMainModeReguler = moduleDetail?.isTestComputationalThinking === false;
 
-    const hasCT = isMainModeCT || enrolledStudents.some(s => s.quizBreakdown?.some(q => q.quizType === 'COMPUTATIONAL_THINKING'));
-    const hasReguler = isMainModeReguler || enrolledStudents.some(s => s.quizBreakdown?.some(q => q.quizType === 'REGULER'));
+    const hasCT = isMainModeCT || enrolledStudents.some(s => s.quizBreakdown?.some((q: any) => q.quizType === 'COMPUTATIONAL_THINKING'));
+    const hasReguler = isMainModeReguler || enrolledStudents.some(s => s.quizBreakdown?.some((q: any) => q.quizType === 'REGULER'));
     const gridColsString = [
         '0.3fr', '1.5fr', '1.1fr', '0.6fr', '0.6fr', '0.8fr', '0.8fr',
         ...(hasReguler ? ['0.9fr'] : []),
