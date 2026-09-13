@@ -259,7 +259,7 @@ function ManajemenModulContent() {
                 "Rata-rata Kuis": s.rataKuis,
                 "Rata-rata Kuis CT": s.rataKuisCt,
                 "Kategori Penguasaan": kategoriPenguasaan,
-                "Rekomendasi BKT": s.bktRecommendation,
+                "Rekomendasi CT": s.bktRecommendation,
             };
             for (const qb of (s.quizBreakdown ?? [])) {
                 base[qb.label] = qb.score ?? "-";
@@ -639,7 +639,7 @@ function ManajemenModulContent() {
                                         )}
                                         {hasCT && (
                                             <span className="text-center">
-                                                Rekomendasi BKT
+                                                Rekomendasi CT
                                             </span>
                                         )}
                                         <span className="text-center">
